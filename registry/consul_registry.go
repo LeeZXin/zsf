@@ -3,15 +3,15 @@ package registry
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf/app"
+	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/consul"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/quit"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/api"
 	"strings"
 	"time"
-	"zsf/app"
-	"zsf/common"
-	"zsf/consul"
-	"zsf/logger"
-	"zsf/quit"
 )
 
 // consul路由注册实现

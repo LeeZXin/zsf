@@ -1,9 +1,9 @@
 package balancer
 
 import (
+	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
-	"zsf/selector"
 )
 
 // newWrrBuilder creates a new weighted-round-robin balancer builder.

@@ -3,6 +3,14 @@ package grpcclient
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf/cache"
+	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/grpc/client/balancer"
+	"github.com/LeeZXin/zsf/grpc/debug"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/quit"
+	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -11,14 +19,6 @@ import (
 	"regexp"
 	"sync"
 	"time"
-	"zsf/cache"
-	"zsf/discovery"
-	"zsf/grpc/client/balancer"
-	"zsf/grpc/debug"
-	"zsf/logger"
-	"zsf/property"
-	"zsf/quit"
-	"zsf/selector"
 )
 
 // grpc client封装

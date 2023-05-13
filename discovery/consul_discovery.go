@@ -1,10 +1,10 @@
 package discovery
 
 import (
+	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/hashicorp/consul/api"
 	"strings"
-	"zsf/common"
-	"zsf/logger"
 )
 
 // consul服务发现

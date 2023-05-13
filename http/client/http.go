@@ -1,12 +1,12 @@
 package httpclient
 
 import (
+	"github.com/LeeZXin/zsf/cache"
+	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/quit"
+	"github.com/LeeZXin/zsf/selector"
 	"net/http"
 	"sync"
-	"zsf/cache"
-	"zsf/property"
-	"zsf/quit"
-	"zsf/selector"
 )
 
 // 带服务发现的httpClient封装

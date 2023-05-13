@@ -2,11 +2,11 @@ package grpcclient
 
 import (
 	"context"
+	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/executor"
+	"github.com/LeeZXin/zsf/psub"
 	"sync"
 	"time"
-	"zsf/discovery"
-	"zsf/executor"
-	"zsf/psub"
 )
 
 // 一个协程定时获取grpc节点地址变更

@@ -2,7 +2,7 @@ package common
 
 import (
 	"flag"
-	"zsf/logger"
+	"github.com/LeeZXin/zsf/logger"
 )
 
 // 全局变量 如环境 版本号 ip等

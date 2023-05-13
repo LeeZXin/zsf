@@ -2,10 +2,10 @@ package pprof
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"net/http"
 	_ "net/http/pprof"
-	"zsf/logger"
-	"zsf/property"
 )
 
 func init() {

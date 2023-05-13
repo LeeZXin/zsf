@@ -1,10 +1,10 @@
 package consul
 
 import (
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/hashicorp/consul/api"
 	"net/http"
-	"zsf/logger"
-	"zsf/property"
 )
 
 // 全局唯一consul client

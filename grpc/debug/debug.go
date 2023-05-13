@@ -1,8 +1,8 @@
 package debug
 
 import (
+	"github.com/LeeZXin/zsf/logger"
 	"google.golang.org/grpc/grpclog"
-	"zsf/logger"
 )
 
 //开启grpc debug模式

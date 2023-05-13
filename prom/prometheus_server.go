@@ -2,12 +2,12 @@ package prom
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	"time"
-	"zsf/logger"
-	"zsf/property"
 )
 
 // 启动prometheus http服务，与正常httpServer隔离开

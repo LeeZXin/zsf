@@ -3,14 +3,14 @@ package grpcclient
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf/app"
+	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpc"
+	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
 	"time"
-	"zsf/app"
-	"zsf/prom"
-	"zsf/rpc"
-	"zsf/skywalking"
 )
 
 func headerStreamInterceptor() grpc.StreamClientInterceptor {

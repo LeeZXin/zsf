@@ -1,9 +1,9 @@
 package discovery
 
 import (
-	"zsf/consul"
-	_ "zsf/logger"
-	"zsf/property"
+	"github.com/LeeZXin/zsf/consul"
+	_ "github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 )
 
 // 服务发现

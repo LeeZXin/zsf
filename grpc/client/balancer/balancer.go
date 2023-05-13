@@ -1,11 +1,11 @@
 package balancer
 
 import (
+	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"strconv"
-	"zsf/common"
-	"zsf/selector"
 )
 
 // 实现根据版本号路由请求和负载均衡

@@ -1,12 +1,12 @@
 package quit
 
 import (
+	"github.com/LeeZXin/zsf/logger"
+	_ "github.com/LeeZXin/zsf/logger"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
-	"zsf/logger"
-	_ "zsf/logger"
 )
 
 // 监听程序kill事件, 并执行注销函数

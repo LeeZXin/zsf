@@ -1,10 +1,10 @@
 package sentinel
 
 import (
+	"github.com/LeeZXin/zsf/logger"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
 	"github.com/alibaba/sentinel-golang/core/flow"
-	"zsf/logger"
 )
 
 //sentinel 的常用配置

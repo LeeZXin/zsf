@@ -2,15 +2,15 @@ package main
 
 import (
 	"context"
+	grpcclient "github.com/LeeZXin/zsf/grpc/client"
+	hello "github.com/LeeZXin/zsf/grpc/proto"
+	httpclient "github.com/LeeZXin/zsf/http/client"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/starter"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 	"net/http"
-	grpcclient "zsf/grpc/client"
-	hello "zsf/grpc/proto"
-	httpclient "zsf/http/client"
-	"zsf/logger"
-	"zsf/property"
-	"zsf/starter"
 )
 
 type Demo struct {

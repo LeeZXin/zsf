@@ -3,12 +3,12 @@ package httpclient
 import (
 	"errors"
 	"fmt"
+	"github.com/LeeZXin/zsf/cache"
+	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/selector"
 	"strconv"
 	"time"
-	"zsf/cache"
-	"zsf/common"
-	"zsf/discovery"
-	"zsf/selector"
 )
 
 // 缓存服务ip的路由选择器，支持多种负载均衡策略

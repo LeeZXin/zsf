@@ -1,8 +1,8 @@
 package app
 
 import (
-	"zsf/logger"
-	"zsf/property"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 )
 
 var (

@@ -1,19 +1,19 @@
 package starter
 
 import (
+	grpcclient "github.com/LeeZXin/zsf/grpc/client"
+	grpcserver "github.com/LeeZXin/zsf/grpc/server"
+	httpclient "github.com/LeeZXin/zsf/http/client"
+	httpserver "github.com/LeeZXin/zsf/http/server"
+	"github.com/LeeZXin/zsf/logger"
+	_ "github.com/LeeZXin/zsf/pprof"
+	"github.com/LeeZXin/zsf/property"
+	_ "github.com/LeeZXin/zsf/property_loader"
+	"github.com/LeeZXin/zsf/quit"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 	"runtime"
 	"sync"
-	grpcclient "zsf/grpc/client"
-	grpcserver "zsf/grpc/server"
-	httpclient "zsf/http/client"
-	httpserver "zsf/http/server"
-	"zsf/logger"
-	_ "zsf/pprof"
-	"zsf/property"
-	_ "zsf/property_loader"
-	"zsf/quit"
 )
 
 var (

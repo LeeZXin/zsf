@@ -2,10 +2,10 @@ package psub
 
 import (
 	"errors"
+	"github.com/LeeZXin/zsf/executor"
 	"runtime"
 	"sync"
 	"time"
-	"zsf/executor"
 )
 
 //本地事件广播

@@ -2,9 +2,9 @@ package property
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/spf13/viper"
 	"io"
-	"zsf/common"
 )
 
 // 获取配置信息

@@ -1,13 +1,13 @@
 package skywalking
 
 import (
+	"github.com/LeeZXin/zsf/app"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property_loader"
+	"github.com/LeeZXin/zsf/quit"
 	"github.com/SkyAPM/go2sky"
 	"github.com/SkyAPM/go2sky/reporter"
-	"zsf/app"
-	"zsf/logger"
-	"zsf/property"
-	"zsf/property_loader"
-	"zsf/quit"
 )
 
 var (

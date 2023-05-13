@@ -3,16 +3,16 @@ package httpserver
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf/app"
+	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/logger"
+	_ "github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/quit"
+	"github.com/LeeZXin/zsf/registry"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
-	"zsf/app"
-	"zsf/common"
-	"zsf/logger"
-	_ "zsf/logger"
-	"zsf/property"
-	"zsf/quit"
-	"zsf/registry"
 )
 
 // gin服务封装

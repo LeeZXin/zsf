@@ -1,4 +1,4 @@
-module zsf
+module github.com/LeeZXin/zsf
 
 go 1.20
 
