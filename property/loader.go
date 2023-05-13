@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/logger"

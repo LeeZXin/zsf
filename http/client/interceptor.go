@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"

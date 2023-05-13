@@ -8,7 +8,6 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/pprof"
 	"github.com/LeeZXin/zsf/property"
-	_ "github.com/LeeZXin/zsf/property_loader"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"

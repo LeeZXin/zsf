@@ -2,6 +2,7 @@ package property
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/spf13/viper"
 	"io"
 )

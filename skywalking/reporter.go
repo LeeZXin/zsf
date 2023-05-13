@@ -1,6 +1,7 @@
 package skywalking
 
 import (
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"

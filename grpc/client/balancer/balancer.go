@@ -20,16 +20,16 @@ type Attr struct {
 }
 
 type pickerBuilder struct {
-	lbPolicy selector.LbPolicy
+	lbPolicy string
 }
 
 func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	if len(info.ReadySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
-	mn := make(map[string][]*selector.Node)
+	mn := make(map[string][]selector.Node)
 	//默认版本节点先初始化
-	mn[appinfo.DefaultVersion] = make([]*selector.Node, 0)
+	mn[appinfo.DefaultVersion] = make([]selector.Node, 0)
 	i := 0
 	for c, ci := range info.ReadySCs {
 		weight := 1
@@ -42,7 +42,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		if version == "" {
 			version = appinfo.DefaultVersion
 		}
-		n := &selector.Node{
+		n := selector.Node{
 			Id:     strconv.Itoa(i),
 			Data:   c,
 			Weight: weight,
@@ -51,7 +51,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		if ok {
 			mn[version] = append(ns, n)
 		} else {
-			mn[version] = append(make([]*selector.Node, 0), n)
+			mn[version] = append(make([]selector.Node, 0), n)
 		}
 		if version != appinfo.DefaultVersion {
 			mn[appinfo.DefaultVersion] = append(mn[appinfo.DefaultVersion], n)
@@ -60,8 +60,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	}
 	ms := make(map[string]selector.Selector, len(mn))
 	for ver, ns := range mn {
-		st := selector.NewSelectorFuncMap[p.lbPolicy](ns)
-		err := st.Init()
+		st, err := selector.NewSelectorFuncMap[p.lbPolicy](ns)
 		if err != nil {
 			return base.NewErrPicker(err)
 		}
@@ -74,7 +73,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 }
 
 type picker struct {
-	lbPolicy selector.LbPolicy
+	lbPolicy string
 	ms       map[string]selector.Selector
 }
 
