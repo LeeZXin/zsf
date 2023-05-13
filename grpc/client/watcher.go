@@ -67,7 +67,7 @@ func (w *watcher) Start() {
 					break
 				}
 				oldArrs := addrs[i]
-				if !discovery.DiffServiceAddresses(oldArrs, newAddrs) {
+				if !discovery.DiffServiceAddr(oldArrs, newAddrs) {
 					changeNames = append(changeNames, service)
 					changeAddrs = append(changeAddrs, newAddrs)
 				}

@@ -17,7 +17,7 @@ type ServiceAddr struct {
 	Version string `json:"version"`
 }
 
-func DiffServiceAddresses(oldAddr, newAddr []ServiceAddr) bool {
+func DiffServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
 	if oldAddr == nil && newAddr == nil {
 		return true
 	}
@@ -58,8 +58,8 @@ func findServiceTagVersion(tags []string) string {
 	return ver
 }
 
-// convert2ServiceAddress 转化为ServiceAddress
-func convert2ServiceAddress(service *api.ServiceEntry) ServiceAddr {
+// convert2ServiceAddr 转化为ServiceAddress
+func convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
 	return ServiceAddr{
 		Addr:    service.Service.Address,
 		Port:    service.Service.Port,
@@ -77,7 +77,7 @@ func GetServiceInfo(name string) ([]ServiceAddr, error) {
 	}
 	res := make([]ServiceAddr, 0, 8)
 	for _, service := range services {
-		address := convert2ServiceAddress(service)
+		address := convert2ServiceAddr(service)
 		res = append(res, address)
 	}
 	return res, err
