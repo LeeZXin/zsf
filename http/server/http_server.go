@@ -3,8 +3,7 @@ package httpserver
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf/app"
-	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
@@ -20,8 +19,8 @@ import (
 // 服务注册
 
 type Config struct {
-	RegisterRouterFunc RegisterRouterFunc
-	Filters            []gin.HandlerFunc
+	Register RegisterRouterFunc
+	Filters  []gin.HandlerFunc
 }
 
 type RegisterRouterFunc func(*gin.Engine)
@@ -44,15 +43,17 @@ func InitAndStartHttpServer(config Config) {
 	r.NoRoute(http404)
 	//filter
 	filters := []gin.HandlerFunc{
-		RecoverFilter(), HeaderFilter(), PromFilter(),
+		RecoverFilter(),
+		HeaderFilter(),
+		PromFilter(),
 		SkyWalkingFilter(),
 	}
 	if config.Filters != nil {
 		filters = append(filters, config.Filters...)
 	}
 	r.Use(filters...)
-	if config.RegisterRouterFunc != nil {
-		config.RegisterRouterFunc(r)
+	if config.Register != nil {
+		config.Register(r)
 	}
 	//是否开启http服务注册
 	if property.GetBool("http.registry.enabled") {
@@ -61,12 +62,10 @@ func InitAndStartHttpServer(config Config) {
 			weight = 1
 		}
 		//服务注册
-		registry.RegisterSelf(registry.ServiceRegistryConfig{
-			ApplicationName: app.ApplicationName,
-			Ip:              common.LocalIP,
-			Port:            port,
-			Scheme:          common.HttpScheme,
-			Weight:          weight,
+		registry.RegisterSelf(registry.ServiceInfo{
+			Port:   port,
+			Scheme: appinfo.HttpScheme,
+			Weight: weight,
 		})
 	}
 	//启动httpserver
@@ -90,7 +89,7 @@ func InitAndStartHttpServer(config Config) {
 			IdleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
 			Handler:      r,
 		}
-		quit.RegisterQuitFunc(func() {
+		quit.AddShutdownHook(func() {
 			logger.Logger.Info("http server shutdown")
 			_ = server.Shutdown(context.Background())
 		})

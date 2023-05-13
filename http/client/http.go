@@ -1,7 +1,6 @@
-package httpclient
+package client
 
 import (
-	"github.com/LeeZXin/zsf/cache"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/selector"
@@ -13,75 +12,88 @@ import (
 // 首次会加载服务ip数据，每10秒会尝试更新服务ip
 
 var (
-	clientCache                *cache.MapCache
-	globalClientInterceptors   = make([]ClientInterceptor, 0)
-	globalClientInterceptorsMu = sync.Mutex{}
+	clientCache = make(map[string]Client, 8)
+	clientMu    = sync.Mutex{}
+
+	interceptors   = make([]Interceptor, 0)
+	interceptorsMu = sync.Mutex{}
 )
 
 type Invoker func(*http.Request) (*http.Response, error)
 
-type ClientInterceptor func(*http.Request, Invoker) (*http.Response, error)
+type Interceptor func(*http.Request, Invoker) (*http.Response, error)
 
 func init() {
-	//注册两个拦截器
-	RegisterGlobalClientInterceptor(headerInterceptor(), promInterceptor(), skywalkingInterceptor())
-	//加载缓存
-	clientCache = &cache.MapCache{
-		SupplierWithKey: func(serviceName string) (any, error) {
-			lbPolicyConfig := property.GetString("http.client.lbPolicy")
-			var lbPolicy selector.LbPolicy
-			policy, ok := supportedLbPolicy[lbPolicyConfig]
-			if ok {
-				lbPolicy = policy
-			} else {
-				lbPolicy = selector.RoundRobinPolicy
-			}
-			globalClientInterceptorsMu.Lock()
-			is := make([]ClientInterceptor, len(globalClientInterceptors))
-			for i, interceptor := range globalClientInterceptors {
-				is[i] = interceptor
-			}
-			globalClientInterceptorsMu.Unlock()
-			c := &ClientImpl{
-				ServiceName:  serviceName,
-				LbPolicy:     lbPolicy,
-				Interceptors: is,
-			}
-			c.Init()
-			return c, nil
-		},
-	}
+	//注册三个拦截器
+	RegisterInterceptor(
+		headerInterceptor(),
+		promInterceptor(),
+		skywalkingInterceptor(),
+	)
 	//关闭所有的连接
-	quit.RegisterQuitFunc(func() {
-		keys := clientCache.AllKeys()
-		for _, key := range keys {
-			dial, err := Dial(key)
-			if err == nil {
-				dial.Close()
-			}
+	quit.AddShutdownHook(func() {
+		clientMu.Lock()
+		defer clientMu.Unlock()
+		for _, client := range clientCache {
+			client.Close()
 		}
 	})
 }
 
-func Dial(serviceName string) (Client, error) {
-	c, err := clientCache.Get(serviceName)
-	if err != nil {
-		return nil, err
+func Dial(serviceName string) Client {
+	//双重校验
+	client, ok := clientCache[serviceName]
+	if ok {
+		return client
 	}
-	return c.(Client), err
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	client, ok = clientCache[serviceName]
+	if ok {
+		return client
+	}
+	//初始化
+	client = initClient(serviceName)
+	clientCache[serviceName] = client
+	return client
 }
 
-func RegisterGlobalClientInterceptor(is ...ClientInterceptor) {
+// initClient 初始化带有服务发现的http client
+func initClient(serviceName string) Client {
+	lbPolicyConfig := property.GetString("http.client.lbPolicy")
+	var lbPolicy string
+	_, ok := supportedLbPolicy[lbPolicyConfig]
+	if ok {
+		lbPolicy = lbPolicyConfig
+	} else {
+		lbPolicy = selector.RoundRobinPolicy
+	}
+	interceptorsMu.Lock()
+	copyInterceptors := make([]Interceptor, len(interceptors))
+	for i, interceptor := range interceptors {
+		copyInterceptors[i] = interceptor
+	}
+	interceptorsMu.Unlock()
+	c := &Impl{
+		ServiceName:  serviceName,
+		LbPolicy:     lbPolicy,
+		Interceptors: copyInterceptors,
+	}
+	c.Init()
+	return c
+}
+
+func RegisterInterceptor(is ...Interceptor) {
 	if is == nil || len(is) == 0 {
 		return
 	}
-	globalClientInterceptorsMu.Lock()
-	defer globalClientInterceptorsMu.Unlock()
-	globalClientInterceptors = append(globalClientInterceptors, is...)
+	interceptorsMu.Lock()
+	defer interceptorsMu.Unlock()
+	interceptors = append(interceptors, is...)
 }
 
 type interceptorsWrapper struct {
-	is []ClientInterceptor
+	is []Interceptor
 }
 
 func (i *interceptorsWrapper) intercept(request *http.Request, invoker Invoker) (*http.Response, error) {

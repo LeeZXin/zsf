@@ -5,10 +5,7 @@ type ErrorSelector struct {
 	Err error
 }
 
-func (*ErrorSelector) Init() error {
-	return nil
-}
-
-func (e *ErrorSelector) Select(key ...string) (*Node, error) {
-	return nil, e.Err
+func (e *ErrorSelector) Select(key ...string) (node Node, err error) {
+	err = e.Err
+	return
 }

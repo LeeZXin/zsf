@@ -1,7 +1,7 @@
 package balancer
 
 import (
-	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -11,10 +11,10 @@ import (
 // 实现根据版本号路由请求和负载均衡
 
 const (
-	ClientAttrKey = "grpc-attr"
+	AttrKey = "grpc-attr"
 )
 
-type GrpcAttr struct {
+type Attr struct {
 	Weight  int    `json:"weight"`
 	Version string `json:"version"`
 }
@@ -29,18 +29,18 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	}
 	mn := make(map[string][]*selector.Node)
 	//默认版本节点先初始化
-	mn[common.DefaultVersion] = make([]*selector.Node, 0)
+	mn[appinfo.DefaultVersion] = make([]*selector.Node, 0)
 	i := 0
 	for c, ci := range info.ReadySCs {
 		weight := 1
 		version := ""
-		if ci.Address.Attributes.Value(ClientAttrKey) != nil {
-			attr := ci.Address.Attributes.Value(ClientAttrKey).(GrpcAttr)
+		if ci.Address.Attributes.Value(AttrKey) != nil {
+			attr := ci.Address.Attributes.Value(AttrKey).(Attr)
 			weight = attr.Weight
 			version = attr.Version
 		}
 		if version == "" {
-			version = common.DefaultVersion
+			version = appinfo.DefaultVersion
 		}
 		n := &selector.Node{
 			Id:     strconv.Itoa(i),
@@ -53,8 +53,8 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		} else {
 			mn[version] = append(make([]*selector.Node, 0), n)
 		}
-		if version != common.DefaultVersion {
-			mn[common.DefaultVersion] = append(mn[common.DefaultVersion], n)
+		if version != appinfo.DefaultVersion {
+			mn[appinfo.DefaultVersion] = append(mn[appinfo.DefaultVersion], n)
 		}
 		i += 1
 	}
@@ -79,7 +79,7 @@ type picker struct {
 }
 
 func (p *picker) Pick(b balancer.PickInfo) (balancer.PickResult, error) {
-	version := common.Version
+	version := appinfo.Version
 	robinSelector, ok := p.ms[version]
 	if ok {
 		node, err := robinSelector.Select()
@@ -88,7 +88,7 @@ func (p *picker) Pick(b balancer.PickInfo) (balancer.PickResult, error) {
 		}
 		return balancer.PickResult{SubConn: node.Data.(balancer.SubConn)}, nil
 	} else {
-		node, err := p.ms[common.DefaultVersion].Select()
+		node, err := p.ms[appinfo.DefaultVersion].Select()
 		if err != nil {
 			return balancer.PickResult{}, err
 		}

@@ -7,18 +7,14 @@ import (
 
 // WeightedRoundRobinSelector 加权平滑路由选择器
 type WeightedRoundRobinSelector struct {
-	Nodes       []*Node
+	Nodes       []Node
 	selectMutex sync.Mutex
 	current     int
 	gcd         int
 	max         int
-	init        bool
 }
 
-func (s *WeightedRoundRobinSelector) Select(key ...string) (*Node, error) {
-	if !s.init {
-		return nil, errors.New("call this after init")
-	}
+func (s *WeightedRoundRobinSelector) Select(key ...string) (Node, error) {
 	s.selectMutex.Lock()
 	defer s.selectMutex.Unlock()
 	for {
@@ -45,11 +41,8 @@ func (s *WeightedRoundRobinSelector) maxWeight() int {
 	return m
 }
 
-func (s *WeightedRoundRobinSelector) Init() error {
+func (s *WeightedRoundRobinSelector) init() error {
 	nodes := s.Nodes
-	if nodes == nil || len(nodes) == 0 {
-		return errors.New("empty nodes")
-	}
 	weights := make([]int, len(nodes))
 	for i, node := range nodes {
 		if node.Weight <= 0 {
@@ -59,6 +52,46 @@ func (s *WeightedRoundRobinSelector) Init() error {
 	}
 	s.gcd = gcd(weights)
 	s.max = max(weights)
-	s.init = true
 	return nil
+}
+
+func NewWeightedRoundRobinSelector(nodes []Node) (Selector, error) {
+	if nodes == nil || len(nodes) == 0 {
+		return nil, EmptyNodesErr
+	} else if len(nodes) == 1 {
+		return &SingleNodeSelector{Node: nodes[0]}, nil
+	}
+	w := &WeightedRoundRobinSelector{Nodes: nodes}
+	err := w.init()
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+func gcd(numbers []int) int {
+	result := numbers[0]
+	for _, number := range numbers[1:] {
+		result = gcdTwoNumbers(result, number)
+	}
+	return result
+}
+
+func gcdTwoNumbers(a, b int) int {
+	for b != 0 {
+		t := b
+		b = a % b
+		a = t
+	}
+	return a
+}
+
+func max(numbers []int) int {
+	m := numbers[0]
+	for _, number := range numbers[1:] {
+		if number > m {
+			m = number
+		}
+	}
+	return m
 }

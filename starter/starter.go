@@ -51,8 +51,8 @@ func RegisterGrpcGlobalUnaryClientInterceptor(is ...grpc.UnaryClientInterceptor)
 	grpcclient.RegisterGlobalUnaryClientInterceptor(is...)
 }
 
-func RegisterHttpGlobalClientInterceptor(is ...httpclient.ClientInterceptor) {
-	httpclient.RegisterGlobalClientInterceptor(is...)
+func RegisterHttpGlobalClientInterceptor(is ...httpclient.Interceptor) {
+	httpclient.RegisterInterceptor(is...)
 }
 
 func Run() {
@@ -60,8 +60,8 @@ func Run() {
 		logger.Logger.Info("runtime.GOMAXPROCS(0)=", runtime.GOMAXPROCS(0))
 		if property.GetBool("http.enabled") {
 			httpserver.InitAndStartHttpServer(httpserver.Config{
-				RegisterRouterFunc: httpRouter,
-				Filters:            httpFilters,
+				Register: httpRouter,
+				Filters:  httpFilters,
 			})
 		}
 		if property.GetBool("grpc.enabled") {

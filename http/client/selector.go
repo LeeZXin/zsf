@@ -1,13 +1,9 @@
-package httpclient
+package client
 
 import (
-	"errors"
-	"fmt"
-	"github.com/LeeZXin/zsf/cache"
-	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/selector"
-	"strconv"
+	"sync"
 	"time"
 )
 
@@ -16,73 +12,81 @@ import (
 // 根据版本号路由，优先发送到相同版本服务，若不存在，发送到其他版本服务
 
 type cachedHttpSelector struct {
-	LbPolicy    selector.LbPolicy
-	ServiceName string
-	cache       *cache.SingleItemCache
+	lbPolicy    string
+	serviceName string
+
+	cache      map[string]selector.Selector
+	expireTime time.Time
+	cacheMu    sync.RWMutex
 }
 
-func (c *cachedHttpSelector) Init() error {
-	c.cache = &cache.SingleItemCache{
-		ExpireDuration: 10 * time.Second,
-		Supplier: func() (any, error) {
-			addresses, err := discovery.GetServiceInfo(c.ServiceName)
-			if err != nil {
-				return nil, err
-			}
-			if len(addresses) == 0 {
-				return nil, errors.New("can not find ip address")
-			}
-			mn := make(map[string][]*selector.Node)
-			//默认版本节点先初始化
-			mn[common.DefaultVersion] = make([]*selector.Node, 0)
-			i := 0
-			for _, item := range addresses {
-				n := &selector.Node{
-					Id:     strconv.Itoa(i),
-					Weight: item.Weight,
-					Data:   fmt.Sprintf("%s:%d", item.Address, item.Port),
-				}
-				version := common.DefaultVersion
-				if item.Version != "" {
-					version = item.Version
-				}
-				ns, ok := mn[version]
-				if ok {
-					mn[version] = append(ns, n)
-				} else {
-					mn[version] = append(make([]*selector.Node, 0), n)
-				}
-				if version != common.DefaultVersion {
-					mn[common.DefaultVersion] = append(mn[common.DefaultVersion], n)
-				}
-				i += 1
-			}
-			ms := make(map[string]selector.Selector, len(mn))
-			for ver, ns := range mn {
-				st := selector.NewSelectorFuncMap[c.LbPolicy](ns)
-				err = st.Init()
-				if err != nil {
-					return nil, err
-				}
-				ms[ver] = st
-			}
-			return ms, nil
-		},
+func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err error) {
+	c.cacheMu.RLock()
+	oldCache := c.cache
+	oldExpireTime := c.expireTime
+	c.cacheMu.RUnlock()
+	if oldExpireTime.After(time.Now()) {
+		node, err = c.getFromCache(oldCache)
+		return
 	}
-	return nil
+	//首次加载
+	if c.expireTime.IsZero() {
+		c.cacheMu.Lock()
+		//双重校验
+		if !c.expireTime.IsZero() {
+			c.cacheMu.Unlock()
+			node, err = c.getFromCache(c.cache)
+			return
+		}
+		nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
+		if err2 != nil {
+			c.cacheMu.Unlock()
+			err = err2
+			return
+		}
+		newCache := convert(nodesMap, c.lbPolicy)
+		newExpireTime := time.Now().Add(10 * time.Second)
+		c.cache = newCache
+		c.expireTime = newExpireTime
+		c.cacheMu.Unlock()
+		node, err = c.getFromCache(newCache)
+		return
+	} else {
+		if c.cacheMu.TryLock() {
+			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
+			//如果出错 使用老数据
+			if err2 == nil {
+				newCache := convert(nodesMap, c.lbPolicy)
+				newExpireTime := time.Now().Add(10 * time.Second)
+				c.cache = newCache
+				c.expireTime = newExpireTime
+				c.cacheMu.Unlock()
+				node, err = c.getFromCache(newCache)
+				return
+			}
+			c.cacheMu.Unlock()
+		}
+		node, err = c.getFromCache(oldCache)
+		return
+	}
 }
 
-func (c *cachedHttpSelector) Select(key ...string) (*selector.Node, error) {
-	data, err := c.cache.Get()
-	if data == nil && err != nil {
-		return nil, err
-	} else {
-		m := data.(map[string]selector.Selector)
-		st, ok := m[common.Version]
-		if ok {
-			return st.Select()
-		} else {
-			return m[common.DefaultVersion].Select()
+func (c *cachedHttpSelector) getFromCache(slr map[string]selector.Selector) (node selector.Node, err error) {
+	hit, ok := slr[appinfo.Version]
+	if !ok {
+		node, err = slr[appinfo.DefaultVersion].Select()
+		return
+	}
+	node, err = hit.Select()
+	return
+}
+
+func convert(nodesMap map[string][]selector.Node, lbPolicy string) (cache map[string]selector.Selector) {
+	for ver, nodes := range nodesMap {
+		slr, err := selector.NewSelectorFuncMap[lbPolicy](nodes)
+		if err == nil {
+			cache[ver] = slr
 		}
 	}
+	return
 }

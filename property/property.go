@@ -2,7 +2,6 @@ package property
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/common"
 	"github.com/spf13/viper"
 	"io"
 )
@@ -17,6 +16,7 @@ var (
 )
 
 func init() {
+	//默认加载/resources/application.yaml
 	v1 := viper.New()
 	v1.SetConfigType("yaml")
 	v1.AddConfigPath("./resources/")
@@ -26,10 +26,11 @@ func init() {
 	for k, s := range v1.AllSettings() {
 		v.SetDefault(k, s)
 	}
+	//根据环境配置加载/resources/application-{env}.yaml
+	//覆盖上面默认配置
 	v.SetConfigType("yaml")
 	v.AddConfigPath("./resources/")
-	cn := fmt.Sprintf("application-%s.yaml", common.Env)
-	v.SetConfigName(cn)
+	v.SetConfigName(fmt.Sprintf("application-%s.yaml", appinfo.Env))
 	_ = v.ReadInConfig()
 }
 

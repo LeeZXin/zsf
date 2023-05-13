@@ -18,13 +18,12 @@ var (
 
 // HashSelector 哈希路由选择器
 type HashSelector struct {
-	Nodes        []*Node
+	Nodes        []Node
 	HashFuncName string
 	HashFunc     HashFunc
-	init         bool
 }
 
-func (s *HashSelector) Init() error {
+func (s *HashSelector) init() error {
 	if s.Nodes == nil || len(s.Nodes) == 0 {
 		return errors.New("empty nodes")
 	}
@@ -39,20 +38,30 @@ func (s *HashSelector) Init() error {
 			return errors.New("hash func not found")
 		}
 	}
-	s.init = true
 	return nil
 }
 
-func (s *HashSelector) Select(key ...string) (*Node, error) {
-	if !s.init {
-		return nil, errors.New("call this after init")
-	}
+func (s *HashSelector) Select(key ...string) (Node, error) {
 	sk := "noneKey"
 	if key != nil && len(key) > 0 {
 		sk = key[0]
 	}
 	h := s.HashFunc([]byte(sk))
 	return s.Nodes[h%uint32(len(s.Nodes))], nil
+}
+
+func NewHashSelector(nodes []Node) (Selector, error) {
+	if nodes == nil || len(nodes) == 0 {
+		return nil, EmptyNodesErr
+	} else if len(nodes) == 1 {
+		return &SingleNodeSelector{Node: nodes[0]}, nil
+	}
+	h := &HashSelector{Nodes: nodes}
+	err := h.init()
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
 }
 
 func murmur3(key []byte) uint32 {

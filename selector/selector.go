@@ -2,56 +2,38 @@ package selector
 
 import (
 	"errors"
+	"fmt"
+	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/discovery"
+	"strconv"
 )
 
 //负载均衡策略选择器通用封装
 //用于rpc的节点负载均衡或其他负载均衡实现
 
-// LbPolicy 负载均衡策略
+// lbPolicy 负载均衡策略
 // 目前只实现轮询、加权平滑轮询、哈希
-type LbPolicy string
 
 const (
-	RoundRobinPolicy         = LbPolicy("round_robin")
-	WeightedRoundRobinPolicy = LbPolicy("weighted_round_robin")
-	HashPolicy               = LbPolicy("hash_policy")
+	RoundRobinPolicy         = "round_robin"
+	WeightedRoundRobinPolicy = "weighted_round_robin"
+	HashPolicy               = "hash_policy"
 )
 
 var (
-	NewSelectorFuncMap = map[LbPolicy]func([]*Node) Selector{
-		WeightedRoundRobinPolicy: func(nodes []*Node) Selector {
-			if nodes == nil || len(nodes) == 0 {
-				return &ErrorSelector{Err: errors.New("empty nodes")}
-			} else if len(nodes) == 1 {
-				return &SingleNodeSelector{Node: nodes[0]}
-			}
-			return &WeightedRoundRobinSelector{Nodes: nodes}
-		},
-		RoundRobinPolicy: func(nodes []*Node) Selector {
-			if nodes == nil || len(nodes) == 0 {
-				return &ErrorSelector{Err: errors.New("empty nodes")}
-			} else if len(nodes) == 1 {
-				return &SingleNodeSelector{Node: nodes[0]}
-			}
-			return &RoundRobinSelector{Nodes: nodes}
-		},
-		HashPolicy: func(nodes []*Node) Selector {
-			if nodes == nil || len(nodes) == 0 {
-				return &ErrorSelector{Err: errors.New("empty nodes")}
-			} else if len(nodes) == 1 {
-				return &SingleNodeSelector{Node: nodes[0]}
-			}
-			return &HashSelector{Nodes: nodes}
-		},
+	NewSelectorFuncMap = map[string]func([]Node) (Selector, error){
+		WeightedRoundRobinPolicy: NewWeightedRoundRobinSelector,
+		RoundRobinPolicy:         NewRoundRobinSelector,
+		HashPolicy:               NewHashSelector,
 	}
+
+	EmptyNodesErr = errors.New("empty nodes")
 )
 
 // Selector 路由选择器interface
 type Selector interface {
-	// Init 初始化
-	Init() error
 	// Select 选择
-	Select(key ...string) (*Node, error)
+	Select(key ...string) (Node, error)
 }
 
 // Node 路由节点信息
@@ -61,29 +43,38 @@ type Node struct {
 	Weight int    `json:"weight"`
 }
 
-func gcd(numbers []int) int {
-	result := numbers[0]
-	for _, number := range numbers[1:] {
-		result = gcdTwoNumbers(result, number)
+func ServiceMultiVersionNodes(serviceName string) (map[string][]Node, error) {
+	info, err := discovery.GetServiceInfo(serviceName)
+	if err != nil {
+		return nil, err
 	}
-	return result
-}
-
-func gcdTwoNumbers(a, b int) int {
-	for b != 0 {
-		t := b
-		b = a % b
-		a = t
+	if len(info) == 0 {
+		return nil, errors.New("can not find ip address")
 	}
-	return a
-}
-
-func max(numbers []int) int {
-	m := numbers[0]
-	for _, number := range numbers[1:] {
-		if number > m {
-			m = number
+	res := make(map[string][]Node)
+	//默认版本节点先初始化
+	res[appinfo.DefaultVersion] = make([]Node, 0)
+	i := 0
+	for _, item := range info {
+		n := Node{
+			Id:     strconv.Itoa(i),
+			Weight: item.Weight,
+			Data:   fmt.Sprintf("%s:%d", item.Addr, item.Port),
 		}
+		version := appinfo.DefaultVersion
+		if item.Version != "" {
+			version = item.Version
+		}
+		ns, ok := res[version]
+		if ok {
+			res[version] = append(ns, n)
+		} else {
+			res[version] = append(make([]Node, 0), n)
+		}
+		if version != appinfo.DefaultVersion {
+			res[appinfo.DefaultVersion] = append(res[appinfo.DefaultVersion], n)
+		}
+		i += 1
 	}
-	return m
+	return res, nil
 }

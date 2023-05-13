@@ -5,37 +5,48 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/hashicorp/consul/api"
 	"net/http"
+	"sync"
 )
 
 // 全局唯一consul client
 
 var (
-	Client *api.Client
+	client *api.Client
+
+	mu = sync.Mutex{}
 )
 
-func init() {
-	// 当四者其中一种有需要时，初始化consul
-	if property.GetBool("http.registry.enabled") ||
-		property.GetBool("grpc.registry.enabled") ||
-		property.GetBool("property.enabled") ||
-		property.GetBool("discovery.enabled") {
-		consulAddr := property.GetString("consul.address")
-		if consulAddr == "" {
-			logger.Logger.Panic("consul.address is empty")
+func GetConsulClient() *api.Client {
+	if client == nil {
+		mu.Lock()
+		if client == nil {
+			initClient()
 		}
-		consulToken := property.GetString("consul.token")
-		if consulToken == "" {
-			logger.Logger.Panic("consul.token is empty")
-		}
-		defaultConfig := api.DefaultConfig()
-		defaultConfig.Address = consulAddr
-		var err error
-		Client, err = api.NewClient(defaultConfig)
-		if err != nil {
-			logger.Logger.Panic(err)
-		}
-		Client.SetHeaders(http.Header{
-			"X-Consul-Token": []string{consulToken},
-		})
+		mu.Unlock()
 	}
+	return client
+}
+
+func initClient() {
+	consulAddr := property.GetString("consul.address")
+	if consulAddr == "" {
+		logger.Logger.Panic("empty consul addr")
+	}
+
+	consulToken := property.GetString("consul.token")
+	if consulToken == "" {
+		logger.Logger.Panic("empty consul token")
+	}
+
+	defaultConfig := api.DefaultConfig()
+	defaultConfig.Address = consulAddr
+
+	var err error
+	client, err = api.NewClient(defaultConfig)
+	if err != nil {
+		logger.Logger.Panic(err)
+	}
+	client.SetHeaders(http.Header{
+		"X-Consul-Token": []string{consulToken},
+	})
 }

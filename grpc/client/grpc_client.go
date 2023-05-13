@@ -28,7 +28,7 @@ import (
 
 var (
 	// 负载均衡策略 具体查看balancer包
-	loadBalancingPolicy = map[selector.LbPolicy]string{
+	loadBalancingPolicy = map[string]string{
 		selector.RoundRobinPolicy: `{
 			"loadBalancingPolicy": "round_robin"
 		}`,
@@ -56,7 +56,7 @@ func init() {
 	channelMap = &cache.MapCache{
 		SupplierWithKey: func(serviceName string) (any, error) {
 			// 选择负载均衡策略
-			lbPolicy := selector.LbPolicy(property.GetString("grpc.lbPolicy"))
+			lbPolicy := property.GetString("grpc.lbPolicy")
 			c, ok := loadBalancingPolicy[lbPolicy]
 			if !ok {
 				c = loadBalancingPolicy[selector.RoundRobinPolicy]
@@ -84,7 +84,7 @@ func init() {
 	wa = newWatcher(10 * time.Second)
 	wa.Start()
 	//关闭所有的连接
-	quit.RegisterQuitFunc(func() {
+	quit.AddShutdownHook(func() {
 		wa.Shutdown()
 	})
 	//开启grpc debug
@@ -106,15 +106,15 @@ func (*targetResolver) ResolveNow(options resolver.ResolveNowOptions) {
 func (*targetResolver) Close() {
 }
 
-func getResolverState(addresses []discovery.ServiceAddress) resolver.State {
+func getResolverState(addresses []discovery.ServiceAddr) resolver.State {
 	if addresses == nil {
 		return resolver.State{Addresses: []resolver.Address{}}
 	}
 	addrs := make([]resolver.Address, len(addresses))
 	for i, item := range addresses {
 		addrs[i] = resolver.Address{
-			Addr: fmt.Sprintf("%s:%d", item.Address, item.Port),
-			Attributes: attributes.New(balancer.ClientAttrKey, balancer.GrpcAttr{
+			Addr: fmt.Sprintf("%s:%d", item.Addr, item.Port),
+			Attributes: attributes.New(balancer.AttrKey, balancer.Attr{
 				Weight:  item.Weight,
 				Version: item.Version,
 			}),
@@ -145,7 +145,7 @@ func (*targetResolverBuilder) Build(target resolver.Target, cc resolver.ClientCo
 		})
 	} else {
 		// 注册服务变动回调 返回注册时的服务列表
-		wa.Register(serviceName, func(addrs []discovery.ServiceAddress) {
+		wa.Register(serviceName, func(addrs []discovery.ServiceAddr) {
 			logger.Logger.Info("update addr:", serviceName, addrs)
 			_ = cc.UpdateState(getResolverState(addrs))
 		})

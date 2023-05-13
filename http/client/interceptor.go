@@ -1,8 +1,7 @@
-package httpclient
+package client
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/app"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
@@ -13,18 +12,18 @@ import (
 	"time"
 )
 
-func headerInterceptor() ClientInterceptor {
+func headerInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		headers := rpc.GetHeaders(request.Context())
 		for k, v := range headers {
 			request.Header.Set(k, v)
 		}
-		request.Header.Set(rpc.Source, app.ApplicationName)
+		request.Header.Set(rpc.Source, appinfo.ApplicationName)
 		return invoker(request)
 	}
 }
 
-func promInterceptor() ClientInterceptor {
+func promInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		begin := time.Now()
 		defer prom.HttpClientRequestTotal.WithLabelValues("http://" + request.Host + request.URL.Path).Observe(float64(time.Since(begin).Milliseconds()))
@@ -32,7 +31,7 @@ func promInterceptor() ClientInterceptor {
 	}
 }
 
-func skywalkingInterceptor() ClientInterceptor {
+func skywalkingInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		if skywalking.Tracer == nil {
 			return invoker(request)

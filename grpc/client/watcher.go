@@ -11,11 +11,11 @@ import (
 
 // 一个协程定时获取grpc节点地址变更
 // 而不是一个client一个协程去监听
-type addressUpdateCallback func([]discovery.ServiceAddress)
+type addressUpdateCallback func([]discovery.ServiceAddr)
 
 type watcher struct {
 	mu         sync.Mutex
-	serviceMap map[string][]discovery.ServiceAddress
+	serviceMap map[string][]discovery.ServiceAddr
 	listener   *psub.Channel
 	cancelFunc context.CancelFunc
 	ctx        context.Context
@@ -25,7 +25,7 @@ type watcher struct {
 func (w *watcher) Register(serviceName string, callback addressUpdateCallback) {
 	_ = w.listener.Subscribe(serviceName, func(data any) {
 		if data != nil {
-			callback(data.([]discovery.ServiceAddress))
+			callback(data.([]discovery.ServiceAddr))
 		}
 	})
 	//首次加载需要先获取服务列表
@@ -60,14 +60,14 @@ func (w *watcher) Start() {
 			w.mu.Unlock()
 			//记录变更的服务
 			changeNames := make([]string, 0)
-			changeAddrs := make([][]discovery.ServiceAddress, 0)
+			changeAddrs := make([][]discovery.ServiceAddr, 0)
 			for i, service := range services {
 				newAddrs, err := discovery.GetServiceInfo(service)
 				if err != nil {
 					break
 				}
 				oldArrs := addrs[i]
-				if !discovery.CheckServiceAddressesDiff(oldArrs, newAddrs) {
+				if !discovery.DiffServiceAddresses(oldArrs, newAddrs) {
 					changeNames = append(changeNames, service)
 					changeAddrs = append(changeAddrs, newAddrs)
 				}
@@ -89,9 +89,9 @@ func (w *watcher) Start() {
 }
 
 // 复制map数据 防止并发
-func (w *watcher) copyService() ([]string, [][]discovery.ServiceAddress) {
+func (w *watcher) copyService() ([]string, [][]discovery.ServiceAddr) {
 	names := make([]string, 0, len(w.serviceMap))
-	addrs := make([][]discovery.ServiceAddress, 0, len(w.serviceMap))
+	addrs := make([][]discovery.ServiceAddr, 0, len(w.serviceMap))
 	for i, as := range w.serviceMap {
 		names = append(names, i)
 		addrs = append(addrs, as)
@@ -110,7 +110,7 @@ func newWatcher(ticker time.Duration) *watcher {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &watcher{
 		mu:         sync.Mutex{},
-		serviceMap: make(map[string][]discovery.ServiceAddress, 8),
+		serviceMap: make(map[string][]discovery.ServiceAddr, 8),
 		listener:   c,
 		cancelFunc: cancelFunc,
 		ctx:        ctx,

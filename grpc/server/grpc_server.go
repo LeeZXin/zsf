@@ -2,8 +2,7 @@ package grpcserver
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/app"
-	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/grpc/debug"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
@@ -81,12 +80,10 @@ func InitAndStartGrpcServer(config Config) {
 		if weight == 0 {
 			weight = 1
 		}
-		registry.RegisterSelf(registry.ServiceRegistryConfig{
-			ApplicationName: app.ApplicationName,
-			Ip:              common.LocalIP,
-			Port:            port,
-			Scheme:          common.GrpcScheme,
-			Weight:          weight,
+		registry.RegisterSelf(registry.ServiceInfo{
+			Port:   port,
+			Scheme: appinfo.GrpcScheme,
+			Weight: weight,
 		})
 	}
 	server := grpc.NewServer(opts...)
@@ -95,7 +92,7 @@ func InitAndStartGrpcServer(config Config) {
 		registerFunc(server)
 	}
 	go func() {
-		quit.RegisterQuitFunc(func() {
+		quit.AddShutdownHook(func() {
 			logger.Logger.Info("grpc server shutdown")
 			server.GracefulStop()
 		})

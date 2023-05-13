@@ -21,7 +21,8 @@ var (
 	nilErr          = errors.New("nil data")
 	noSubscriberErr = errors.New("no subscriber")
 	invalidArgErr   = errors.New("invalid arguments")
-	defaultChannel  *Channel
+
+	defaultChannel *Channel
 )
 
 type Channel struct {

@@ -1,4 +1,4 @@
-package httpclient
+package client
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // client封装
@@ -25,9 +24,9 @@ const (
 )
 
 var (
-	supportedLbPolicy = map[string]selector.LbPolicy{
-		"round_robin":          selector.RoundRobinPolicy,
-		"weighted_round_robin": selector.WeightedRoundRobinPolicy,
+	supportedLbPolicy = map[string]bool{
+		selector.RoundRobinPolicy:         true,
+		selector.WeightedRoundRobinPolicy: true,
 	}
 )
 
@@ -53,28 +52,11 @@ func WithHeader(header map[string]string) Option {
 	}
 }
 
-func newHttpClient(maxIdleConns int, idleConnTimeout time.Duration) *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: defaultTransportDialContext(&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}),
-			ForceAttemptHTTP2: true,
-			MaxIdleConns:      maxIdleConns,
-			IdleConnTimeout:   idleConnTimeout,
-		},
-		Timeout: 30 * time.Second,
-	}
-}
-
 func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
 	return dialer.DialContext
 }
 
 type Client interface {
-	Init()
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error
@@ -82,15 +64,15 @@ type Client interface {
 	Close()
 }
 
-type ClientImpl struct {
+type Impl struct {
 	ServiceName  string
-	LbPolicy     selector.LbPolicy
+	LbPolicy     string
 	st           selector.Selector
 	http         *http.Client
-	Interceptors []ClientInterceptor
+	Interceptors []Interceptor
 }
 
-func (c *ClientImpl) Init() {
+func (c *Impl) Init() {
 	if c.LbPolicy == "" {
 		c.LbPolicy = selector.RoundRobinPolicy
 	} else {
@@ -100,33 +82,32 @@ func (c *ClientImpl) Init() {
 		}
 	}
 	c.st = &cachedHttpSelector{
-		LbPolicy:    c.LbPolicy,
-		ServiceName: c.ServiceName,
+		lbPolicy:    c.LbPolicy,
+		serviceName: c.ServiceName,
 	}
-	_ = c.st.Init()
-	c.http = newHttpClient(10, time.Minute)
+	c.http = newRetryableHttpClient()
 }
 
-func (c *ClientImpl) Close() {
+func (c *Impl) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
 	}
 }
 
-func (c *ClientImpl) Get(ctx context.Context, path string, resp any, opts ...Option) error {
+func (c *Impl) Get(ctx context.Context, path string, resp any, opts ...Option) error {
 	return c.send(ctx, path, http.MethodGet, "", nil, resp, opts...)
 }
-func (c *ClientImpl) Post(ctx context.Context, path string, req, resp any, opts ...Option) error {
+func (c *Impl) Post(ctx context.Context, path string, req, resp any, opts ...Option) error {
 	return c.send(ctx, path, http.MethodPost, JSON_CONTENT_TYPE, req, resp, opts...)
 }
-func (c *ClientImpl) Put(ctx context.Context, path string, req, resp any, opts ...Option) error {
+func (c *Impl) Put(ctx context.Context, path string, req, resp any, opts ...Option) error {
 	return c.send(ctx, path, http.MethodPut, JSON_CONTENT_TYPE, req, resp, opts...)
 }
-func (c *ClientImpl) Delete(ctx context.Context, path string, req, resp any, opts ...Option) error {
+func (c *Impl) Delete(ctx context.Context, path string, req, resp any, opts ...Option) error {
 	return c.send(ctx, path, http.MethodDelete, JSON_CONTENT_TYPE, req, resp, opts...)
 }
 
-func (c *ClientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
+func (c *Impl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	node, err := c.st.Select()
 	if err != nil {
 		return err
