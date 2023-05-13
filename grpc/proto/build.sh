@@ -1,0 +1,1 @@
+protoc HelloService.proto --go_out=plugins=grpc:./

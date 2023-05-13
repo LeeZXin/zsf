@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package proto;
+
+option java_multiple_files = true;
+
+option go_package = "../proto;hello";
+
+service HelloService{
+  rpc Hello(HelloReq) returns (HelloResp);
+  rpc HelloStream(HelloReq) returns (stream HelloResp);
+  rpc HelloStreamStream(stream HelloReq) returns (stream HelloResp);
+}
+
+message HelloReq{
+  int32 code = 1;
+}
+
+message HelloResp{
+  int32 code = 1;
+  string message = 2;
+}
