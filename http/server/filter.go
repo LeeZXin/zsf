@@ -82,7 +82,7 @@ func headerFilter() gin.HandlerFunc {
 				clone[key] = c.Request.Header.Get(key)
 			}
 		}
-		ctx := rpc.AppendToHeader(c.Request.Context(), clone)
+		ctx := rpc.SetHeaders(c.Request.Context(), clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()

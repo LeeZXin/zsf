@@ -39,7 +39,7 @@ func headerStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 		clone := copyIncomingContext(ctx)
-		ctx = rpc.AppendToHeader(ctx, clone)
+		ctx = rpc.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		wrapped := WrapServerStream(ss)
 		wrapped.WrappedContext = ctx

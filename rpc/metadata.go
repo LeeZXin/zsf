@@ -2,13 +2,12 @@ package rpc
 
 import (
 	"context"
-	"strings"
 )
 
 // rpc通用header信息
 // 用于http和grpc之间header的传递
 
-type HeaderKey struct{}
+type headerKey struct{}
 
 type Header map[string]string
 
@@ -16,8 +15,13 @@ func (h Header) Get(key string) string {
 	return h[key]
 }
 
+func (h Header) Set(key, value string) {
+	h[key] = value
+}
+
 const (
 	TraceId = "z-trace-id"
+	Shadow  = "z-shadow"
 	Prefix  = "z-"
 	Source  = "z-source"
 	Target  = "z-target"
@@ -27,20 +31,31 @@ const (
 )
 
 func GetHeaders(ctx context.Context) Header {
-	value := ctx.Value(HeaderKey{})
+	value := ctx.Value(headerKey{})
 	if value != nil {
 		return value.(Header)
 	}
 	return make(Header)
 }
 
-func AppendToHeader(ctx context.Context, content map[string]string) context.Context {
+func SetHeaders(ctx context.Context, content map[string]string) context.Context {
 	if ctx != nil {
-		return context.WithValue(ctx, HeaderKey{}, Header(content))
+		return context.WithValue(ctx, headerKey{}, Header(content))
+	}
+	return context.Background()
+}
+
+func AddHeaders(ctx context.Context, content map[string]string) context.Context {
+	if ctx != nil {
+		headers := GetHeaders(ctx)
+		for k, v := range content {
+			headers.Set(k, v)
+		}
+		return SetHeaders(ctx, headers)
 	}
 	return context.Background()
 }
 
 func IsShadow(ctx context.Context) bool {
-	return strings.HasSuffix(GetHeaders(ctx).Get(TraceId), "-Shadow")
+	return GetHeaders(ctx).Get(Shadow) != ""
 }

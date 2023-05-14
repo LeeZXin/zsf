@@ -25,7 +25,7 @@ import (
 func headerUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		clone := copyIncomingContext(ctx)
-		ctx = rpc.AppendToHeader(ctx, clone)
+		ctx = rpc.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		return handler(ctx, req)
 	}
