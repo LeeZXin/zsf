@@ -2,12 +2,29 @@ package discovery
 
 import (
 	"github.com/LeeZXin/zsf/appinfo"
-	"github.com/LeeZXin/zsf/consul"
-	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/hashicorp/consul/api"
 	"strings"
+	"sync"
 )
+
+var (
+	discoveryMap = sync.Map{}
+)
+
+const (
+	ConsulDiscoveryType = "consul"
+)
+
+func init() {
+	NewServiceDiscovery(&ConsulDiscovery{})
+}
+
+type IDiscovery interface {
+	GetDiscoveryType() string
+	GetServiceInfo(name string) ([]ServiceAddr, error)
+}
 
 // ServiceAddr 服务信息
 type ServiceAddr struct {
@@ -70,15 +87,33 @@ func convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
 
 // GetServiceInfo 读取consul中的服务信息
 func GetServiceInfo(name string) ([]ServiceAddr, error) {
-	services, _, err := consul.GetConsulClient().Health().Service(name, "", true, nil)
-	if err != nil {
-		logger.Logger.Error(err)
-		return nil, err
+	discoveryType := property.GetString("discovery.type")
+	if discoveryType == "" {
+		discoveryType = ConsulDiscoveryType
 	}
-	res := make([]ServiceAddr, 0, 8)
-	for _, service := range services {
-		address := convert2ServiceAddr(service)
-		res = append(res, address)
+	dis, ok := GetServiceDiscovery(discoveryType)
+	if ok {
+		return dis.GetServiceInfo(name)
 	}
-	return res, err
+	dis, _ = GetServiceDiscovery(ConsulDiscoveryType)
+	return dis.GetServiceInfo(name)
+}
+
+func NewServiceDiscovery(discovery IDiscovery) {
+	if discovery == nil {
+		return
+	}
+	discoveryType := discovery.GetDiscoveryType()
+	if discoveryType == "" {
+		return
+	}
+	discoveryMap.Store(discoveryType, discovery)
+}
+
+func GetServiceDiscovery(discoveryType string) (IDiscovery, bool) {
+	value, ok := discoveryMap.Load(discoveryType)
+	if ok {
+		return value.(IDiscovery), true
+	}
+	return nil, false
 }
