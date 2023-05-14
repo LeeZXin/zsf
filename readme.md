@@ -2,7 +2,8 @@ zsf
 ---
 > zsf是一套http、grpc的golang后端服务框架  
 > 在gin、grpc、consul、skywalking、prometheus、pprof等基础上扩展了新功能  
-> 以consul作为服务发现、注册以及配置中心使用  
+> 以consul作为服务发现、注册以及配置中心使用
+> 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等
 >
 1、通用负载均衡路由实现
@@ -109,4 +110,15 @@ sentinel做限流熔断
 
 ```
 魔改了一个开源库，使其能返回自定义错误信息
+```
+
+13、业务网关组件
+
+```
+支持全匹配、前缀匹配、表达式匹配，path重写策略
+优先级：全匹配 > 前缀匹配 > 表达式匹配（非文本表达式，json格式表达）
+表达式匹配：支持处理header、cookie、path、host等数据，操作符支持等于、不等于、为空、不为空等
+转发协议仅支持http请求，demo可看apigw/demo/demo.go
+转发目标支持服务发现、域名ip，支持多种负载均衡策略
+mock请求返回结果, 支持任意http的statusCode，返回结果支持json和string两种类型
 ```

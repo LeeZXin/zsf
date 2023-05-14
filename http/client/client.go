@@ -81,9 +81,9 @@ func (c *Impl) Init() {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
 	}
-	c.routeSelector = &cachedHttpSelector{
-		lbPolicy:    c.LbPolicy,
-		serviceName: c.ServiceName,
+	c.routeSelector = &CachedHttpSelector{
+		LbPolicy:    c.LbPolicy,
+		ServiceName: c.ServiceName,
 	}
 	c.http = newRetryableHttpClient()
 }

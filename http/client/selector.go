@@ -13,9 +13,9 @@ import (
 // 每十秒会尝试更新服务ip，若有并发获取或服务发现错误，返回旧值
 // 根据版本号路由，优先发送到相同版本服务，若不存在，发送到其他版本服务
 
-type cachedHttpSelector struct {
-	lbPolicy    string
-	serviceName string
+type CachedHttpSelector struct {
+	LbPolicy    string
+	ServiceName string
 	//多版本路由
 	cache   map[string]selector.Selector
 	cacheMu sync.RWMutex
@@ -23,19 +23,19 @@ type cachedHttpSelector struct {
 	expireTime time.Time
 }
 
-func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err error) {
+func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err error) {
 	c.cacheMu.RLock()
 	oldCache := c.cache
 	oldExpireTime := c.expireTime
 	c.cacheMu.RUnlock()
 	if oldExpireTime.After(time.Now()) {
-		logger.Logger.Debug(c.serviceName, " http cache still valid")
+		logger.Logger.Debug(c.ServiceName, " http cache still valid")
 		node, err = c.getFromCache(oldCache)
 		return
 	}
 	//首次加载
 	if c.expireTime.IsZero() {
-		logger.Logger.Debug(c.serviceName, " http cache is empty")
+		logger.Logger.Debug(c.ServiceName, " http cache is empty")
 		c.cacheMu.Lock()
 		//双重校验
 		if !c.expireTime.IsZero() {
@@ -44,7 +44,7 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			return
 		}
 		//consul拿服务信息
-		nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
+		nodesMap, err2 := selector.ServiceMultiVersionNodes(c.ServiceName)
 		if err2 != nil {
 			//获取信息失败
 			c.cacheMu.Unlock()
@@ -52,40 +52,40 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			return
 		}
 		//赋值
-		newCache := convert(nodesMap, c.lbPolicy)
+		newCache := convert(nodesMap, c.LbPolicy)
 		newExpireTime := time.Now().Add(10 * time.Second)
 		c.cache = newCache
 		c.expireTime = newExpireTime
 		c.cacheMu.Unlock()
 		node, err = c.getFromCache(newCache)
-		logger.Logger.Debug(c.serviceName, " http cache get service:", node.Data)
+		logger.Logger.Debug(c.ServiceName, " http cache get service:", node.Data)
 		return
 	} else {
-		logger.Logger.Debug(c.serviceName, " http cache is expired")
+		logger.Logger.Debug(c.ServiceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
-			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
-			logger.Logger.Debug(c.serviceName, " http cache read new cache")
+			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.ServiceName)
+			logger.Logger.Debug(c.ServiceName, " http cache read new cache")
 			if err2 == nil {
-				newCache := convert(nodesMap, c.lbPolicy)
+				newCache := convert(nodesMap, c.LbPolicy)
 				newExpireTime := time.Now().Add(10 * time.Second)
 				c.cache = newCache
 				c.expireTime = newExpireTime
 				c.cacheMu.Unlock()
 				node, err = c.getFromCache(newCache)
-				logger.Logger.Debug(c.serviceName, " http cache get service:", node.Data)
+				logger.Logger.Debug(c.ServiceName, " http cache get service:", node.Data)
 				return
 			}
 			c.cacheMu.Unlock()
 		}
-		logger.Logger.Debug(c.serviceName, " http cache read old cache")
+		logger.Logger.Debug(c.ServiceName, " http cache read old cache")
 		//抢不到锁或更新失败使用老数据
 		node, err = c.getFromCache(oldCache)
 		return
 	}
 }
 
-func (c *cachedHttpSelector) getFromCache(slr map[string]selector.Selector) (node selector.Node, err error) {
+func (c *CachedHttpSelector) getFromCache(slr map[string]selector.Selector) (node selector.Node, err error) {
 	hit, ok := slr[cmd.GetVersion()]
 	if !ok {
 		node, err = slr[appinfo.DefaultVersion].Select()
