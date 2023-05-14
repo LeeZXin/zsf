@@ -40,6 +40,9 @@ func onApplicationStart() {
 	mu.RLock()
 	listeners := lifeCycles[:]
 	mu.RUnlock()
+	if len(listeners) == 0 {
+		return
+	}
 	_ = notifyExecutor.Execute(&executor.RunnableImpl{
 		Runnable: func() {
 			for _, listener := range listeners {
@@ -54,6 +57,9 @@ func onApplicationShutdown() {
 	mu.RLock()
 	listeners := lifeCycles[:]
 	mu.RUnlock()
+	if len(listeners) == 0 {
+		return
+	}
 	_ = notifyExecutor.Execute(&executor.RunnableImpl{
 		Runnable: func() {
 			for _, listener := range listeners {
