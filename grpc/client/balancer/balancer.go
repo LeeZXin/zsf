@@ -2,6 +2,7 @@ package balancer
 
 import (
 	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -27,70 +28,73 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	if len(info.ReadySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
-	mn := make(map[string][]selector.Node)
+	nodesMap := make(map[string][]selector.Node)
 	//默认版本节点先初始化
-	mn[appinfo.DefaultVersion] = make([]selector.Node, 0)
+	nodesMap[appinfo.DefaultVersion] = make([]selector.Node, 0)
 	i := 0
-	for c, ci := range info.ReadySCs {
+	for subConn, subConnInfo := range info.ReadySCs {
 		weight := 1
 		version := ""
-		if ci.Address.Attributes.Value(AttrKey) != nil {
-			attr := ci.Address.Attributes.Value(AttrKey).(Attr)
+		if subConnInfo.Address.Attributes.Value(AttrKey) != nil {
+			attr := subConnInfo.Address.Attributes.Value(AttrKey).(Attr)
 			weight = attr.Weight
 			version = attr.Version
 		}
 		if version == "" {
 			version = appinfo.DefaultVersion
 		}
-		n := selector.Node{
+		node := selector.Node{
 			Id:     strconv.Itoa(i),
-			Data:   c,
+			Data:   subConn,
 			Weight: weight,
 		}
-		ns, ok := mn[version]
+		nodes, ok := nodesMap[version]
 		if ok {
-			mn[version] = append(ns, n)
+			nodesMap[version] = append(nodes, node)
 		} else {
-			mn[version] = append(make([]selector.Node, 0), n)
+			nodesMap[version] = append(make([]selector.Node, 0), node)
 		}
 		if version != appinfo.DefaultVersion {
-			mn[appinfo.DefaultVersion] = append(mn[appinfo.DefaultVersion], n)
+			nodesMap[appinfo.DefaultVersion] = append(nodesMap[appinfo.DefaultVersion], node)
 		}
 		i += 1
 	}
-	ms := make(map[string]selector.Selector, len(mn))
-	for ver, ns := range mn {
-		st, err := selector.NewSelectorFuncMap[p.lbPolicy](ns)
+	selectorMap := make(map[string]selector.Selector, len(nodesMap))
+	for version, nodes := range nodesMap {
+		st, err := selector.NewSelectorFuncMap[p.lbPolicy](nodes)
 		if err != nil {
 			return base.NewErrPicker(err)
 		}
-		ms[ver] = st
+		selectorMap[version] = st
 	}
 	return &picker{
-		lbPolicy: p.lbPolicy,
-		ms:       ms,
+		lbPolicy:    p.lbPolicy,
+		selectorMap: selectorMap,
 	}
 }
 
 type picker struct {
-	lbPolicy string
-	ms       map[string]selector.Selector
+	lbPolicy    string
+	selectorMap map[string]selector.Selector
 }
 
-func (p *picker) Pick(b balancer.PickInfo) (balancer.PickResult, error) {
-	version := appinfo.Version
-	robinSelector, ok := p.ms[version]
-	if ok {
-		node, err := robinSelector.Select()
-		if err != nil {
-			return balancer.PickResult{}, err
-		}
-		return balancer.PickResult{SubConn: node.Data.(balancer.SubConn)}, nil
-	} else {
-		node, err := p.ms[appinfo.DefaultVersion].Select()
-		if err != nil {
-			return balancer.PickResult{}, err
-		}
-		return balancer.PickResult{SubConn: node.Data.(balancer.SubConn)}, nil
+func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err error) {
+	version := cmd.GetVersion()
+	var (
+		nodeSelector selector.Selector
+		ok           bool
+		node         selector.Node
+	)
+	nodeSelector, ok = p.selectorMap[version]
+	if !ok {
+		nodeSelector = p.selectorMap[appinfo.DefaultVersion]
 	}
+	node, err = nodeSelector.Select()
+	if err != nil {
+		return
+	}
+	pickResult = balancer.PickResult{
+		SubConn: node.Data.(balancer.SubConn),
+	}
+	return
 }

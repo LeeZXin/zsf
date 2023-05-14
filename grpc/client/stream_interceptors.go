@@ -20,7 +20,7 @@ func headerStreamInterceptor() grpc.StreamClientInterceptor {
 		for k, v := range md {
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, appinfo.ApplicationName)
+		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, appinfo.GetApplicationName())
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }

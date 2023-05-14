@@ -11,18 +11,18 @@ import (
 
 // 一个协程定时获取grpc节点地址变更
 // 而不是一个client一个协程去监听
-type addressUpdateCallback func([]discovery.ServiceAddr)
+type addrUpdateCallback func([]discovery.ServiceAddr)
 
-type watcher struct {
-	mu         sync.Mutex
+type serviceWatcher struct {
+	mu         sync.RWMutex
 	serviceMap map[string][]discovery.ServiceAddr
 	listener   *psub.Channel
 	cancelFunc context.CancelFunc
 	ctx        context.Context
-	ticker     time.Duration
 }
 
-func (w *watcher) Register(serviceName string, callback addressUpdateCallback) {
+// OnChange 注册节点变更回调
+func (w *serviceWatcher) OnChange(serviceName string, callback addrUpdateCallback) {
 	_ = w.listener.Subscribe(serviceName, func(data any) {
 		if data != nil {
 			callback(data.([]discovery.ServiceAddr))
@@ -39,25 +39,25 @@ func (w *watcher) Register(serviceName string, callback addressUpdateCallback) {
 }
 
 // Start 开启定时获取
-// 锁过程拆成多段， 防止consul请求过长导致锁过长
-func (w *watcher) Start() {
+func (w *serviceWatcher) Start() {
 	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
 		for {
-			ticker := time.NewTicker(w.ticker)
 			select {
 			case <-ticker.C:
 				break
 			case <-w.ctx.Done():
-				ticker.Stop()
 				return
 			}
-			w.mu.Lock()
+			w.mu.RLock()
 			if len(w.serviceMap) == 0 {
-				w.mu.Unlock()
+				w.mu.RUnlock()
 				continue
 			}
 			services, addrs := w.copyService()
-			w.mu.Unlock()
+			w.mu.RUnlock()
+
 			//记录变更的服务
 			changeNames := make([]string, 0)
 			changeAddrs := make([][]discovery.ServiceAddr, 0)
@@ -88,32 +88,30 @@ func (w *watcher) Start() {
 	}()
 }
 
-// 复制map数据 防止并发
-func (w *watcher) copyService() ([]string, [][]discovery.ServiceAddr) {
+// 复制map数据
+func (w *serviceWatcher) copyService() ([]string, [][]discovery.ServiceAddr) {
 	names := make([]string, 0, len(w.serviceMap))
 	addrs := make([][]discovery.ServiceAddr, 0, len(w.serviceMap))
-	for i, as := range w.serviceMap {
-		names = append(names, i)
-		addrs = append(addrs, as)
+	for serviceName, serviceAddrs := range w.serviceMap {
+		names = append(names, serviceName)
+		addrs = append(addrs, serviceAddrs)
 	}
 	return names, addrs
 }
 
-func (w *watcher) Shutdown() {
+func (w *serviceWatcher) Shutdown() {
 	w.listener.Shutdown()
 	w.cancelFunc()
 }
 
-func newWatcher(ticker time.Duration) *watcher {
-	e, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
-	c, _ := psub.NewChannel(e)
+func newWatcher() *serviceWatcher {
+	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
+	channel, _ := psub.NewChannel(channelExecutor)
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	return &watcher{
-		mu:         sync.Mutex{},
+	return &serviceWatcher{
 		serviceMap: make(map[string][]discovery.ServiceAddr, 8),
-		listener:   c,
+		listener:   channel,
 		cancelFunc: cancelFunc,
 		ctx:        ctx,
-		ticker:     ticker,
 	}
 }

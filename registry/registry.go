@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/quit"
@@ -51,7 +52,7 @@ func (s *ConsulRegistry) StartRegisterSelf() {
 	info := s.Info
 
 	agent := consul.GetConsulClient().Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", appinfo.Region, appinfo.Zone,
+	s.serviceId = fmt.Sprintf("service-%s.%s-%s", appinfo.GetRegion(), appinfo.GetZone(),
 		strings.ReplaceAll(uuid.New().String(), "-", ""))
 	s.checkID = s.serviceId + "-checkID"
 
@@ -71,10 +72,10 @@ func (s *ConsulRegistry) StartRegisterSelf() {
 		registerFunc := func() error {
 			return agent.ServiceRegister(&api.AgentServiceRegistration{
 				ID:      s.serviceId,
-				Name:    appinfo.ApplicationName + "-" + info.Scheme,
-				Tags:    []string{s.Info.Scheme, appinfo.VersionPrefix + appinfo.Version},
+				Name:    appinfo.GetApplicationName() + "-" + info.Scheme,
+				Tags:    []string{s.Info.Scheme, appinfo.VersionPrefix + cmd.GetVersion()},
 				Port:    info.Port,
-				Address: appinfo.LocalIP,
+				Address: appinfo.GetLocalIp(),
 				Weights: &api.AgentWeights{
 					Passing: info.Weight,
 				},

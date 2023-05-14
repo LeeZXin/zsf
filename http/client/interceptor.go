@@ -19,7 +19,8 @@ func headerInterceptor() Interceptor {
 		for k, v := range headers {
 			request.Header.Set(k, v)
 		}
-		request.Header.Set(rpc.Source, appinfo.ApplicationName)
+		// 塞source信息
+		request.Header.Set(rpc.Source, appinfo.GetApplicationName())
 		return invoker(request)
 	}
 }

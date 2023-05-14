@@ -4,6 +4,7 @@ import (
 	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/loader"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/SkyAPM/go2sky"
 	"github.com/SkyAPM/go2sky/reporter"
@@ -46,7 +47,7 @@ func init() {
 	if property.GetFloat64("skywalking.samplerRate") > 0 {
 		samplerRate = property.GetFloat64("skywalking.samplerRate")
 	}
-	tracer, err := go2sky.NewTracer(appinfo.ApplicationName,
+	tracer, err := go2sky.NewTracer(appinfo.GetApplicationName(),
 		go2sky.WithReporter(grpcReporter),
 		go2sky.WithSampler(samplerRate),
 	)
@@ -58,7 +59,7 @@ func init() {
 	}
 
 	//动态调整采样率
-	property.OnKeyChange("skywalking.samplerRate", func() {
+	loader.OnKeyChange("skywalking.samplerRate", func() {
 		rate := property.GetFloat64("skywalking.samplerRate")
 		logger.Logger.Info("skywalking.samplerRate changed:", rate)
 		go2sky.NewDynamicSampler(rate, tracer)

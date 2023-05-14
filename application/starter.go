@@ -1,4 +1,4 @@
-package starter
+package application
 
 import (
 	grpcclient "github.com/LeeZXin/zsf/grpc/client"
@@ -70,6 +70,10 @@ func Run() {
 				StreamServerInterceptors: grpcStreamServerInterceptors,
 			})
 		}
+		onApplicationStart()
+		quit.AddShutdownHook(func() {
+			onApplicationShutdown()
+		})
 		quit.Wait()
 	})
 }

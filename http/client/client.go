@@ -65,11 +65,11 @@ type Client interface {
 }
 
 type Impl struct {
-	ServiceName  string
-	LbPolicy     string
-	st           selector.Selector
-	http         *http.Client
-	Interceptors []Interceptor
+	ServiceName   string
+	LbPolicy      string
+	routeSelector selector.Selector
+	http          *http.Client
+	Interceptors  []Interceptor
 }
 
 func (c *Impl) Init() {
@@ -81,7 +81,7 @@ func (c *Impl) Init() {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
 	}
-	c.st = &cachedHttpSelector{
+	c.routeSelector = &cachedHttpSelector{
 		lbPolicy:    c.LbPolicy,
 		serviceName: c.ServiceName,
 	}
@@ -108,10 +108,12 @@ func (c *Impl) Delete(ctx context.Context, path string, req, resp any, opts ...O
 }
 
 func (c *Impl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
-	node, err := c.st.Select()
+	// 获取服务ip
+	node, err := c.routeSelector.Select()
 	if err != nil {
 		return err
 	}
+	// request
 	var reqBytes []byte
 	if req != nil {
 		reqBytes, err = json.Marshal(req)
@@ -119,23 +121,27 @@ func (c *Impl) send(ctx context.Context, path, method, contentType string, req, 
 			return err
 		}
 	}
-	var dopt dialOption
+	// 加载选项
+	var apply dialOption
 	if opts != nil {
 		for _, opt := range opts {
-			opt.apply(&dopt)
+			opt.apply(&apply)
 		}
 	}
+	// 拼接host
 	host := node.Data.(string)
 	url := "http://" + host
 	if !strings.HasPrefix(path, "/") {
 		url += "/"
 	}
 	url += path
+	// request
 	request, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(reqBytes))
 	if err != nil {
 		return err
 	}
-	header := dopt.header
+	// 塞header
+	header := apply.header
 	if header != nil {
 		for k, v := range header {
 			request.Header.Set(k, v)
@@ -144,18 +150,19 @@ func (c *Impl) send(ctx context.Context, path, method, contentType string, req, 
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}
+	// 塞target信息
+	request.Header.Set(rpc.Target, c.ServiceName)
+
 	invoker := func(request *http.Request) (*http.Response, error) {
 		return c.http.Do(request)
 	}
-	request.Header.Set(rpc.Target, c.ServiceName)
-	wrapper := interceptorsWrapper{is: c.Interceptors}
+	// 执行拦截器
+	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}
 	respBody, err := wrapper.intercept(request, invoker)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = respBody.Body.Close()
-	}()
+	defer respBody.Body.Close()
 	if respBody.StatusCode < http.StatusBadRequest {
 		respBytes, err := io.ReadAll(respBody.Body)
 		if err != nil {

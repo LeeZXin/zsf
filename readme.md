@@ -13,15 +13,7 @@ zsf
 哈希路由 默认带crc32和murur3哈希
 ```
 
-2、通用缓存实现
-
-```
-单数据带过期时间的缓存 single_item_cache 这个用来缓存单个http client服务发现的ip列表
-永不过期的map缓存 map_cache 这个被用来缓存grpc client和http client
-带过期时间的map缓存 refresh_map_cache
-```
-
-3、协程池
+2、协程池
 
 ```
 与java线程池思想类似，但不完全相同。主要用于控制协程资源的使用
@@ -36,7 +28,7 @@ zsf
 2、PromiseFuture 是future + promise形式，可随意控制获取任务超时时间和返回结果，更精细把控任务的执行
 ```
 
-4、本地事件广播
+3、本地事件广播
 
 ```
 类似消息队列，可实现对一个topic进行广播
@@ -47,7 +39,7 @@ zsf
 grpc client服务发现ip列表变更触发回调
 ```
 
-5、rpc服务
+4、rpc服务
 
 ```
 gin的http server端实现
@@ -59,13 +51,13 @@ grpc server的实现
 http和grpc之间的请求头传递
 ```
 
-6、服务注册
+5、服务注册
 
 ```
 实现了http和grpc server的服务注册并定时上报consul心跳
 ```
 
-7、服务发现
+6、服务发现
 
 ```
 实现http client和grpc client的服务发现  
@@ -74,13 +66,13 @@ http和grpc之间的请求头传递
 其中默认实现了按版本号路由，可用于灰度发布，优先发送请求给相同版本的服务，若没有，发送给其他版本服务
 ```
 
-8、prometheus server
+7、prometheus server
 
 ```
 专门为prometheus的抓取启动新的http server，端口默认是16005
 ```
 
-9、viper多环境配置和consul配置中心
+8、viper多环境配置和consul配置中心
 
 ```
 配置文件默认路径是./resources/application.yaml
@@ -93,13 +85,13 @@ http和grpc之间的请求头传递
 实现监听某个key变化触发回调功能
 ```
 
-10、pprof server
+9、pprof server
 
 ```
 必要时可以打开pprof server可分析程序 只能本地访问
 ```
 
-11、go2sky接入
+10、go2sky接入
 
 ```
 skywalking grpc上报
@@ -107,13 +99,13 @@ skywalking grpc上报
 实现http->grpc、grpc->http、等链路skywalking的打通
 ```
 
-12、限流熔断
+11、限流熔断
 
 ```
 sentinel做限流熔断
 ```
 
-13、字段校验validator
+12、字段校验validator
 
 ```
 魔改了一个开源库，使其能返回自定义错误信息

@@ -17,11 +17,13 @@ func (h Header) Get(key string) string {
 }
 
 const (
-	TraceId     = "z-trace-id"
-	Prefix      = "z-"
-	Source      = "z-source"
-	Target      = "z-target"
-	PrefixForSw = "z-sw-" //为了skywalking传递header用的
+	TraceId = "z-trace-id"
+	Prefix  = "z-"
+	Source  = "z-source"
+	Target  = "z-target"
+
+	// PrefixForSw 为了skywalking传递header用的
+	PrefixForSw = "z-sw-"
 )
 
 func GetHeaders(ctx context.Context) Header {

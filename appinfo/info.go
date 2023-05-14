@@ -1,23 +1,17 @@
 package appinfo
 
 import (
-	"flag"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"net"
 )
 
 var (
-	ApplicationName string
-	Region          string
-	Zone            string
+	applicationName string
+	region          string
+	zone            string
 
-	Env     string
-	LocalIP string
-	Version string
-
-	env = flag.String("env", "", "app env")
-	ver = flag.String("ver", "", "app version")
+	localIP string
 )
 
 const (
@@ -29,49 +23,33 @@ const (
 
 func init() {
 	//获取applicationName
-	ApplicationName = property.GetString("application.name")
-	if ApplicationName == "" {
+	applicationName = property.GetString("application.name")
+	if applicationName == "" {
 		logger.Logger.Panic("nil applicationName")
 	}
 
 	//region
-	Region = property.GetString("application.region")
-	if Region == "" {
-		Region = "#"
+	region = property.GetString("application.region")
+	if region == "" {
+		region = "#"
 	}
 
 	//zone
-	Zone = property.GetString("application.zone")
-	if Zone == "" {
-		Zone = "#"
+	zone = property.GetString("application.zone")
+	if zone == "" {
+		zone = "#"
 	}
-
-	//服务版本号
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-	if ver == nil || *ver == "" {
-		Version = DefaultVersion
-	} else {
-		Version = *ver
-	}
-	logger.Logger.Info("project version is ", Version)
-	Env = *env
-	if Env == "" {
-		logger.Logger.Panic("project env is nil")
-	}
-	logger.Logger.Info("project env is ", Env)
 
 	//获取本地ip
-	LocalIP = getLocalIp()
-	if LocalIP == "" {
+	localIP = getIp()
+	if localIP == "" {
 		logger.Logger.Panic("can not get local ipv4")
 	} else {
-		logger.Logger.Info("get local ipv4: ", LocalIP)
+		logger.Logger.Info("get local ipv4: ", localIP)
 	}
 }
 
-func getLocalIp() string {
+func getIp() string {
 	ips := allIPV4()
 	if ips == nil || len(ips) == 0 {
 		return ""
@@ -97,4 +75,20 @@ func allIPV4() (ipv4s []string) {
 		}
 	}
 	return
+}
+
+func GetApplicationName() string {
+	return applicationName
+}
+
+func GetRegion() string {
+	return region
+}
+
+func GetZone() string {
+	return zone
+}
+
+func GetLocalIp() string {
+	return localIP
 }

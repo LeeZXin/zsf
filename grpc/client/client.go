@@ -3,7 +3,6 @@ package grpcclient
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf/cache"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/grpc/client/balancer"
 	"github.com/LeeZXin/zsf/grpc/debug"
@@ -36,56 +35,39 @@ var (
 			"loadBalancingPolicy": "weighted_round_robin"
 		}`,
 	}
-	channelMap  *cache.MapCache
+
+	clientCache = make(map[string]*grpc.ClientConn, 8)
+	cacheMu     sync.Mutex
+
 	ipRegexp, _ = regexp.Compile("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+$")
 	//节点变更watcher
-	wa *watcher
+	watcher *serviceWatcher
 	//全局拦截器
-	globalClientUnaryInterceptors = make([]grpc.UnaryClientInterceptor, 0)
+	clientUnaryInterceptors = make([]grpc.UnaryClientInterceptor, 0)
 	//全局拦截器
-	globalClientStreamInterceptors = make([]grpc.StreamClientInterceptor, 0)
+	clientStreamInterceptors = make([]grpc.StreamClientInterceptor, 0)
 	//锁
-	globalClientInterceptorsMu = sync.Mutex{}
+	clientInterceptorsMu = sync.Mutex{}
 )
 
 func init() {
 	//默认三种拦截器
-	RegisterGlobalUnaryClientInterceptor(headerClientUnaryInterceptor(), promClientUnaryInterceptor(), skywalkingUnaryInterceptor())
-	RegisterGlobalStreamClientInterceptor(headerStreamInterceptor(), promStreamInterceptor(), skywalkingStreamInterceptor())
-	//加载缓存
-	channelMap = &cache.MapCache{
-		SupplierWithKey: func(serviceName string) (any, error) {
-			// 选择负载均衡策略
-			lbPolicy := property.GetString("grpc.lbPolicy")
-			c, ok := loadBalancingPolicy[lbPolicy]
-			if !ok {
-				c = loadBalancingPolicy[selector.RoundRobinPolicy]
-			}
-			globalClientInterceptorsMu.Lock()
-			opts := []grpc.DialOption{
-				grpc.WithDefaultServiceConfig(c),
-				grpc.WithTransportCredentials(insecure.NewCredentials()),
-				grpc.WithKeepaliveParams(keepalive.ClientParameters{
-					Timeout: 5 * time.Minute,
-				}),
-				grpc.WithChainUnaryInterceptor(
-					globalClientUnaryInterceptors...,
-				),
-			}
-			globalClientInterceptorsMu.Unlock()
-			ch, err := grpc.DialContext(context.Background(), serviceName, opts...)
-			if err != nil {
-				return nil, err
-			}
-			return ch, nil
-		},
-	}
+	RegisterGlobalUnaryClientInterceptor(
+		headerClientUnaryInterceptor(),
+		promClientUnaryInterceptor(),
+		skywalkingUnaryInterceptor(),
+	)
+	RegisterGlobalStreamClientInterceptor(
+		headerStreamInterceptor(),
+		promStreamInterceptor(),
+		skywalkingStreamInterceptor(),
+	)
 	//每十秒更新
-	wa = newWatcher(10 * time.Second)
-	wa.Start()
+	watcher = newWatcher()
+	watcher.Start()
 	//关闭所有的连接
 	quit.AddShutdownHook(func() {
-		wa.Shutdown()
+		watcher.Shutdown()
 	})
 	//开启grpc debug
 	if property.GetBool("grpc.debug") {
@@ -145,7 +127,7 @@ func (*targetResolverBuilder) Build(target resolver.Target, cc resolver.ClientCo
 		})
 	} else {
 		// 注册服务变动回调 返回注册时的服务列表
-		wa.Register(serviceName, func(addrs []discovery.ServiceAddr) {
+		watcher.OnChange(serviceName, func(addrs []discovery.ServiceAddr) {
 			logger.Logger.Info("update addr:", serviceName, addrs)
 			_ = cc.UpdateState(getResolverState(addrs))
 		})
@@ -164,12 +146,44 @@ func isIp(name string) bool {
 
 // Dial 构建channel
 // 优先从缓存里取
-func Dial(name string) (*grpc.ClientConn, error) {
-	conn, err := channelMap.Get(name)
+func Dial(serviceName string) (*grpc.ClientConn, error) {
+	conn, ok := clientCache[serviceName]
+	if ok {
+		return conn, nil
+	}
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	// 双重校验
+	conn, ok = clientCache[serviceName]
+	if ok {
+		return conn, nil
+	}
+	// 选择负载均衡策略
+	lbPolicy := property.GetString("grpc.lbPolicy")
+	lbConfig, ok := loadBalancingPolicy[lbPolicy]
+	if !ok {
+		lbConfig = loadBalancingPolicy[selector.RoundRobinPolicy]
+	}
+	clientInterceptorsMu.Lock()
+	opts := []grpc.DialOption{
+		grpc.WithDefaultServiceConfig(lbConfig),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Timeout: 5 * time.Minute,
+		}),
+		grpc.WithChainUnaryInterceptor(
+			clientUnaryInterceptors[:]...,
+		),
+	}
+	clientInterceptorsMu.Unlock()
+
+	conn, err := grpc.DialContext(context.Background(), serviceName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return conn.(*grpc.ClientConn), nil
+	clientCache[serviceName] = conn
+
+	return conn, nil
 }
 
 // RegisterGlobalUnaryClientInterceptor 注册全局一元拦截器
@@ -177,9 +191,9 @@ func RegisterGlobalUnaryClientInterceptor(is ...grpc.UnaryClientInterceptor) {
 	if is == nil || len(is) == 0 {
 		return
 	}
-	globalClientInterceptorsMu.Lock()
-	defer globalClientInterceptorsMu.Unlock()
-	globalClientUnaryInterceptors = append(globalClientUnaryInterceptors, is...)
+	clientInterceptorsMu.Lock()
+	defer clientInterceptorsMu.Unlock()
+	clientUnaryInterceptors = append(clientUnaryInterceptors, is...)
 }
 
 // RegisterGlobalStreamClientInterceptor 注册全局流拦截器
@@ -187,7 +201,7 @@ func RegisterGlobalStreamClientInterceptor(is ...grpc.StreamClientInterceptor) {
 	if is == nil || len(is) == 0 {
 		return
 	}
-	globalClientInterceptorsMu.Lock()
-	defer globalClientInterceptorsMu.Unlock()
-	globalClientStreamInterceptors = append(globalClientStreamInterceptors, is...)
+	clientInterceptorsMu.Lock()
+	defer clientInterceptorsMu.Unlock()
+	clientStreamInterceptors = append(clientStreamInterceptors, is...)
 }

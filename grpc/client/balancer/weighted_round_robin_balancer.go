@@ -8,7 +8,15 @@ import (
 
 // newWrrBuilder creates a new weighted-round-robin balancer builder.
 func newWrrBuilder() balancer.Builder {
-	return base.NewBalancerBuilder(string(selector.WeightedRoundRobinPolicy), &pickerBuilder{lbPolicy: selector.WeightedRoundRobinPolicy}, base.Config{HealthCheck: true})
+	return base.NewBalancerBuilder(
+		selector.WeightedRoundRobinPolicy,
+		&pickerBuilder{
+			lbPolicy: selector.WeightedRoundRobinPolicy,
+		},
+		base.Config{
+			HealthCheck: true,
+		},
+	)
 }
 
 func init() {

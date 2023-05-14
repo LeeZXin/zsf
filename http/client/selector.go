@@ -2,6 +2,7 @@ package client
 
 import (
 	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/selector"
 	"sync"
 	"time"
@@ -14,10 +15,11 @@ import (
 type cachedHttpSelector struct {
 	lbPolicy    string
 	serviceName string
+	//多版本路由
+	cache   map[string]selector.Selector
+	cacheMu sync.RWMutex
 
-	cache      map[string]selector.Selector
 	expireTime time.Time
-	cacheMu    sync.RWMutex
 }
 
 func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err error) {
@@ -38,12 +40,15 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			node, err = c.getFromCache(c.cache)
 			return
 		}
+		//consul拿服务信息
 		nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
 		if err2 != nil {
+			//获取信息失败
 			c.cacheMu.Unlock()
 			err = err2
 			return
 		}
+		//赋值
 		newCache := convert(nodesMap, c.lbPolicy)
 		newExpireTime := time.Now().Add(10 * time.Second)
 		c.cache = newCache
@@ -52,9 +57,9 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 		node, err = c.getFromCache(newCache)
 		return
 	} else {
+		//到期并发冲突
 		if c.cacheMu.TryLock() {
 			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
-			//如果出错 使用老数据
 			if err2 == nil {
 				newCache := convert(nodesMap, c.lbPolicy)
 				newExpireTime := time.Now().Add(10 * time.Second)
@@ -66,13 +71,14 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			}
 			c.cacheMu.Unlock()
 		}
+		//抢不到锁或更新失败使用老数据
 		node, err = c.getFromCache(oldCache)
 		return
 	}
 }
 
 func (c *cachedHttpSelector) getFromCache(slr map[string]selector.Selector) (node selector.Node, err error) {
-	hit, ok := slr[appinfo.Version]
+	hit, ok := slr[cmd.GetVersion()]
 	if !ok {
 		node, err = slr[appinfo.DefaultVersion].Select()
 		return

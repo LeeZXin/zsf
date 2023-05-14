@@ -39,13 +39,14 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 		if err != nil {
 			continue
 		}
-		if response.StatusCode >= 200 && response.StatusCode <= 299 {
+		if response.StatusCode < http.StatusBadRequest {
 			return
 		}
 	}
 	return
 }
 
+// newRetryableHttpClient 可重试client 遇到非2xx或错误会重试
 func newRetryableHttpClient() *http.Client {
 	return &http.Client{
 		Transport: &RetryableRoundTripper{

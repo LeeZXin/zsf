@@ -1,13 +1,15 @@
-package property
+package loader
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/psub"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/hashicorp/consul/api"
@@ -31,7 +33,7 @@ func init() {
 type ChangeCallback func()
 
 func startWatchPropertyChange() {
-	propertyKey := fmt.Sprintf("%s/property/www/%s", appinfo.Env, appinfo.ApplicationName)
+	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), appinfo.GetApplicationName())
 	logger.Logger.Info("listen consul property key:", propertyKey)
 
 	plan, err := watch.Parse(map[string]any{
@@ -46,7 +48,7 @@ func startWatchPropertyChange() {
 	//首次需要加载远程配置
 	kv, _, err := consul.GetConsulClient().KV().Get(propertyKey, nil)
 	if err == nil {
-		err = MergeConfig(bytes.NewReader(kv.Value))
+		err = property.MergeConfig(bytes.NewReader(kv.Value))
 		if err != nil {
 			logger.Logger.Error(err)
 		} else {
@@ -76,7 +78,7 @@ func startWatchPropertyChange() {
 			//获取旧配置
 			oldProperties := getAllProperties(listenKeys)
 			//合并配置
-			err = MergeConfig(bytes.NewReader(kvPair.Value))
+			err = property.MergeConfig(bytes.NewReader(kvPair.Value))
 			if err != nil {
 				logger.Logger.Error(err)
 				return
@@ -113,7 +115,7 @@ func startWatchPropertyChange() {
 func getAllProperties(listenKeys []string) map[string]string {
 	properties := make(map[string]string, len(listenKeys))
 	for _, key := range listenKeys {
-		oldProperty := Get(key)
+		oldProperty := property.Get(key)
 		if oldProperty == nil {
 			properties[key] = ""
 		} else {
@@ -129,7 +131,7 @@ func getAllProperties(listenKeys []string) map[string]string {
 }
 
 func init() {
-	enabled := GetBool("property.enabled")
+	enabled := property.GetBool("property.enabled")
 	if enabled {
 		//启动consul配置监听
 		startWatchPropertyChange()
@@ -141,6 +143,7 @@ func OnKeyChange(key string, callback ChangeCallback) {
 	if key == "" || callback == nil {
 		return
 	}
+	logger.Logger.Info("listen property key change:", key)
 	registerMu.Lock()
 	defer registerMu.Unlock()
 	watchKeys[key] = true

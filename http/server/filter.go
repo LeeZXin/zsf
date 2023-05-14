@@ -21,8 +21,8 @@ import (
 
 //常见filter封装
 
-// RecoverFilter recover封装
-func RecoverFilter() gin.HandlerFunc {
+// recoverFilter recover封装
+func recoverFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			fatal := recover()
@@ -44,8 +44,8 @@ func RecoverFilter() gin.HandlerFunc {
 	}
 }
 
-// PromFilter prometheus监控
-func PromFilter() gin.HandlerFunc {
+// promFilter prometheus监控
+func promFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		begin := time.Now()
 		c.Next()
@@ -69,8 +69,8 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-// HeaderFilter 传递header
-func HeaderFilter() gin.HandlerFunc {
+// headerFilter 传递header
+func headerFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Header.Get(rpc.TraceId) == "" {
 			c.Request.Header.Set(rpc.TraceId, strings.ReplaceAll(uuid.New().String(), "-", ""))
@@ -89,7 +89,7 @@ func HeaderFilter() gin.HandlerFunc {
 	}
 }
 
-func SkyWalkingFilter() gin.HandlerFunc {
+func skywalkingFilter() gin.HandlerFunc {
 	if skywalking.Tracer == nil {
 		return func(c *gin.Context) {
 			c.Next()

@@ -2,7 +2,8 @@ package property
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/spf13/viper"
 	"io"
 )
@@ -31,7 +32,8 @@ func init() {
 	//覆盖上面默认配置
 	v.SetConfigType("yaml")
 	v.AddConfigPath("./resources/")
-	v.SetConfigName(fmt.Sprintf("application-%s.yaml", appinfo.Env))
+	v.SetConfigName(fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
+	logger.Logger.Info("load property file: ", fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
 	_ = v.ReadInConfig()
 }
 

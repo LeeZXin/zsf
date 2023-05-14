@@ -43,10 +43,10 @@ func InitAndStartHttpServer(config Config) {
 	r.NoRoute(http404)
 	//filter
 	filters := []gin.HandlerFunc{
-		RecoverFilter(),
-		HeaderFilter(),
-		PromFilter(),
-		SkyWalkingFilter(),
+		recoverFilter(),
+		headerFilter(),
+		promFilter(),
+		skywalkingFilter(),
 	}
 	if config.Filters != nil {
 		filters = append(filters, config.Filters...)

@@ -21,7 +21,7 @@ func headerClientUnaryInterceptor() grpc.UnaryClientInterceptor {
 		for k, v := range md {
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, appinfo.ApplicationName)
+		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, appinfo.GetApplicationName())
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }

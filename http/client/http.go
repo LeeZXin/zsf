@@ -40,6 +40,7 @@ func init() {
 	})
 }
 
+// Dial 获取服务的client
 func Dial(serviceName string) Client {
 	//双重校验
 	client, ok := clientCache[serviceName]
@@ -69,10 +70,7 @@ func initClient(serviceName string) Client {
 		lbPolicy = selector.RoundRobinPolicy
 	}
 	interceptorsMu.Lock()
-	copyInterceptors := make([]Interceptor, len(interceptors))
-	for i, interceptor := range interceptors {
-		copyInterceptors[i] = interceptor
-	}
+	copyInterceptors := interceptors[:]
 	interceptorsMu.Unlock()
 	c := &Impl{
 		ServiceName:  serviceName,
@@ -83,6 +81,7 @@ func initClient(serviceName string) Client {
 	return c
 }
 
+// RegisterInterceptor 注册一个client自定义拦截器
 func RegisterInterceptor(is ...Interceptor) {
 	if is == nil || len(is) == 0 {
 		return
@@ -92,20 +91,21 @@ func RegisterInterceptor(is ...Interceptor) {
 	interceptors = append(interceptors, is...)
 }
 
+// 拦截器wrapper 实现类似洋葱递归执行功能
 type interceptorsWrapper struct {
-	is []Interceptor
+	interceptorList []Interceptor
 }
 
 func (i *interceptorsWrapper) intercept(request *http.Request, invoker Invoker) (*http.Response, error) {
-	if i.is == nil || len(i.is) == 0 {
+	if i.interceptorList == nil || len(i.interceptorList) == 0 {
 		return invoker(request)
 	}
 	return i.recursive(0, request, invoker)
 }
 
 func (i *interceptorsWrapper) recursive(index int, request *http.Request, invoker Invoker) (*http.Response, error) {
-	return i.is[index](request, func(request *http.Request) (*http.Response, error) {
-		if index == len(i.is)-1 {
+	return i.interceptorList[index](request, func(request *http.Request) (*http.Response, error) {
+		if index == len(i.interceptorList)-1 {
 			return invoker(request)
 		} else {
 			return i.recursive(index+1, request, invoker)
