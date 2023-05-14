@@ -29,13 +29,13 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 	oldExpireTime := c.expireTime
 	c.cacheMu.RUnlock()
 	if oldExpireTime.After(time.Now()) {
-		logger.Logger.Info(c.serviceName, " http cache still valid")
+		logger.Logger.Debug(c.serviceName, " http cache still valid")
 		node, err = c.getFromCache(oldCache)
 		return
 	}
 	//首次加载
 	if c.expireTime.IsZero() {
-		logger.Logger.Info(c.serviceName, " http cache is empty")
+		logger.Logger.Debug(c.serviceName, " http cache is empty")
 		c.cacheMu.Lock()
 		//双重校验
 		if !c.expireTime.IsZero() {
@@ -58,14 +58,14 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 		c.expireTime = newExpireTime
 		c.cacheMu.Unlock()
 		node, err = c.getFromCache(newCache)
-		logger.Logger.Info(c.serviceName, " http cache get service:", node.Data)
+		logger.Logger.Debug(c.serviceName, " http cache get service:", node.Data)
 		return
 	} else {
-		logger.Logger.Info(c.serviceName, " http cache is expired")
+		logger.Logger.Debug(c.serviceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
 			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.serviceName)
-			logger.Logger.Info(c.serviceName, " http cache read new cache")
+			logger.Logger.Debug(c.serviceName, " http cache read new cache")
 			if err2 == nil {
 				newCache := convert(nodesMap, c.lbPolicy)
 				newExpireTime := time.Now().Add(10 * time.Second)
@@ -73,12 +73,12 @@ func (c *cachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 				c.expireTime = newExpireTime
 				c.cacheMu.Unlock()
 				node, err = c.getFromCache(newCache)
-				logger.Logger.Info(c.serviceName, " http cache get service:", node.Data)
+				logger.Logger.Debug(c.serviceName, " http cache get service:", node.Data)
 				return
 			}
 			c.cacheMu.Unlock()
 		}
-		logger.Logger.Info(c.serviceName, " http cache read old cache")
+		logger.Logger.Debug(c.serviceName, " http cache read old cache")
 		//抢不到锁或更新失败使用老数据
 		node, err = c.getFromCache(oldCache)
 		return
