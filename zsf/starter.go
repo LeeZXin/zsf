@@ -1,4 +1,4 @@
-package application
+package zsf
 
 import (
 	grpcclient "github.com/LeeZXin/zsf/grpc/client"

@@ -1,4 +1,4 @@
-package application
+package zsf
 
 import (
 	"github.com/LeeZXin/zsf/executor"
