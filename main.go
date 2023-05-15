@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/LeeZXin/zsf/application"
+	"github.com/LeeZXin/zsf/zsf"
 )
 
 func main() {
-	application.Run()
+	zsf.Run()
 }
