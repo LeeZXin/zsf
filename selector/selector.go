@@ -2,10 +2,6 @@ package selector
 
 import (
 	"errors"
-	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
-	"github.com/LeeZXin/zsf/discovery"
-	"strconv"
 )
 
 //负载均衡策略选择器通用封装

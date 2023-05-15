@@ -1,11 +1,14 @@
 package client
 
 import (
+	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/selector"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -45,7 +48,7 @@ func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			return
 		}
 		//consul拿服务信息
-		nodesMap, err2 := discovery.ServiceMultiVersionNodes(c.ServiceName)
+		nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
 		if err2 != nil {
 			//获取信息失败
 			c.cacheMu.Unlock()
@@ -65,7 +68,7 @@ func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 		logger.Logger.Debug(c.ServiceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
-			nodesMap, err2 := discovery.ServiceMultiVersionNodes(c.ServiceName)
+			nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
 			logger.Logger.Debug(c.ServiceName, " http cache read new cache")
 			if err2 == nil {
 				newCache := convert(nodesMap, c.LbPolicy)
@@ -105,4 +108,40 @@ func convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]se
 		}
 	}
 	return cache
+}
+
+func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node, error) {
+	info, err := discovery.GetServiceInfo(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	if len(info) == 0 {
+		return nil, errors.New("can not find ip address")
+	}
+	res := make(map[string][]selector.Node)
+	//默认版本节点先初始化
+	res[appinfo.DefaultVersion] = make([]selector.Node, 0)
+	i := 0
+	for _, item := range info {
+		n := selector.Node{
+			Id:     strconv.Itoa(i),
+			Weight: item.Weight,
+			Data:   fmt.Sprintf("%s:%d", item.Addr, item.Port),
+		}
+		version := appinfo.DefaultVersion
+		if item.Version != "" {
+			version = item.Version
+		}
+		ns, ok := res[version]
+		if ok {
+			res[version] = append(ns, n)
+		} else {
+			res[version] = append(make([]selector.Node, 0), n)
+		}
+		if version != appinfo.DefaultVersion {
+			res[appinfo.DefaultVersion] = append(res[appinfo.DefaultVersion], n)
+		}
+		i += 1
+	}
+	return res, nil
 }
