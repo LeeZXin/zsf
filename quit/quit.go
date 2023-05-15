@@ -2,7 +2,6 @@ package quit
 
 import (
 	"github.com/LeeZXin/zsf/logger"
-	_ "github.com/LeeZXin/zsf/logger"
 	"os"
 	"os/signal"
 	"sync"
