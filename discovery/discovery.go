@@ -1,10 +1,14 @@
 package discovery
 
 import (
+	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf/appinfo"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/selector"
 	"github.com/hashicorp/consul/api"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -116,4 +120,40 @@ func GetServiceDiscovery(discoveryType string) (IDiscovery, bool) {
 		return value.(IDiscovery), true
 	}
 	return nil, false
+}
+
+func ServiceMultiVersionNodes(serviceName string) (map[string][]selector.Node, error) {
+	info, err := GetServiceInfo(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	if len(info) == 0 {
+		return nil, errors.New("can not find ip address")
+	}
+	res := make(map[string][]selector.Node)
+	//默认版本节点先初始化
+	res[appinfo.DefaultVersion] = make([]selector.Node, 0)
+	i := 0
+	for _, item := range info {
+		n := selector.Node{
+			Id:     strconv.Itoa(i),
+			Weight: item.Weight,
+			Data:   fmt.Sprintf("%s:%d", item.Addr, item.Port),
+		}
+		version := appinfo.DefaultVersion
+		if item.Version != "" {
+			version = item.Version
+		}
+		ns, ok := res[version]
+		if ok {
+			res[version] = append(ns, n)
+		} else {
+			res[version] = append(make([]selector.Node, 0), n)
+		}
+		if version != appinfo.DefaultVersion {
+			res[appinfo.DefaultVersion] = append(res[appinfo.DefaultVersion], n)
+		}
+		i += 1
+	}
+	return res, nil
 }
