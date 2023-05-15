@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/selector"
 	"sync"
@@ -44,7 +45,7 @@ func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 			return
 		}
 		//consul拿服务信息
-		nodesMap, err2 := selector.ServiceMultiVersionNodes(c.ServiceName)
+		nodesMap, err2 := discovery.ServiceMultiVersionNodes(c.ServiceName)
 		if err2 != nil {
 			//获取信息失败
 			c.cacheMu.Unlock()
@@ -64,7 +65,7 @@ func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 		logger.Logger.Debug(c.ServiceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
-			nodesMap, err2 := selector.ServiceMultiVersionNodes(c.ServiceName)
+			nodesMap, err2 := discovery.ServiceMultiVersionNodes(c.ServiceName)
 			logger.Logger.Debug(c.ServiceName, " http cache read new cache")
 			if err2 == nil {
 				newCache := convert(nodesMap, c.LbPolicy)
