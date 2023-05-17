@@ -15,10 +15,12 @@ var (
 
 const (
 	ConsulDiscoveryType = "consul"
+	StaticDiscoveryType = "static"
 )
 
 func init() {
 	NewServiceDiscovery(&ConsulDiscovery{})
+	NewServiceDiscovery(&StaticDiscovery{})
 }
 
 type IDiscovery interface {
@@ -89,13 +91,13 @@ func convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
 func GetServiceInfo(name string) ([]ServiceAddr, error) {
 	discoveryType := property.GetString("discovery.type")
 	if discoveryType == "" {
-		discoveryType = ConsulDiscoveryType
+		discoveryType = StaticDiscoveryType
 	}
 	dis, ok := GetServiceDiscovery(discoveryType)
 	if ok {
 		return dis.GetServiceInfo(name)
 	}
-	dis, _ = GetServiceDiscovery(ConsulDiscoveryType)
+	dis, _ = GetServiceDiscovery(StaticDiscoveryType)
 	return dis.GetServiceInfo(name)
 }
 

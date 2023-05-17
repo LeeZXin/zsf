@@ -17,7 +17,7 @@ func (*ConsulDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 		logger.Logger.Error(err)
 		return nil, err
 	}
-	res := make([]ServiceAddr, 0, 8)
+	res := make([]ServiceAddr, 0, len(services))
 	for _, service := range services {
 		address := convert2ServiceAddr(service)
 		res = append(res, address)

@@ -36,6 +36,7 @@ property:
 
 # 服务发现
 discovery:
+  type: consul
   enabled: true
 
 # prometheus server
