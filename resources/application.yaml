@@ -34,7 +34,7 @@ consul:
 property:
   enabled: true
 
-# 服务发现
+# 服务发现 type = consul or static
 discovery:
   type: consul
   enabled: true
