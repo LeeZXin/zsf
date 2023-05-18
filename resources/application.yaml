@@ -55,3 +55,5 @@ pprof:
 
 
 # consul agent -server -ui -bootstrap-expect=1 -data-dir=./consuldata -node=agent-1 -client=0.0.0.0 -datacenter=dc1 -bind=127.0.0.1 -rejoin -config-dir=./consuldata
+# git tag -a "v1.0.1" -m "beta"
+# git push origin master --tags
