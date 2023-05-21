@@ -53,7 +53,7 @@ func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler R
 	return e, nil
 }
 
-func (e *Executor) Execute(runnable Runnable) error {
+func (e *Executor) _execute(runnable Runnable) error {
 	if runnable == nil {
 		return errors.New("nil runnable")
 	}
@@ -73,11 +73,11 @@ func (e *Executor) Execute(runnable Runnable) error {
 	return e.rejectHandler.RejectedExecution(runnable, e)
 }
 
-func (e *Executor) ExecuteFunc(fn func()) error {
+func (e *Executor) Execute(fn func()) error {
 	if fn == nil {
 		return errors.New("nil function")
 	}
-	return e.Execute(&RunnbaleImpl{
+	return e._execute(&RunnbaleImpl{
 		Runnable: fn,
 	})
 }
@@ -87,7 +87,7 @@ func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
 		return nil, errors.New("nil callable")
 	}
 	task := NewFutureTask(callable)
-	if err := e.Execute(task); err != nil {
+	if err := e._execute(task); err != nil {
 		return nil, err
 	}
 	return task, nil
