@@ -64,9 +64,9 @@ type Config struct {
 	MaxBodySize  int `json:"maxBodySize"`
 }
 
-type NewService func() Service
+type NewServiceFunc func() Service
 
-func RegisterWebsocketService(newFuc NewService, config Config) gin.HandlerFunc {
+func RegisterWebsocketService(newFuc NewServiceFunc, config Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !c.IsWebsocket() {
 			c.String(http.StatusBadRequest, "wrong protocol")
