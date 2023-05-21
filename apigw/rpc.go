@@ -45,7 +45,7 @@ func (t *HttpExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 	if rawQuery != "" {
 		path = path + "?" + rawQuery
 	}
-	logger.Logger.Info("rpc transport: ", path)
+	logger.Logger.Debug("rpc transport: ", path)
 	newReq, err := http.NewRequest(c.Request.Method, path, request.Body)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
