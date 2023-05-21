@@ -73,6 +73,15 @@ func (e *Executor) Execute(runnable Runnable) error {
 	return e.rejectHandler.RejectedExecution(runnable, e)
 }
 
+func (e *Executor) ExecuteFunc(fn func()) error {
+	if fn == nil {
+		return errors.New("nil function")
+	}
+	return e.Execute(&RunnbaleImpl{
+		Runnable: fn,
+	})
+}
+
 func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
 	if callable == nil {
 		return nil, errors.New("nil callable")
