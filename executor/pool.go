@@ -30,7 +30,13 @@ type Executor struct {
 	cancelFunc    context.CancelFunc
 	ctx           context.Context
 	closeOnce     sync.Once
+	status        int
 }
+
+const (
+	runningStatus  = 1
+	shutdownStatus = 2
+)
 
 func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler RejectHandler) (*Executor, error) {
 	if poolSize <= 0 {
@@ -48,6 +54,7 @@ func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler R
 		queue:         make(chan Runnable, queueSize),
 		workNum:       0,
 		rejectHandler: rejectHandler,
+		status:        runningStatus,
 	}
 	e.ctx, e.cancelFunc = context.WithCancel(context.Background())
 	return e, nil
@@ -58,6 +65,10 @@ func (e *Executor) _execute(runnable Runnable) error {
 		return errors.New("nil runnable")
 	}
 	e.addWorkerMu.Lock()
+	if e.status == shutdownStatus {
+		e.addWorkerMu.Unlock()
+		return errors.New("executor is down")
+	}
 	if e.workNum < e.poolSize && e.addWorker(runnable) {
 		e.workNum += 1
 		e.addWorkerMu.Unlock()
@@ -95,6 +106,9 @@ func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
 
 func (e *Executor) Shutdown() {
 	e.closeOnce.Do(func() {
+		e.addWorkerMu.Lock()
+		e.status = shutdownStatus
+		e.addWorkerMu.UnLock()
 		close(e.queue)
 		e.cancelFunc()
 	})
