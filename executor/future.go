@@ -98,27 +98,24 @@ func (t *FutureTask) Get() (any, error) {
 
 func (t *FutureTask) GetWithTimeout(timeout time.Duration) (any, error) {
 	val := t.result.Load()
-	if val != nil {
-		err, ok := val.(error)
-		if ok {
-			return nil, err
+	if val == nil {
+		if timeout > 0 {
+			timer := time.NewTimer(timeout)
+			defer timer.Stop()
+			select {
+			case <-t.done:
+				break
+			case <-timer.C:
+				return nil, TimeoutError
+			}
+		} else {
+			select {
+			case <-t.done:
+				break
+			}
 		}
-		return val, nil
+		val := t.result.Load()
 	}
-	if timeout > 0 {
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		select {
-		case <-t.done:
-			break
-		case <-timer.C:
-			return nil, TimeoutError
-		}
-	} else {
-		select {
-		case <-t.done:
-			break
-		}
-	}
-	return t.result.Load(), nil
+	res, ok := val.(futureResult)
+	return res.Result, res.Err 
 }
