@@ -44,12 +44,11 @@ func (c *Channel) Publish(topic string, data any) error {
 	if !ok {
 		return noSubscriberErr
 	}
-	return c.executor.Execute(&executor.RunnableImpl{
-		Runnable: func() {
+	return c.executor.Execute(func() {
 			for _, sub := range subs {
 				sub(data)
 			}
-		},
+		}
 	})
 }
 
