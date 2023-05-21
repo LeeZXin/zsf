@@ -45,9 +45,8 @@ func (c *Channel) Publish(topic string, data any) error {
 		return noSubscriberErr
 	}
 	return c.executor.Execute(func() {
-			for _, sub := range subs {
-				sub(data)
-			}
+		for _, sub := range subs {
+			sub(data)
 		}
 	})
 }

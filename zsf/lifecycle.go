@@ -43,12 +43,10 @@ func onApplicationStart() {
 	if len(listeners) == 0 {
 		return
 	}
-	_ = notifyExecutor.Execute(&executor.RunnableImpl{
-		Runnable: func() {
-			for _, listener := range listeners {
-				listener.OnApplicationStart(c)
-			}
-		},
+	_ = notifyExecutor.Execute(func() {
+		for _, listener := range listeners {
+			listener.OnApplicationStart(c)
+		}
 	})
 }
 
@@ -60,12 +58,10 @@ func onApplicationShutdown() {
 	if len(listeners) == 0 {
 		return
 	}
-	_ = notifyExecutor.Execute(&executor.RunnableImpl{
-		Runnable: func() {
-			for _, listener := range listeners {
-				listener.OnApplicationShutdown(c)
-			}
-		},
+	_ = notifyExecutor.Execute(func() {
+		for _, listener := range listeners {
+			listener.OnApplicationShutdown(c)
+		}
 	})
 }
 

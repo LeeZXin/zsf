@@ -45,6 +45,9 @@ func (w *worker) pollTask(duration time.Duration) (Runnable, bool, bool) {
 	if duration > 0 {
 		timer := time.NewTimer(duration)
 		defer timer.Stop()
+		// 监听任务chan
+		// 超时回收信号
+		// 协程池关闭chan
 		select {
 		case runnable = <-w.queue:
 			return runnable, true, false

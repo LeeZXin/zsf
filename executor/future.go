@@ -17,10 +17,12 @@ var (
 	TimeoutError = errors.New("task timeout")
 )
 
+// Runnable 任务执行接口
 type Runnable interface {
 	Run()
 }
 
+// RunnableImpl 默认实现类
 type RunnableImpl struct {
 	Runnable func()
 }
@@ -31,13 +33,17 @@ func (r *RunnableImpl) Run() {
 	}
 }
 
+// futureResult promise result
+// cas控制返回结果
 type futureResult struct {
 	Result any
 	Err    error
 }
 
+// Callable 带返回值的任务
 type Callable func() (any, error)
 
+// FutureTask 与java类似
 type FutureTask struct {
 	result   atomic.Value
 	callable Callable
@@ -62,16 +68,19 @@ func (t *FutureTask) Run() {
 	t.completed()
 }
 
+// completed 通知完成
 func (t *FutureTask) completed() {
 	t.doneOnce.Do(func() {
 		close(t.done)
 	})
 }
 
+// setObj cas结果
 func (t *FutureTask) setObj(result futureResult) bool {
 	return t.result.CompareAndSwap(nil, result)
 }
 
+// SetResult 执行中可随意控制返回callable返回结果
 func (t *FutureTask) SetResult(result any) bool {
 	if t.setObj(futureResult{
 		Result: result,
@@ -82,6 +91,7 @@ func (t *FutureTask) SetResult(result any) bool {
 	return false
 }
 
+// SetError 执行中可随意控制返回callable返回异常
 func (t *FutureTask) SetError(err error) bool {
 	if t.setObj(futureResult{
 		Err: err,
@@ -92,10 +102,12 @@ func (t *FutureTask) SetError(err error) bool {
 	return false
 }
 
+// Get 阻塞获取结果 无限期等待
 func (t *FutureTask) Get() (any, error) {
 	return t.GetWithTimeout(0)
 }
 
+// GetWithTimeout 带超时返回结果 超时返回timeoutErr
 func (t *FutureTask) GetWithTimeout(timeout time.Duration) (any, error) {
 	val := t.result.Load()
 	if val == nil {
@@ -114,8 +126,8 @@ func (t *FutureTask) GetWithTimeout(timeout time.Duration) (any, error) {
 				break
 			}
 		}
-		val := t.result.Load()
+		val = t.result.Load()
 	}
-	res, ok := val.(futureResult)
-	return res.Result, res.Err 
+	res, _ := val.(futureResult)
+	return res.Result, res.Err
 }

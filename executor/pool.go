@@ -16,6 +16,7 @@ import (
 
 //poolSize 协程数量大小
 //timeout 协程超时时间，当协程空闲到达timeout，会回收协程
+//当超时时间小于等于0时，默认不回收
 //queue 队列chan
 //workNum 当前协程数量
 //rejectHandler 当大于协程池执行能力时的拒绝策略
@@ -38,6 +39,7 @@ const (
 	shutdownStatus = 2
 )
 
+// NewExecutor 初始化协程池
 func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler RejectHandler) (*Executor, error) {
 	if poolSize <= 0 {
 		return nil, errors.New("pool size should greater than 0")
@@ -60,7 +62,10 @@ func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler R
 	return e, nil
 }
 
-func (e *Executor) _execute(runnable Runnable) error {
+// execute 执行任务
+// 当前执行任务未达到上限时，新开协程执行
+// 否则放入队列
+func (e *Executor) execute(runnable Runnable) error {
 	if runnable == nil {
 		return errors.New("nil runnable")
 	}
@@ -84,36 +89,42 @@ func (e *Executor) _execute(runnable Runnable) error {
 	return e.rejectHandler.RejectedExecution(runnable, e)
 }
 
+// Execute 异步无返回值的执行
 func (e *Executor) Execute(fn func()) error {
 	if fn == nil {
 		return errors.New("nil function")
 	}
-	return e._execute(&RunnbaleImpl{
+	return e.execute(&RunnableImpl{
 		Runnable: fn,
 	})
 }
 
+// Submit 异步可返回函数执行结果
+// 结合promise，可控制返回结果或异常 而非函数本身结果
+// 详细看 FutureTask
 func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
 	if callable == nil {
 		return nil, errors.New("nil callable")
 	}
 	task := NewFutureTask(callable)
-	if err := e._execute(task); err != nil {
+	if err := e.execute(task); err != nil {
 		return nil, err
 	}
 	return task, nil
 }
 
+// Shutdown 关闭协程池
 func (e *Executor) Shutdown() {
 	e.closeOnce.Do(func() {
 		e.addWorkerMu.Lock()
 		e.status = shutdownStatus
-		e.addWorkerMu.UnLock()
+		e.addWorkerMu.Unlock()
 		close(e.queue)
 		e.cancelFunc()
 	})
 }
 
+// addWorker 新增协程 并不断监听队列内容
 func (e *Executor) addWorker(runnable Runnable) bool {
 	w := worker{
 		timeout:       e.timeout,
