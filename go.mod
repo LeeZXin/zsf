@@ -3,26 +3,28 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
+	github.com/SkyAPM/go2sky v1.5.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.0
+	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/consul/api v1.20.0
 	github.com/hashicorp/go-hclog v1.2.0
-	github.com/jhump/protoreflect v1.15.1
 	github.com/prometheus/client_golang v1.9.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.15.0
 	google.golang.org/grpc v1.54.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	nhooyr.io/websocket v1.8.7
+	skywalking.apache.org/repo/goapi v0.0.0-20230314034821-0c5a44bb767a
+	xorm.io/xorm v1.3.2
 )
 
 require (
-	github.com/SkyAPM/go2sky v1.5.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bufbuild/protocompile v0.4.0 // indirect
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -34,6 +36,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.11.2 // indirect
 	github.com/goccy/go-json v0.10.0 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
@@ -63,6 +66,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
+	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.6 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -77,6 +81,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	nhooyr.io/websocket v1.8.7 // indirect
-	skywalking.apache.org/repo/goapi v0.0.0-20230314034821-0c5a44bb767a // indirect
+	xorm.io/builder v0.3.11-0.20220531020008-1bd24a7dc978 // indirect
 )

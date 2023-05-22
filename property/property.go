@@ -72,3 +72,7 @@ func MergeConfig(in io.Reader) error {
 func Exists(key string) bool {
 	return v.IsSet(key)
 }
+
+func GetInt64(key string) int64 {
+	return v.GetInt64(key)
+}

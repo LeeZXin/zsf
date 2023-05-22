@@ -32,6 +32,8 @@ func (w *serviceWatcher) OnChange(serviceName string, callback addrUpdateCallbac
 	addrs, err := discovery.GetServiceInfo(serviceName)
 	if err == nil {
 		callback(addrs)
+	} else {
+		callback(nil)
 	}
 	w.mu.Lock()
 	w.serviceMap[serviceName] = addrs
