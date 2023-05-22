@@ -40,6 +40,9 @@ func (c *Channel) Publish(topic string, data any) error {
 	}
 	c.mu.RLock()
 	subs, ok := c.ch[topic]
+	if ok {
+		subs = subs[:]
+	}
 	c.mu.RUnlock()
 	if !ok {
 		return noSubscriberErr
