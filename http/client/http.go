@@ -13,7 +13,7 @@ import (
 
 var (
 	clientCache = make(map[string]Client, 8)
-	clientMu    = sync.Mutex{}
+	cacheMu     = sync.Mutex{}
 
 	interceptors   = make([]Interceptor, 0)
 	interceptorsMu = sync.Mutex{}
@@ -32,8 +32,8 @@ func init() {
 	)
 	//关闭所有的连接
 	quit.AddShutdownHook(func() {
-		clientMu.Lock()
-		defer clientMu.Unlock()
+		cacheMu.Lock()
+		defer cacheMu.Unlock()
 		for _, client := range clientCache {
 			client.Close()
 		}
@@ -47,8 +47,8 @@ func Dial(serviceName string) Client {
 	if ok {
 		return client
 	}
-	clientMu.Lock()
-	defer clientMu.Unlock()
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
 	client, ok = clientCache[serviceName]
 	if ok {
 		return client

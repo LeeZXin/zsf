@@ -73,6 +73,14 @@ func init() {
 	if property.GetBool("grpc.debug") {
 		debug.StartGrpcDebug()
 	}
+	//关闭grpc channel
+	quit.AddShutdownHook(func() {
+		cacheMu.Lock()
+		defer cacheMu.Unlock()
+		for _, conn := range clientCache {
+			_ = conn.Close()
+		}
+	})
 }
 
 type targetResolver struct {
@@ -182,7 +190,6 @@ func Dial(serviceName string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 	clientCache[serviceName] = conn
-
 	return conn, nil
 }
 

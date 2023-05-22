@@ -10,6 +10,7 @@ import (
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -21,6 +22,10 @@ import (
 type Config struct {
 	Register RegisterRouterFunc
 	Filters  []gin.HandlerFunc
+}
+
+type UpdateLogLevelRequest struct {
+	LogLevel string `json:"logLevel,omitempty"`
 }
 
 type RegisterRouterFunc func(*gin.Engine)
@@ -55,6 +60,8 @@ func InitAndStartHttpServer(config Config) {
 	if config.Register != nil {
 		config.Register(r)
 	}
+	//暴露一个修改日志级别的接口
+	AddUpdateLogLevelApi(r)
 	//是否开启http服务注册
 	if property.GetBool("http.registry.enabled") {
 		weight := property.GetInt("http.weight")
@@ -99,4 +106,34 @@ func InitAndStartHttpServer(config Config) {
 			logger.Logger.Panic(err)
 		}
 	}()
+}
+
+func AddUpdateLogLevelApi(e *gin.Engine) {
+	e.POST("/log/updateLogLevel", func(c *gin.Context) {
+		var req UpdateLogLevelRequest
+		err := c.Bind(&req)
+		if err == nil {
+			level := req.LogLevel
+			switch level {
+			case "info":
+				logger.Logger.SetLevel(logrus.InfoLevel)
+				break
+			case "debug":
+				logger.Logger.SetLevel(logrus.DebugLevel)
+				break
+			case "warn":
+				logger.Logger.SetLevel(logrus.WarnLevel)
+				break
+			case "error":
+				logger.Logger.SetLevel(logrus.ErrorLevel)
+				break
+			case "trace":
+				logger.Logger.SetLevel(logrus.TraceLevel)
+				break
+			default:
+				break
+			}
+		}
+		c.String(http.StatusOK, "success")
+	})
 }

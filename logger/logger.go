@@ -52,6 +52,7 @@ func init() {
 	Logger = &vLogger{Logger: logrus.New()}
 	Logger.SetReportCaller(true)
 	Logger.SetFormatter(&logFormatter{})
+	Logger.SetLevel(logrus.InfoLevel)
 	Logger.SetOutput(io.MultiWriter(os.Stdout, &lumberjack.Logger{
 		Filename:   "./logs/application.log", //日志文件位置
 		MaxSize:    100,                      // 单文件最大容量,单位是MB
