@@ -15,6 +15,7 @@ var (
 
 const (
 	DefaultVersion = "default"
+	DefaultEnv     = "sit"
 )
 
 func init() {
@@ -30,7 +31,8 @@ func init() {
 	logger.Logger.Info("project version is ", version)
 	env = *envCmd
 	if env == "" {
-		logger.Logger.Panic("project env is nil")
+		logger.Logger.Info("project env is nil set to default: ", DefaultEnv)
+		env = DefaultEnv
 	}
 	logger.Logger.Info("project env is ", env)
 }
