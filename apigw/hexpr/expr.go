@@ -2,7 +2,7 @@ package hexpr
 
 import (
 	"errors"
-	"fmt"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/gin-gonic/gin"
 	"strings"
 )
@@ -103,7 +103,7 @@ func (e *Expr) Execute(c *gin.Context) (result bool) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			fmt.Println(err)
+			logger.Logger.WithContext(c.Request.Context()).Error(err)
 			result = false
 		}
 	}()
