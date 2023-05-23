@@ -23,7 +23,7 @@ type HashSelector struct {
 	HashFunc     HashFunc
 }
 
-func (s *HashSelector) init() error {
+func (s *HashSelector) Init() error {
 	if s.Nodes == nil || len(s.Nodes) == 0 {
 		return errors.New("empty nodes")
 	}
@@ -57,7 +57,7 @@ func NewHashSelector(nodes []Node) (Selector, error) {
 		return &SingleNodeSelector{Node: nodes[0]}, nil
 	}
 	h := &HashSelector{Nodes: nodes}
-	err := h.init()
+	err := h.Init()
 	if err != nil {
 		return nil, err
 	}
