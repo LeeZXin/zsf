@@ -15,20 +15,22 @@ var (
 )
 
 func init() {
-	showSql = property.GetBool("xorm.ShowSql")
+	showSqlKey := "xorm.showSql"
+	slowSqlDurationKey := "xorm.slowSqlDuration"
+	showSql = property.GetBool(showSqlKey)
 	XormReportLogger = &xLogger{
 		DiscardLogger: xormlog.DiscardLogger{},
 	}
-	duration := property.GetInt64("xorm.slowSqlDuration")
+	duration := property.GetInt64(slowSqlDurationKey)
 	if duration > 0 {
 		slowSqlDuration = time.Duration(duration) * time.Millisecond
 	}
-	loader.OnKeyChange("xorm.ShowSql", func() {
-		showSql = property.GetBool("xorm.ShowSql")
+	loader.OnKeyChange(showSqlKey, func() {
+		showSql = property.GetBool(showSqlKey)
 	})
 }
 
-// xLogger 实现xorm sql的prometheus上报
+// xLogger 实现xorm sql的日志告警
 type xLogger struct {
 	xormlog.DiscardLogger
 }
