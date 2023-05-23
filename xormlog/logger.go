@@ -5,12 +5,12 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/property/loader"
 	"time"
-	xormlog "xorm.io/xorm/log"
+	log "xorm.io/xorm/log"
 )
 
 var (
 	showSql          bool
-	XormReportLogger xormlog.ContextLogger
+	XormReportLogger log.ContextLogger
 	slowSqlDuration  time.Duration
 )
 
@@ -19,7 +19,7 @@ func init() {
 	slowSqlDurationKey := "xorm.slowSqlDuration"
 	showSql = property.GetBool(showSqlKey)
 	XormReportLogger = &xLogger{
-		DiscardLogger: xormlog.DiscardLogger{},
+		DiscardLogger: log.DiscardLogger{},
 	}
 	duration := property.GetInt64(slowSqlDurationKey)
 	if duration > 0 {
@@ -32,16 +32,16 @@ func init() {
 
 // xLogger 实现xorm sql的日志告警
 type xLogger struct {
-	xormlog.DiscardLogger
+	log.DiscardLogger
 }
 
 func (x *xLogger) IsShowSQL() bool {
 	return true
 }
 
-func (x *xLogger) BeforeSQL(xormlog.LogContext) {}
+func (x *xLogger) BeforeSQL(log.LogContext) {}
 
-func (x *xLogger) AfterSQL(ctx xormlog.LogContext) {
+func (x *xLogger) AfterSQL(ctx log.LogContext) {
 	if showSql {
 		logger.Logger.WithContext(ctx.Ctx).Infof("[SQL] %s %v - %v", ctx.SQL, ctx.Args, ctx.ExecuteTime)
 	}
