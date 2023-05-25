@@ -1,4 +1,4 @@
-package appinfo
+package common
 
 import (
 	"github.com/LeeZXin/zsf/logger"
@@ -16,8 +16,8 @@ var (
 
 const (
 	DefaultVersion = "default"
-	HttpScheme     = "http"
-	GrpcScheme     = "grpc"
+	HttpProtocol   = "http"
+	GrpcProtocol   = "grpc"
 	VersionPrefix  = "version="
 )
 

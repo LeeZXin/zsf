@@ -29,6 +29,21 @@
           "weight": 1
         }
       ]
+    },
+    {
+      "serviceName": "fake-http",
+      "targets": [
+        {
+          "addr": "127.0.0.1",
+          "port": 8898,
+          "weight": 1
+        },
+        {
+          "addr": "127.0.0.1",
+          "port": 8899,
+          "weight": 1
+        }
+      ]
     }
   ]
 }

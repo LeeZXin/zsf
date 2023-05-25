@@ -36,7 +36,7 @@ property:
 
 # 服务发现 type = consul or static
 discovery:
-  type: consul
+  type: static
   enabled: true
 
 # prometheus server

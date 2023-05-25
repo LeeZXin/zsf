@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/logger"
@@ -33,7 +33,7 @@ func init() {
 type ChangeCallback func()
 
 func startWatchPropertyChange() {
-	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), appinfo.GetApplicationName())
+	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), common.GetApplicationName())
 	logger.Logger.Info("listen consul property key:", propertyKey)
 
 	plan, err := watch.Parse(map[string]any{

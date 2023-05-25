@@ -2,7 +2,7 @@ package grpcserver
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/grpc/debug"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
@@ -95,7 +95,7 @@ func InitAndStartGrpcServer(config Config) {
 		registry.RegisterSelf(
 			registry.ServiceInfo{
 				Port:   port,
-				Scheme: appinfo.GrpcScheme,
+				Scheme: common.GrpcProtocol,
 				Weight: weight,
 			},
 		)

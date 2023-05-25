@@ -3,7 +3,7 @@ package httpserver
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
@@ -71,7 +71,7 @@ func InitAndStartHttpServer(config Config) {
 		//服务注册
 		registry.RegisterSelf(registry.ServiceInfo{
 			Port:   port,
-			Scheme: appinfo.HttpScheme,
+			Scheme: common.HttpProtocol,
 			Weight: weight,
 		})
 	}

@@ -38,7 +38,7 @@ func WrapServerStream(stream grpc.ServerStream) *WrappedServerStream {
 func headerStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
-		clone := copyIncomingContext(ctx)
+		clone := CopyIncomingContext(ctx)
 		ctx = rpc.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		wrapped := WrapServerStream(ss)

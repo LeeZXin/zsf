@@ -57,6 +57,7 @@ func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, strin
 }
 
 type Client interface {
+	Select() (string, error)
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error
@@ -92,6 +93,14 @@ func (c *Impl) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
 	}
+}
+
+func (c *Impl) Select() (string, error) {
+	node, err := c.routeSelector.Select()
+	if err != nil {
+		return "", err
+	}
+	return node.Data.(string), nil
 }
 
 func (c *Impl) Get(ctx context.Context, path string, resp any, opts ...Option) error {

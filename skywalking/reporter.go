@@ -1,7 +1,7 @@
 package skywalking
 
 import (
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/property/loader"
@@ -47,7 +47,7 @@ func init() {
 	if property.GetFloat64("skywalking.samplerRate") > 0 {
 		samplerRate = property.GetFloat64("skywalking.samplerRate")
 	}
-	tracer, err := go2sky.NewTracer(appinfo.GetApplicationName(),
+	tracer, err := go2sky.NewTracer(common.GetApplicationName(),
 		go2sky.WithReporter(grpcReporter),
 		go2sky.WithSampler(samplerRate),
 	)

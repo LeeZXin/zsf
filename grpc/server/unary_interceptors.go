@@ -24,25 +24,21 @@ import (
 // headerUnaryInterceptor 请求头传递
 func headerUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		clone := copyIncomingContext(ctx)
+		clone := CopyIncomingContext(ctx)
 		ctx = rpc.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		return handler(ctx, req)
 	}
 }
 
-func copyIncomingContext(ctx context.Context) rpc.Header {
+func CopyIncomingContext(ctx context.Context) rpc.Header {
 	clone := make(map[string]string, 8)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key, val := range md {
 			key = strings.ToLower(key)
-			if strings.HasPrefix(key, rpc.Prefix) {
-				v := ""
-				if val != nil && len(val) > 0 {
-					v = val[0]
-				}
-				clone[key] = v
+			if val != nil && len(val) > 0 {
+				clone[key] = val[0]
 			}
 		}
 	}

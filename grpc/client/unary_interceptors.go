@@ -3,7 +3,7 @@ package grpcclient
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
@@ -21,7 +21,7 @@ func headerClientUnaryInterceptor() grpc.UnaryClientInterceptor {
 		for k, v := range md {
 			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, appinfo.GetApplicationName())
+		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, common.GetApplicationName())
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }

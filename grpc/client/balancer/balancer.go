@@ -1,8 +1,8 @@
 package balancer
 
 import (
-	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -30,7 +30,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	}
 	nodesMap := make(map[string][]selector.Node)
 	//默认版本节点先初始化
-	nodesMap[appinfo.DefaultVersion] = make([]selector.Node, 0)
+	nodesMap[common.DefaultVersion] = make([]selector.Node, 0)
 	i := 0
 	for subConn, subConnInfo := range info.ReadySCs {
 		weight := 1
@@ -41,7 +41,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 			version = attr.Version
 		}
 		if version == "" {
-			version = appinfo.DefaultVersion
+			version = common.DefaultVersion
 		}
 		node := selector.Node{
 			Id:     strconv.Itoa(i),
@@ -54,8 +54,8 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		} else {
 			nodesMap[version] = append(make([]selector.Node, 0), node)
 		}
-		if version != appinfo.DefaultVersion {
-			nodesMap[appinfo.DefaultVersion] = append(nodesMap[appinfo.DefaultVersion], node)
+		if version != common.DefaultVersion {
+			nodesMap[common.DefaultVersion] = append(nodesMap[common.DefaultVersion], node)
 		}
 		i += 1
 	}
@@ -87,7 +87,7 @@ func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err 
 	)
 	nodeSelector, ok = p.selectorMap[version]
 	if !ok {
-		nodeSelector = p.selectorMap[appinfo.DefaultVersion]
+		nodeSelector = p.selectorMap[common.DefaultVersion]
 	}
 	node, err = nodeSelector.Select()
 	if err != nil {

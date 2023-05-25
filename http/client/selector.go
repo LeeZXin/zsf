@@ -3,8 +3,8 @@ package client
 import (
 	"errors"
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/selector"
@@ -92,7 +92,7 @@ func (c *CachedHttpSelector) Select(key ...string) (node selector.Node, err erro
 func (c *CachedHttpSelector) getFromCache(slr map[string]selector.Selector) (node selector.Node, err error) {
 	hit, ok := slr[cmd.GetVersion()]
 	if !ok {
-		node, err = slr[appinfo.DefaultVersion].Select()
+		node, err = slr[common.DefaultVersion].Select()
 		return
 	}
 	node, err = hit.Select()
@@ -120,7 +120,7 @@ func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node, e
 	}
 	res := make(map[string][]selector.Node)
 	//默认版本节点先初始化
-	res[appinfo.DefaultVersion] = make([]selector.Node, 0)
+	res[common.DefaultVersion] = make([]selector.Node, 0)
 	i := 0
 	for _, item := range info {
 		n := selector.Node{
@@ -128,7 +128,7 @@ func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node, e
 			Weight: item.Weight,
 			Data:   fmt.Sprintf("%s:%d", item.Addr, item.Port),
 		}
-		version := appinfo.DefaultVersion
+		version := common.DefaultVersion
 		if item.Version != "" {
 			version = item.Version
 		}
@@ -138,8 +138,8 @@ func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node, e
 		} else {
 			res[version] = append(make([]selector.Node, 0), n)
 		}
-		if version != appinfo.DefaultVersion {
-			res[appinfo.DefaultVersion] = append(res[appinfo.DefaultVersion], n)
+		if version != common.DefaultVersion {
+			res[common.DefaultVersion] = append(res[common.DefaultVersion], n)
 		}
 		i += 1
 	}

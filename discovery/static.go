@@ -2,7 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"os"
 )
@@ -51,7 +51,7 @@ func init() {
 				addr := ServiceAddr{
 					Addr:    target.Addr,
 					Port:    target.Port,
-					Version: appinfo.DefaultVersion,
+					Version: common.DefaultVersion,
 				}
 				if target.Weight > 0 {
 					addr.Weight = target.Weight

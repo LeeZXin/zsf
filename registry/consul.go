@@ -3,8 +3,8 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
 	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/quit"
@@ -31,7 +31,7 @@ func (s *consulImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	agent := consul.GetConsulClient().Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", appinfo.GetRegion(), appinfo.GetZone(),
+	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(),
 		strings.ReplaceAll(uuid.New().String(), "-", ""))
 	s.checkID = s.serviceId + "-checkID"
 
@@ -51,13 +51,13 @@ func (s *consulImpl) StartRegisterSelf() error {
 		registerFunc := func() error {
 			return agent.ServiceRegister(&api.AgentServiceRegistration{
 				ID:   s.serviceId,
-				Name: appinfo.GetApplicationName() + "-" + info.Scheme,
+				Name: common.GetApplicationName() + "-" + info.Scheme,
 				Tags: []string{
 					info.Scheme,
-					appinfo.VersionPrefix + cmd.GetVersion(),
+					common.VersionPrefix + cmd.GetVersion(),
 				},
 				Port:    info.Port,
-				Address: appinfo.GetLocalIp(),
+				Address: common.GetLocalIp(),
 				Weights: &api.AgentWeights{
 					Passing: info.Weight,
 				},

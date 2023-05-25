@@ -75,18 +75,21 @@ func headerFilter() gin.HandlerFunc {
 		if c.Request.Header.Get(rpc.TraceId) == "" {
 			c.Request.Header.Set(rpc.TraceId, strings.ReplaceAll(uuid.New().String(), "-", ""))
 		}
-		clone := make(map[string]string, len(c.Request.Header))
-		for key := range c.Request.Header {
-			key = strings.ToLower(key)
-			if strings.HasPrefix(strings.ToLower(key), rpc.Prefix) {
-				clone[key] = c.Request.Header.Get(key)
-			}
-		}
+		clone := CopyRequestHeader(c)
 		ctx := rpc.SetHeaders(c.Request.Context(), clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+func CopyRequestHeader(c *gin.Context) rpc.Header {
+	clone := make(rpc.Header, len(c.Request.Header))
+	for key := range c.Request.Header {
+		key = strings.ToLower(key)
+		clone[key] = c.Request.Header.Get(key)
+	}
+	return clone
 }
 
 func skywalkingFilter() gin.HandlerFunc {

@@ -1,7 +1,7 @@
 package discovery
 
 import (
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/hashicorp/consul/api"
@@ -67,10 +67,10 @@ func DiffServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
 
 // findServiceTagVersion 读取tag中版本信息
 func findServiceTagVersion(tags []string) string {
-	ver := appinfo.DefaultVersion
+	ver := common.DefaultVersion
 	for _, tag := range tags {
-		if strings.HasPrefix(tag, appinfo.VersionPrefix) {
-			ver = strings.TrimPrefix(tag, appinfo.VersionPrefix)
+		if strings.HasPrefix(tag, common.VersionPrefix) {
+			ver = strings.TrimPrefix(tag, common.VersionPrefix)
 			break
 		}
 	}

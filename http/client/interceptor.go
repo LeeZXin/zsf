@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/appinfo"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
@@ -20,7 +20,7 @@ func headerInterceptor() Interceptor {
 			request.Header.Set(k, v)
 		}
 		// 塞source信息
-		request.Header.Set(rpc.Source, appinfo.GetApplicationName())
+		request.Header.Set(rpc.Source, common.GetApplicationName())
 		return invoker(request)
 	}
 }
