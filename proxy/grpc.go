@@ -53,10 +53,7 @@ func DoGrpcProxy(rpcCtx *RpcContext) error {
 		return NoMethodFoundErr
 	}
 	// 获取目标target
-	serviceName, err := rpcCtx.Picker()(*rpcCtx)
-	if err != nil {
-		return err
-	}
+	serviceName := rpcCtx.TargetService()
 	// 服务发现寻找服务
 	targetConn, err := grpcclient.Dial(serviceName)
 	if err != nil {

@@ -25,10 +25,7 @@ var (
 func DoHttpProxy(rpcCtx *RpcContext) error {
 	ginCtx := rpcCtx.Request().(*gin.Context)
 	// 获取目标服务
-	serviceName, err := rpcCtx.Picker()(*rpcCtx)
-	if err != nil {
-		return err
-	}
+	serviceName := rpcCtx.TargetService()
 	// 服务发现
 	targetConn := httpclient.Dial(serviceName)
 	// 获取服务发现ip

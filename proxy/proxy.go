@@ -12,16 +12,45 @@ import (
 )
 
 var (
-	TargetNotFoundErr = errors.New("target not found")
+	TargetNotFoundErr      = errors.New("target not found")
+	SourceNotFoundErr      = errors.New("source not found")
+	ServiceCollisionErr    = errors.New("service collision")
+	ModeNotFoundErr        = errors.New("proxy mode not found")
+	NilRpcContextErr       = errors.New("nil rpc context")
+	NilInvokerErr          = errors.New("nil invoker")
+	NilGinCtxErr           = errors.New("nil gin.Context")
+	NilGrpcServerStreamErr = errors.New("nil grpc.ServerStream")
+
+	AttachedService string
 )
+
+const (
+	// ModeSidecar sidecar模式
+	ModeSidecar = "sideCar"
+	// ModeProxy 代理模式
+	ModeProxy = "proxy"
+)
+
+const (
+	// AnyBoundTraffic 代理流量
+	AnyBoundTraffic = iota
+	// OutBoundTraffic 出口流量
+	OutBoundTraffic
+	// InBoundTraffic 入口流量
+	InBoundTraffic
+)
+
+type Mode string
 
 // RpcContext 反向代理上下文
 type RpcContext struct {
-	protocol string
-	ctx      context.Context
-	header   rpc.Header
-	request  any
-	picker   TargetServiceNamePicker
+	protocol      string
+	ctx           context.Context
+	header        rpc.Header
+	request       any
+	targetService string
+	sourceService string
+	trafficType   int
 }
 
 func (c *RpcContext) Context() context.Context {
@@ -52,18 +81,20 @@ func (c *RpcContext) Protocol() string {
 	return c.protocol
 }
 
-func (c *RpcContext) Picker() TargetServiceNamePicker {
-	if c.picker == nil {
-		return DefaultTargetServiceNamePicker
-	}
-	return c.picker
+func (c *RpcContext) TargetService() string {
+	return c.targetService
+}
+
+func (c *RpcContext) SourceService() string {
+	return c.sourceService
+}
+
+func (c *RpcContext) TrafficType() int {
+	return c.trafficType
 }
 
 // newGrpcRpcContext 生成grpc的反向代理上下文
-func newGrpcRpcContext(s grpc.ServerStream, picker TargetServiceNamePicker) *RpcContext {
-	if picker == nil {
-		picker = DefaultTargetServiceNamePicker
-	}
+func newGrpcRpcContext(s grpc.ServerStream) *RpcContext {
 	header := grpcserver.CopyIncomingContext(s.Context())
 	ctx := rpc.SetHeaders(s.Context(), header)
 	return &RpcContext{
@@ -71,15 +102,11 @@ func newGrpcRpcContext(s grpc.ServerStream, picker TargetServiceNamePicker) *Rpc
 		ctx:      ctx,
 		request:  s,
 		header:   header,
-		picker:   picker,
 	}
 }
 
 // newHttpRpcContext 生成http的反向代理上下文
-func newHttpRpcContext(c *gin.Context, picker TargetServiceNamePicker) *RpcContext {
-	if picker == nil {
-		picker = DefaultTargetServiceNamePicker
-	}
+func newHttpRpcContext(c *gin.Context) *RpcContext {
 	header := httpserver.CopyRequestHeader(c)
 	ctx := rpc.SetHeaders(c.Request.Context(), header)
 	return &RpcContext{
@@ -87,26 +114,68 @@ func newHttpRpcContext(c *gin.Context, picker TargetServiceNamePicker) *RpcConte
 		ctx:      ctx,
 		request:  c,
 		header:   header,
-		picker:   picker,
 	}
 }
 
-// GrpcStreamProxy grpc代理
-func GrpcStreamProxy(stream grpc.ServerStream, interceptors []Interceptor, picker TargetServiceNamePicker) error {
-	rpcContext := newGrpcRpcContext(stream, picker)
-	if interceptors == nil || len(interceptors) == 0 {
-		return DoGrpcProxy(rpcContext)
-	}
-	wrapper := interceptorsWrapper{interceptorList: interceptors}
-	return wrapper.intercept(rpcContext, DoGrpcProxy)
+// RegisterAttachedService sidecar模式时注册的服务名称
+func RegisterAttachedService(service string) {
+	AttachedService = service
 }
 
-// HttpStreamProxy http代理
-func HttpStreamProxy(stream *gin.Context, interceptors []Interceptor, picker TargetServiceNamePicker) error {
-	rpcContext := newHttpRpcContext(stream, picker)
+// streamProxy 执行代理
+func streamProxy(interceptors []Interceptor, proxyMode Mode, rpcContext *RpcContext, invoker Invoker) error {
+	if rpcContext == nil {
+		return NilRpcContextErr
+	}
+	if invoker == nil {
+		return NilInvokerErr
+	}
+	targetServiceName, err := DefaultTargetServiceNamePicker(*rpcContext)
+	if err != nil {
+		return err
+	}
+	rpcContext.targetService = targetServiceName
+	sourceServiceName, err := DefaultSourceServiceNamePicker(*rpcContext)
+	if err != nil {
+		return err
+	}
+	rpcContext.sourceService = sourceServiceName
+	if sourceServiceName == targetServiceName {
+		return ServiceCollisionErr
+	}
+	switch proxyMode {
+	case ModeSidecar:
+		if sourceServiceName == AttachedService {
+			rpcContext.trafficType = OutBoundTraffic
+		} else {
+			rpcContext.trafficType = InBoundTraffic
+		}
+		break
+	case ModeProxy:
+		rpcContext.trafficType = AnyBoundTraffic
+		break
+	default:
+		return ModeNotFoundErr
+	}
 	if interceptors == nil || len(interceptors) == 0 {
-		return DoHttpProxy(rpcContext)
+		return invoker(rpcContext)
 	}
 	wrapper := interceptorsWrapper{interceptorList: interceptors}
-	return wrapper.intercept(rpcContext, DoHttpProxy)
+	return wrapper.intercept(rpcContext, invoker)
+}
+
+func HttpProxy(ginCtx *gin.Context, interceptors []Interceptor, proxyMode Mode) error {
+	if ginCtx == nil {
+		return NilGinCtxErr
+	}
+	rpcContext := newHttpRpcContext(ginCtx)
+	return streamProxy(interceptors, proxyMode, rpcContext, DoHttpProxy)
+}
+
+func GrpcProxy(stream grpc.ServerStream, interceptors []Interceptor, proxyMode Mode) error {
+	if stream == nil {
+		return NilGrpcServerStreamErr
+	}
+	rpcContext := newGrpcRpcContext(stream)
+	return streamProxy(interceptors, proxyMode, rpcContext, DoGrpcProxy)
 }
