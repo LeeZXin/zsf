@@ -93,8 +93,8 @@ func (c *RpcContext) TrafficType() int {
 	return c.trafficType
 }
 
-// newGrpcRpcContext 生成grpc的反向代理上下文
-func newGrpcRpcContext(s grpc.ServerStream) *RpcContext {
+// NewGrpcRpcContext 生成grpc的反向代理上下文
+func NewGrpcRpcContext(s grpc.ServerStream) *RpcContext {
 	header := grpcserver.CopyIncomingContext(s.Context())
 	ctx := rpc.SetHeaders(s.Context(), header)
 	return &RpcContext{
@@ -105,8 +105,8 @@ func newGrpcRpcContext(s grpc.ServerStream) *RpcContext {
 	}
 }
 
-// newHttpRpcContext 生成http的反向代理上下文
-func newHttpRpcContext(c *gin.Context) *RpcContext {
+// NewHttpRpcContext 生成http的反向代理上下文
+func NewHttpRpcContext(c *gin.Context) *RpcContext {
 	header := httpserver.CopyRequestHeader(c)
 	ctx := rpc.SetHeaders(c.Request.Context(), header)
 	return &RpcContext{
@@ -122,8 +122,8 @@ func RegisterAttachedService(service string) {
 	AttachedService = service
 }
 
-// streamProxy 执行代理
-func streamProxy(interceptors []Interceptor, proxyMode Mode, rpcContext *RpcContext, invoker Invoker) error {
+// StreamProxy 执行代理
+func StreamProxy(interceptors []Interceptor, proxyMode Mode, rpcContext *RpcContext, invoker Invoker) error {
 	if rpcContext == nil {
 		return NilRpcContextErr
 	}
@@ -168,14 +168,14 @@ func HttpProxy(ginCtx *gin.Context, interceptors []Interceptor, proxyMode Mode) 
 	if ginCtx == nil {
 		return NilGinCtxErr
 	}
-	rpcContext := newHttpRpcContext(ginCtx)
-	return streamProxy(interceptors, proxyMode, rpcContext, DoHttpProxy)
+	rpcContext := NewHttpRpcContext(ginCtx)
+	return StreamProxy(interceptors, proxyMode, rpcContext, DoHttpProxy)
 }
 
 func GrpcProxy(stream grpc.ServerStream, interceptors []Interceptor, proxyMode Mode) error {
 	if stream == nil {
 		return NilGrpcServerStreamErr
 	}
-	rpcContext := newGrpcRpcContext(stream)
-	return streamProxy(interceptors, proxyMode, rpcContext, DoGrpcProxy)
+	rpcContext := NewGrpcRpcContext(stream)
+	return StreamProxy(interceptors, proxyMode, rpcContext, DoGrpcProxy)
 }
