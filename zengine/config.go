@@ -2,9 +2,14 @@ package zengine
 
 import (
 	"encoding/json"
-	"errors"
 	lua "github.com/yuin/gopher-lua"
 )
+
+// HandlerConfig 执行函数信息
+type HandlerConfig struct {
+	Name   string         `json:"name"`
+	Params map[string]any `json:"params"`
+}
 
 // NextConfig 下一节点信息配置
 type NextConfig struct {
@@ -19,7 +24,7 @@ type NodeConfig struct {
 	// Name 节点名称 唯一标识
 	Name string `json:"name"`
 	// Bean 节点方法信息
-	Bean BeanConfig `json:"params"`
+	Handler HandlerConfig `json:"handler"`
 	// Next 下一节点信息
 	Next []NextConfig `json:"next"`
 }
@@ -53,8 +58,8 @@ func (d *DAG) GetNode(name string) (node Node, ok bool) {
 type Node struct {
 	// Name 节点名称 唯一标识
 	Name string
-	// Bean 附加信息
-	Bean BeanConfig
+	// Params 附加信息
+	Params *Params
 	// Next 下一节点信息
 	Next []Next
 }
@@ -110,9 +115,9 @@ func buildNode(config NodeConfig, luaExecutor *ScriptExecutor) (Node, error) {
 		return Node{}, err
 	}
 	return Node{
-		Name: config.Name,
-		Bean: config.Bean,
-		Next: next,
+		Name:   config.Name,
+		Params: NewParams(config.Handler),
+		Next:   next,
 	}, nil
 }
 
@@ -129,73 +134,4 @@ func buildNodes(config []NodeConfig, luaExecutor *ScriptExecutor) (map[string]No
 		ret[node.Name] = node
 	}
 	return ret, nil
-}
-
-type DAGExecutor struct {
-	execBeans   map[string]ExecBean
-	luaExecutor *ScriptExecutor
-}
-
-func NewDAGExecutor(beans []ExecBean, maxPoolSize, initPoolSize int, fnMap map[string]lua.LGFunction) *DAGExecutor {
-	nodes := make(map[string]ExecBean)
-	if beans != nil {
-		for i := range beans {
-			bean := beans[i]
-			nodes[bean.GetBeanName()] = bean
-		}
-	}
-	luaExecutor, _ := NewScriptExecutor(maxPoolSize, initPoolSize, fnMap)
-	return &DAGExecutor{
-		execBeans:   nodes,
-		luaExecutor: luaExecutor,
-	}
-}
-
-// Execute 执行规则引擎
-func (e *DAGExecutor) Execute(dag *DAG, ctx *ExecContext) error {
-	if dag == nil {
-		return errors.New("nil dag")
-	}
-	return e.findAndExecute(dag, dag.StartNode(), ctx)
-}
-
-// findAndExecute 找到节点信息并执行
-func (e *DAGExecutor) findAndExecute(dag *DAG, name string, ctx *ExecContext) error {
-	startNode, ok := dag.GetNode(name)
-	if !ok {
-		return errors.New("unknown node: " + name)
-	}
-	return e.executeNode(dag, startNode, ctx)
-}
-
-// executeNode 执行节点 递归深度优先遍历
-func (e *DAGExecutor) executeNode(dag *DAG, node Node, ctx *ExecContext) error {
-	bean, ok := e.execBeans[node.Bean.BeanName]
-	if !ok {
-		return errors.New("unknown bean:" + node.Bean.BeanName)
-	}
-	err := bean.Do(node.Bean, ctx.GlobalBindings)
-	if err != nil {
-		return err
-	}
-	output := bean.GetOutput()
-	if output != nil {
-		ctx.GlobalBindings.PutAll(output)
-	}
-	next := node.Next
-	if next != nil {
-		for _, n := range next {
-			res, err := e.luaExecutor.ExecuteAndReturnBool(n.Condition, ctx.GlobalBindings)
-			if err != nil {
-				return err
-			}
-			if res {
-				err = e.findAndExecute(dag, n.NextNode, ctx)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
 }
