@@ -20,9 +20,7 @@ type Handler interface {
 	// GetName 获取节点标识
 	GetName() string
 	//Do 执行业务逻辑的地方
-	Do(*Params, Bindings) error
-	// GetOutput 执行完要放入全局变量的数据 往其他节点传递
-	GetOutput() Bindings
+	Do(*Params, Bindings) (Bindings, error)
 }
 
 // ExecContext 单次执行上下文
@@ -69,15 +67,14 @@ func (e *DAGExecutor) findAndExecute(dag *DAG, name string, ctx *ExecContext) er
 
 // executeNode 执行节点 递归深度优先遍历
 func (e *DAGExecutor) executeNode(dag *DAG, node Node, ctx *ExecContext) error {
-	bean, ok := e.handlerMap[node.Params.Name]
+	handler, ok := e.handlerMap[node.Params.Name]
 	if !ok {
-		return errors.New("unknown bean:" + node.Params.Name)
+		return errors.New("unknown handler:" + node.Params.Name)
 	}
-	err := bean.Do(node.Params, ctx.GlobalBindings)
+	output, err := handler.Do(node.Params, ctx.GlobalBindings)
 	if err != nil {
 		return err
 	}
-	output := bean.GetOutput()
 	if output != nil {
 		ctx.GlobalBindings.PutAll(output)
 	}
