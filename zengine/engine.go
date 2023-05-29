@@ -1,8 +1,8 @@
 package zengine
 
 type BeanConfig struct {
-	BeanName string
-	Params   map[string]any
+	BeanName string         `json:"beanName"`
+	Params   map[string]any `json:"params"`
 }
 
 // ExecBean 执行节点
