@@ -2,13 +2,61 @@ package zengine
 
 import (
 	"encoding/json"
+	"github.com/spf13/cast"
 	lua "github.com/yuin/gopher-lua"
 )
 
+type Args map[string]any
+
+func (b Args) Get(key string) (any, bool) {
+	ret, ok := b[key]
+	return ret, ok
+}
+
+func (b Args) GetInt(key string) (int, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToInt(ret), true
+	}
+	return 0, false
+}
+
+func (b Args) GetString(key string) (string, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToString(ret), true
+	}
+	return "", false
+}
+
+func (b Args) GetFloat(key string) (float64, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToFloat64(ret), true
+	}
+	return 0, false
+}
+
+func (b Args) GetBool(key string) (bool, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToBool(ret), true
+	}
+	return false, false
+}
+
+func (b Args) Set(key string, val any) {
+	b[key] = val
+}
+
+func (b Args) Del(key string) {
+	delete(b, key)
+}
+
 // HandlerConfig 执行函数信息
 type HandlerConfig struct {
-	Name   string         `json:"name"`
-	Params map[string]any `json:"params"`
+	Name string `json:"name"`
+	Args Args   `json:"args"`
 }
 
 // NextConfig 下一节点信息配置

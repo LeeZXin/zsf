@@ -32,6 +32,38 @@ func (b Bindings) Get(key string) (any, bool) {
 	return ret, ok
 }
 
+func (b Bindings) GetInt(key string) (int, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToInt(ret), true
+	}
+	return 0, false
+}
+
+func (b Bindings) GetString(key string) (string, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToString(ret), true
+	}
+	return "", false
+}
+
+func (b Bindings) GetFloat(key string) (float64, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToFloat64(ret), true
+	}
+	return 0, false
+}
+
+func (b Bindings) GetBool(key string) (bool, bool) {
+	ret, ok := b.Get(key)
+	if ok {
+		return cast.ToBool(ret), true
+	}
+	return false, false
+}
+
 func (b Bindings) Set(key string, val any) {
 	b[key] = val
 }
