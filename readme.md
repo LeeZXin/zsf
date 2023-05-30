@@ -8,6 +8,7 @@ zsf
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  
 > xorm慢sql日志告警  
 > 支持自定义流程编排规则zengine
+> 支持简单http和grpc反向代理，反向代理上可新增鉴权、限流等功能
 >
 1、通用负载均衡路由实现
 
