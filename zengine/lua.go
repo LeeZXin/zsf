@@ -19,6 +19,7 @@ var (
 	// ret = params.id == 1
 	// return ret
 	BoolExprTemplate = `
+		print(params.gg)
 		ret = %s
 		return ret
 	`
@@ -91,7 +92,7 @@ func (b Bindings) FromLTable(table *lua.LTable) error {
 	if table == nil {
 		return errors.New("nil table")
 	}
-	value := toGoValue(table).(map[string]any)
+	value := ToGoValue(table).(map[string]any)
 	for k, v := range value {
 		b[k] = v
 	}
@@ -148,8 +149,8 @@ func fromGoValue(v any, L *lua.LState) lua.LValue {
 	return lua.LNil
 }
 
-// toGoValue LValue转go对象
-func toGoValue(lv lua.LValue) any {
+// ToGoValue LValue转go对象
+func ToGoValue(lv lua.LValue) any {
 	switch v := lv.(type) {
 	case *lua.LNilType:
 		return nil
@@ -164,13 +165,13 @@ func toGoValue(lv lua.LValue) any {
 		if maxn == 0 { // table
 			ret := make(map[string]any)
 			v.ForEach(func(key, value lua.LValue) {
-				ret[key.String()] = toGoValue(value)
+				ret[key.String()] = ToGoValue(value)
 			})
 			return ret
 		} else { // array
 			ret := make([]any, 0, maxn)
 			for i := 1; i <= maxn; i++ {
-				ret = append(ret, toGoValue(v.RawGetInt(i)))
+				ret = append(ret, ToGoValue(v.RawGetInt(i)))
 			}
 			return ret
 		}
@@ -336,4 +337,8 @@ func (e *ScriptExecutor) ExecuteAndReturnBool(proto *lua.FunctionProto, bindings
 		return bool(b), nil
 	}
 	return false, errors.New("unsupported result")
+}
+
+func (e *ScriptExecutor) Close() {
+	e.pool.CloseAll()
 }
