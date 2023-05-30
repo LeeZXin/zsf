@@ -7,6 +7,7 @@ zsf
 > 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等  
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  
 > xorm慢sql日志告警  
+> 支持自定义流程编排规则zengine
 >
 1、通用负载均衡路由实现
 
