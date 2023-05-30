@@ -99,6 +99,22 @@ func (b Bindings) FromLTable(table *lua.LTable) error {
 	return nil
 }
 
+// GetFnArgs 获取函数入参
+func GetFnArgs(state *lua.LState) []lua.LValue {
+	ret := make([]lua.LValue, 0)
+	if state != nil {
+		for {
+			v := state.Get(-1)
+			if v == nil || v.Type() == lua.LTNil {
+				break
+			}
+			state.Pop(1)
+			ret = append(ret, v)
+		}
+	}
+	return ret
+}
+
 // fromGoValue go转LValue 只处理基本类型参数 func chan等不处理
 func fromGoValue(v any, L *lua.LState) lua.LValue {
 	if v == nil {
