@@ -1,7 +1,6 @@
 package zengine
 
 import (
-	"encoding/json"
 	"github.com/spf13/cast"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -107,7 +106,7 @@ type Node struct {
 	// Name 节点名称 唯一标识
 	Name string
 	// Params 附加信息
-	Params *Params
+	Params *InputParams
 	// Next 下一节点信息
 	Next []Next
 }
@@ -117,69 +116,4 @@ type Next struct {
 	Condition *lua.FunctionProto
 	// NextNode 下一节点名称
 	NextNode string
-}
-
-func BuildDAGFromJson(jsonConfig string, luaExecutor *ScriptExecutor) (*DAG, error) {
-	var c DAGConfig
-	err := json.Unmarshal([]byte(jsonConfig), &c)
-	if err != nil {
-		return nil, err
-	}
-	return BuildDAG(c, luaExecutor)
-}
-
-func BuildDAG(config DAGConfig, luaExecutor *ScriptExecutor) (*DAG, error) {
-	nodes, err := buildNodes(config.Nodes, luaExecutor)
-	if err != nil {
-		return nil, err
-	}
-	return &DAG{
-		startNode: config.StartNode,
-		nodes:     nodes,
-	}, nil
-}
-
-func buildNext(config []NextConfig, luaExecutor *ScriptExecutor) ([]Next, error) {
-	if config == nil {
-		return nil, nil
-	}
-	ret := make([]Next, 0, len(config))
-	for _, nextConfig := range config {
-		proto, err := luaExecutor.CompileBoolLua(nextConfig.ConditionExpr)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, Next{
-			Condition: proto,
-			NextNode:  nextConfig.NextNode,
-		})
-	}
-	return ret, nil
-}
-
-func buildNode(config NodeConfig, luaExecutor *ScriptExecutor) (Node, error) {
-	next, err := buildNext(config.Next, luaExecutor)
-	if err != nil {
-		return Node{}, err
-	}
-	return Node{
-		Name:   config.Name,
-		Params: NewParams(config.Handler),
-		Next:   next,
-	}, nil
-}
-
-func buildNodes(config []NodeConfig, luaExecutor *ScriptExecutor) (map[string]Node, error) {
-	if config == nil {
-		return nil, nil
-	}
-	ret := make(map[string]Node)
-	for _, nodeConfig := range config {
-		node, err := buildNode(nodeConfig, luaExecutor)
-		if err != nil {
-			return nil, err
-		}
-		ret[node.Name] = node
-	}
-	return ret, nil
 }
