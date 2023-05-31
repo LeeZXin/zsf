@@ -202,8 +202,9 @@ func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
 	if r.exprMatch != nil {
 		//表达式匹配
 		exprMap := r.exprMatch
-		for expr, t := range exprMap {
+		for expr, tr := range exprMap {
 			if expr.Execute(c) {
+				t := tr
 				return t, true
 			}
 		}
