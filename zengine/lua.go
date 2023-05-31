@@ -75,8 +75,8 @@ func (b Bindings) Del(key string) {
 
 func (b Bindings) PutAll(data map[string]any) {
 	if data != nil {
-		for k, v := range data {
-			b[k] = v
+		for k := range data {
+			b[k] = data[k]
 		}
 	}
 }
@@ -93,8 +93,8 @@ func (b Bindings) FromLTable(table *lua.LTable) error {
 		return errors.New("nil table")
 	}
 	value := ToGoValue(table).(map[string]any)
-	for k, v := range value {
-		b[k] = v
+	for k := range value {
+		b[k] = value[k]
 	}
 	return nil
 }
