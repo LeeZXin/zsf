@@ -23,9 +23,12 @@ var (
 	notifyChannel *psub.Channel
 )
 
-func startLoader() {
+func init() {
 	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
 	notifyChannel, _ = psub.NewChannel(channelExecutor)
+}
+
+func startLoader() {
 	enabled := GetBool("property.enabled")
 	if enabled {
 		logger.Logger.Info("startWatchPropertyChange")
