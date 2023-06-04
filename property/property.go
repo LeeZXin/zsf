@@ -35,6 +35,8 @@ func init() {
 	v.SetConfigName(fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
 	logger.Logger.Info("load property file: ", fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
 	_ = v.ReadInConfig()
+
+	startLoader()
 }
 
 func GetString(key string) string {

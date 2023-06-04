@@ -1,15 +1,13 @@
-package loader
+package property
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/LeeZXin/zsf/cmd"
-	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/psub"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/hashicorp/consul/api"
@@ -25,15 +23,21 @@ var (
 	notifyChannel *psub.Channel
 )
 
-func init() {
+func startLoader() {
 	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
 	notifyChannel, _ = psub.NewChannel(channelExecutor)
+	enabled := GetBool("property.enabled")
+	if enabled {
+		logger.Logger.Info("startWatchPropertyChange")
+		//启动consul配置监听
+		startWatchPropertyChange()
+	}
 }
 
 type ChangeCallback func()
 
 func startWatchPropertyChange() {
-	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), common.GetApplicationName())
+	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), GetString("application.name"))
 	logger.Logger.Info("listen consul property key:", propertyKey)
 
 	plan, err := watch.Parse(map[string]any{
@@ -44,11 +48,13 @@ func startWatchPropertyChange() {
 		logger.Logger.Panic(err)
 	}
 
+	consulClient := consul.NewConsulClient(GetString("consul.address"), GetString("consul.token"))
+
 	var firstModifyIndex uint64
 	//首次需要加载远程配置
-	kv, _, err := consul.GetConsulClient().KV().Get(propertyKey, nil)
+	kv, _, err := consulClient.KV().Get(propertyKey, nil)
 	if err == nil {
-		err = property.MergeConfig(bytes.NewReader(kv.Value))
+		err = MergeConfig(bytes.NewReader(kv.Value))
 		if err != nil {
 			logger.Logger.Error(err)
 		} else {
@@ -78,7 +84,7 @@ func startWatchPropertyChange() {
 			//获取旧配置
 			oldProperties := getAllProperties(listenKeys)
 			//合并配置
-			err = property.MergeConfig(bytes.NewReader(kvPair.Value))
+			err = MergeConfig(bytes.NewReader(kvPair.Value))
 			if err != nil {
 				logger.Logger.Error(err)
 				return
@@ -102,7 +108,7 @@ func startWatchPropertyChange() {
 		})
 		//持续监听
 		for running {
-			listenErr := plan.RunWithClientAndHclog(consul.GetConsulClient(), hclog.NewNullLogger())
+			listenErr := plan.RunWithClientAndHclog(consulClient, hclog.NewNullLogger())
 			if listenErr != nil {
 				logger.Logger.Error(listenErr)
 			}
@@ -115,7 +121,7 @@ func startWatchPropertyChange() {
 func getAllProperties(listenKeys []string) map[string]string {
 	properties := make(map[string]string, len(listenKeys))
 	for _, key := range listenKeys {
-		oldProperty := property.Get(key)
+		oldProperty := Get(key)
 		if oldProperty == nil {
 			properties[key] = ""
 		} else {
@@ -128,14 +134,6 @@ func getAllProperties(listenKeys []string) map[string]string {
 		}
 	}
 	return properties
-}
-
-func init() {
-	enabled := property.GetBool("property.enabled")
-	if enabled {
-		//启动consul配置监听
-		startWatchPropertyChange()
-	}
 }
 
 // OnKeyChange 监听某个key的变化来触发回调

@@ -3,7 +3,6 @@ package xormlog
 import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
-	"github.com/LeeZXin/zsf/property/loader"
 	"time"
 	log "xorm.io/xorm/log"
 )
@@ -25,7 +24,7 @@ func init() {
 	if duration > 0 {
 		slowSqlDuration = time.Duration(duration) * time.Millisecond
 	}
-	loader.OnKeyChange(showSqlKey, func() {
+	property.OnKeyChange(showSqlKey, func() {
 		showSql = property.GetBool(showSqlKey)
 	})
 }

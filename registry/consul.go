@@ -7,6 +7,7 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/api"
@@ -16,6 +17,14 @@ import (
 
 // consul路由注册实现
 // 写代码时是用consul v1.5.2版本测试
+
+var (
+	consulClient *api.Client
+)
+
+func init() {
+	consulClient = consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
+}
 
 type consulImpl struct {
 	serviceId string
@@ -30,7 +39,7 @@ type consulImpl struct {
 func (s *consulImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
-	agent := consul.GetConsulClient().Agent()
+	agent := consulClient.Agent()
 	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(),
 		strings.ReplaceAll(uuid.New().String(), "-", ""))
 	s.checkID = s.serviceId + "-checkID"
