@@ -246,8 +246,9 @@ func (p *lStatePool) newLState() *lua.LState {
 	L := lua.NewState()
 	if len(p.globalFn) > 0 {
 		for name, fn := range p.globalFn {
+			f := fn
 			// 注册函数
-			L.SetGlobal(name, L.NewFunction(fn))
+			L.SetGlobal(name, L.NewFunction(f))
 		}
 	}
 	return L
@@ -297,6 +298,7 @@ func NewScriptExecutor(maxSize int, initSize int, fnMap map[string]lua.LGFunctio
 	if err != nil {
 		return nil, err
 	}
+	pool.init()
 	return &ScriptExecutor{pool: pool}, nil
 }
 
@@ -319,6 +321,9 @@ func (e *ScriptExecutor) CompileLua(x string) (*lua.FunctionProto, error) {
 func (e *ScriptExecutor) Execute(proto *lua.FunctionProto, bindings Bindings) (lua.LValue, error) {
 	if proto == nil {
 		return nil, errors.New("nil proto")
+	}
+	if e.pool == nil {
+		return nil, errors.New("NewScriptExecutor first")
 	}
 	if bindings == nil {
 		bindings = make(Bindings)
