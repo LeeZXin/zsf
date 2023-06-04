@@ -62,10 +62,10 @@ func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler R
 	return e, nil
 }
 
-// execute 执行任务
+// ExecuteRunnable 执行任务
 // 当前执行任务未达到上限时，新开协程执行
 // 否则放入队列
-func (e *Executor) execute(runnable Runnable) error {
+func (e *Executor) ExecuteRunnable(runnable Runnable) error {
 	if runnable == nil {
 		return errors.New("nil runnable")
 	}
@@ -94,7 +94,7 @@ func (e *Executor) Execute(fn func()) error {
 	if fn == nil {
 		return errors.New("nil function")
 	}
-	return e.execute(&RunnableImpl{
+	return e.ExecuteRunnable(&RunnableImpl{
 		Runnable: fn,
 	})
 }
@@ -107,7 +107,7 @@ func (e *Executor) Submit(callable Callable) (*FutureTask, error) {
 		return nil, errors.New("nil callable")
 	}
 	task := NewFutureTask(callable)
-	if err := e.execute(task); err != nil {
+	if err := e.ExecuteRunnable(task); err != nil {
 		return nil, err
 	}
 	return task, nil
