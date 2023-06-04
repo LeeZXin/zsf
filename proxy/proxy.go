@@ -9,6 +9,7 @@ import (
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
+	"sync"
 )
 
 var (
@@ -21,7 +22,9 @@ var (
 	NilGinCtxErr           = errors.New("nil gin.Context")
 	NilGrpcServerStreamErr = errors.New("nil grpc.ServerStream")
 
-	AttachedService string
+	attachedService string
+	attachedHost    string
+	attachMu        = sync.RWMutex{}
 )
 
 const (
@@ -51,6 +54,7 @@ type RpcContext struct {
 	targetService string
 	sourceService string
 	trafficType   int
+	attachedHost  string
 }
 
 func (c *RpcContext) Context() context.Context {
@@ -118,8 +122,11 @@ func NewHttpRpcContext(c *gin.Context) *RpcContext {
 }
 
 // RegisterAttachedService sidecar模式时注册的服务名称
-func RegisterAttachedService(service string) {
-	AttachedService = service
+func RegisterAttachedService(service, host string) {
+	attachMu.Lock()
+	defer attachMu.Unlock()
+	attachedService = service
+	attachedHost = host
 }
 
 // StreamProxy 执行代理
@@ -143,12 +150,14 @@ func StreamProxy(interceptors []Interceptor, proxyMode Mode, rpcContext *RpcCont
 	if sourceServiceName == targetServiceName {
 		return ServiceCollisionErr
 	}
+	attachMu.RLock()
 	switch proxyMode {
 	case ModeSidecar:
-		if sourceServiceName == AttachedService {
+		if sourceServiceName == attachedService {
 			rpcContext.trafficType = OutBoundTraffic
 		} else {
 			rpcContext.trafficType = InBoundTraffic
+			rpcContext.attachedHost = attachedHost
 		}
 		break
 	case ModeProxy:
@@ -157,6 +166,7 @@ func StreamProxy(interceptors []Interceptor, proxyMode Mode, rpcContext *RpcCont
 	default:
 		return ModeNotFoundErr
 	}
+	attachMu.RUnlock()
 	if interceptors == nil || len(interceptors) == 0 {
 		return invoker(rpcContext)
 	}

@@ -24,14 +24,20 @@ var (
 // DoHttpProxy 实际执行http反向代理的函数
 func DoHttpProxy(rpcCtx *RpcContext) error {
 	ginCtx := rpcCtx.Request().(*gin.Context)
-	// 获取目标服务
-	serviceName := rpcCtx.TargetService()
-	// 服务发现
-	targetConn := httpclient.Dial(serviceName)
-	// 获取服务发现ip
-	targetHost, err := targetConn.Select()
-	if err != nil {
-		return err
+	var targetHost string
+	if rpcCtx.trafficType == InBoundTraffic {
+		targetHost = rpcCtx.attachedHost
+	} else {
+		// 获取目标服务
+		serviceName := rpcCtx.TargetService()
+		// 服务发现
+		targetConn := httpclient.Dial(serviceName)
+		var err error
+		// 获取服务发现ip
+		targetHost, err = targetConn.Select()
+		if err != nil {
+			return err
+		}
 	}
 	url := "http://" + targetHost + ginCtx.Request.URL.RequestURI()
 	logger.Logger.Info("http proxy select url: ", url)
