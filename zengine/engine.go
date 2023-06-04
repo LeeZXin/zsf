@@ -119,7 +119,7 @@ func (d *DAGExecutor) findAndExecute(dag *DAG, name string, ctx *ExecContext, ti
 }
 
 // executeNode 执行节点 递归深度优先遍历
-func (d *DAGExecutor) executeNode(dag *DAG, node Node, ctx *ExecContext, times int) error {
+func (d *DAGExecutor) executeNode(dag *DAG, node *Node, ctx *ExecContext, times int) error {
 	handler, ok := d.handlerMap[node.Params.HandlerConfig.Name]
 	if !ok {
 		return errors.New("unknown handler:" + node.Params.HandlerConfig.Name)
@@ -135,14 +135,14 @@ func (d *DAGExecutor) executeNode(dag *DAG, node Node, ctx *ExecContext, times i
 	if next != nil {
 		times = times + 1
 		for _, n := range next {
-			res, err := d.luaExecutor.ExecuteAndReturnBool(n.Condition, ctx.GlobalBindings())
-			if err != nil {
-				return err
+			res, err1 := d.luaExecutor.ExecuteAndReturnBool(n.Condition, ctx.GlobalBindings())
+			if err1 != nil {
+				return err1
 			}
 			if res {
-				err = d.findAndExecute(dag, n.NextNode, ctx, times)
-				if err != nil {
-					return err
+				err1 = d.findAndExecute(dag, n.NextNode, ctx, times)
+				if err1 != nil {
+					return err1
 				}
 			}
 		}
@@ -188,23 +188,23 @@ func (d *DAGExecutor) buildNext(config []NextConfig) ([]Next, error) {
 	return ret, nil
 }
 
-func (d *DAGExecutor) buildNode(config NodeConfig) (Node, error) {
+func (d *DAGExecutor) buildNode(config NodeConfig) (*Node, error) {
 	next, err := d.buildNext(config.Next)
 	if err != nil {
-		return Node{}, err
+		return nil, err
 	}
-	return Node{
+	return &Node{
 		Name:   config.Name,
 		Params: NewInputParams(config.Handler),
 		Next:   next,
 	}, nil
 }
 
-func (d *DAGExecutor) buildNodes(config []NodeConfig) (map[string]Node, error) {
+func (d *DAGExecutor) buildNodes(config []NodeConfig) (map[string]*Node, error) {
 	if config == nil {
-		return make(map[string]Node), nil
+		return make(map[string]*Node), nil
 	}
-	ret := make(map[string]Node)
+	ret := make(map[string]*Node)
 	for _, nodeConfig := range config {
 		node, err := d.buildNode(nodeConfig)
 		if err != nil {

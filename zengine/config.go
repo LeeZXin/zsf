@@ -89,14 +89,14 @@ type DAG struct {
 	// startNode
 	startNode string
 	// nodes 节点信息列表
-	nodes map[string]Node
+	nodes map[string]*Node
 }
 
 func (d *DAG) StartNode() string {
 	return d.startNode
 }
 
-func (d *DAG) GetNode(name string) (node Node, ok bool) {
+func (d *DAG) GetNode(name string) (node *Node, ok bool) {
 	node, ok = d.nodes[name]
 	return
 }
