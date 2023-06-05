@@ -80,7 +80,7 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache get service:", node.Data)
 		return
 	} else {
-		logger.Logger.WithContext(ctx).Info(c.ServiceName, " http cache is expired")
+		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
 			nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
