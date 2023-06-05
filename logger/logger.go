@@ -23,7 +23,6 @@ func (*vLogger) V(l int) bool {
 
 var (
 	Logger *vLogger
-	ts = entry.Time.Format("2006-01-02 15:04:05.000")
 )
 
 type logFormatter struct {
@@ -43,6 +42,7 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 			traceId = t
 		}
 	}
+	ts := entry.Time.Format("2006-01-02 15:04:05.000")
 	logStr := fmt.Sprintf("%s [%s] [%s:%d] [%s] %s\n", ts, entry.Level, path.Base(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
 	buffer.WriteString(logStr)
 	return buffer.Bytes(), nil
