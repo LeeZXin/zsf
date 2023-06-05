@@ -23,6 +23,7 @@ func (*vLogger) V(l int) bool {
 
 var (
 	Logger *vLogger
+	ts = entry.Time.Format("2006-01-02 15:04:05.000")
 )
 
 type logFormatter struct {
@@ -34,7 +35,6 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	if buffer == nil {
 		buffer = &bytes.Buffer{}
 	}
-	ts := entry.Time.Format("2006-01-02 15:04:05.000")
 	traceId := "-"
 	if entry.Context != nil {
 		mdc := GetMDC(entry.Context)
