@@ -57,7 +57,7 @@ func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, strin
 }
 
 type Client interface {
-	Select() (string, error)
+	Select(ctx context.Context) (string, error)
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error
@@ -95,8 +95,8 @@ func (c *Impl) Close() {
 	}
 }
 
-func (c *Impl) Select() (string, error) {
-	node, err := c.routeSelector.Select()
+func (c *Impl) Select(ctx context.Context) (string, error) {
+	node, err := c.routeSelector.Select(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +118,7 @@ func (c *Impl) Delete(ctx context.Context, path string, req, resp any, opts ...O
 
 func (c *Impl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	// 获取服务ip
-	node, err := c.routeSelector.Select()
+	node, err := c.routeSelector.Select(ctx)
 	if err != nil {
 		return err
 	}

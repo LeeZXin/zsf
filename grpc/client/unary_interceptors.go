@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
+	"strings"
 	"time"
 )
 
@@ -18,8 +20,11 @@ func headerClientUnaryInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		//传递请求header
 		md := rpc.GetHeaders(ctx)
+		logger.Logger.WithContext(ctx).Info(md)
 		for k, v := range md {
-			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+			if !strings.HasPrefix(k, ":") {
+				ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+			}
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, common.GetApplicationName())
 		return invoker(ctx, method, req, reply, cc, opts...)

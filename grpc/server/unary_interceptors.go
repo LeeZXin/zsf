@@ -35,10 +35,14 @@ func CopyIncomingContext(ctx context.Context) rpc.Header {
 	clone := make(map[string]string, 8)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
-		for key, val := range md {
+		for key := range md {
 			key = strings.ToLower(key)
-			if val != nil && len(val) > 0 {
-				clone[key] = val[0]
+			_, ok = acceptedHeaders[key]
+			if ok || strings.HasPrefix(key, rpc.Prefix) {
+				val := md.Get(key)
+				if val != nil && len(val) > 0 {
+					clone[key] = val[0]
+				}
 			}
 		}
 	}

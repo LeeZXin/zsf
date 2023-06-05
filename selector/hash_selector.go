@@ -1,6 +1,7 @@
 package selector
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 	"hash/crc32"
@@ -41,7 +42,7 @@ func (s *HashSelector) Init() error {
 	return nil
 }
 
-func (s *HashSelector) Select(key ...string) (Node, error) {
+func (s *HashSelector) Select(ctx context.Context, key ...string) (Node, error) {
 	sk := "noneKey"
 	if key != nil && len(key) > 0 {
 		sk = key[0]

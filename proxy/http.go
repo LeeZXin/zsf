@@ -34,7 +34,7 @@ func DoHttpProxy(rpcCtx *RpcContext) error {
 		targetConn := httpclient.Dial(serviceName)
 		var err error
 		// 获取服务发现ip
-		targetHost, err = targetConn.Select()
+		targetHost, err = targetConn.Select(rpcCtx.ctx)
 		if err != nil {
 			return err
 		}

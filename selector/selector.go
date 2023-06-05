@@ -1,6 +1,7 @@
 package selector
 
 import (
+	"context"
 	"errors"
 )
 
@@ -29,7 +30,7 @@ var (
 // Selector 路由选择器interface
 type Selector interface {
 	// Select 选择
-	Select(key ...string) (Node, error)
+	Select(ctx context.Context, key ...string) (Node, error)
 }
 
 // Node 路由节点信息

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
 	"github.com/SkyAPM/go2sky"
@@ -20,6 +21,20 @@ import (
 )
 
 //常见filter封装
+
+var (
+	acceptedHeaders = make(map[string]bool)
+)
+
+func init() {
+	h := property.GetString("http.server.acceptedHeaders")
+	if h != "" {
+		s := strings.Split(h, ";")
+		for i := range s {
+			acceptedHeaders[s[i]] = true
+		}
+	}
+}
 
 // recoverFilter recover封装
 func recoverFilter() gin.HandlerFunc {
@@ -87,7 +102,10 @@ func CopyRequestHeader(c *gin.Context) rpc.Header {
 	clone := make(rpc.Header, len(c.Request.Header))
 	for key := range c.Request.Header {
 		key = strings.ToLower(key)
-		clone[key] = c.Request.Header.Get(key)
+		_, ok := acceptedHeaders[key]
+		if ok || strings.HasPrefix(key, rpc.Prefix) {
+			clone[key] = c.Request.Header.Get(key)
+		}
 	}
 	return clone
 }

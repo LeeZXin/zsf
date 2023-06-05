@@ -1,6 +1,7 @@
 package selector
 
 import (
+	"context"
 	"errors"
 	"sync"
 )
@@ -14,7 +15,7 @@ type WeightedRoundRobinSelector struct {
 	max         int
 }
 
-func (s *WeightedRoundRobinSelector) Select(key ...string) (Node, error) {
+func (s *WeightedRoundRobinSelector) Select(ctx context.Context, key ...string) (Node, error) {
 	s.selectMutex.Lock()
 	defer s.selectMutex.Unlock()
 	for {

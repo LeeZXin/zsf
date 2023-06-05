@@ -1,6 +1,7 @@
 package selector
 
 import (
+	"context"
 	"math/rand"
 	"sync/atomic"
 )
@@ -15,7 +16,7 @@ func (s *RoundRobinSelector) init() {
 	s.index = uint64(rand.Intn(len(s.Nodes)))
 }
 
-func (s *RoundRobinSelector) Select(key ...string) (Node, error) {
+func (s *RoundRobinSelector) Select(ctx context.Context, key ...string) (Node, error) {
 	index := atomic.AddUint64(&s.index, 1)
 	return s.Nodes[index%uint64(len(s.Nodes))], nil
 }

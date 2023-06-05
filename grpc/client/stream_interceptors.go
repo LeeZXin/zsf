@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,9 @@ func headerStreamInterceptor() grpc.StreamClientInterceptor {
 		//传递请求header
 		md := rpc.GetHeaders(ctx)
 		for k, v := range md {
-			ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+			if !strings.HasPrefix(k, ":") {
+				ctx = metadata.AppendToOutgoingContext(ctx, k, v)
+			}
 		}
 		ctx = metadata.AppendToOutgoingContext(ctx, rpc.Source, common.GetApplicationName())
 		return streamer(ctx, desc, cc, method, opts...)

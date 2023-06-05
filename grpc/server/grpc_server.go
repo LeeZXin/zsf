@@ -12,10 +12,25 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"net"
+	"strings"
 	"time"
 )
 
 // grpc server封装
+
+var (
+	acceptedHeaders = make(map[string]bool)
+)
+
+func init() {
+	h := property.GetString("grpc.server.acceptedHeaders")
+	if h != "" {
+		s := strings.Split(h, ";")
+		for i := range s {
+			acceptedHeaders[s[i]] = true
+		}
+	}
+}
 
 type Config struct {
 	RegisterFunc             RegisterServiceFunc

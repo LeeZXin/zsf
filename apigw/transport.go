@@ -21,7 +21,7 @@ func (t *Transport) Transport(c *gin.Context) {
 		t.rewriteStrategy.Rewrite(&path, &header)
 	}
 	if t.targetSelector != nil {
-		node, err := t.targetSelector.Select()
+		node, err := t.targetSelector.Select(c.Request.Context())
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return

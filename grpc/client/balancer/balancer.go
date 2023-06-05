@@ -89,7 +89,7 @@ func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err 
 	if !ok {
 		nodeSelector = p.selectorMap[common.DefaultVersion]
 	}
-	node, err = nodeSelector.Select()
+	node, err = nodeSelector.Select(b.Ctx)
 	if err != nil {
 		return
 	}

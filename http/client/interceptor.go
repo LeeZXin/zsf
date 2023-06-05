@@ -10,6 +10,7 @@ import (
 	"net/http"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,9 @@ func headerInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		headers := rpc.GetHeaders(request.Context())
 		for k, v := range headers {
-			request.Header.Set(k, v)
+			if strings.HasPrefix(k, rpc.Prefix) {
+				request.Header.Set(k, v)
+			}
 		}
 		// 塞source信息
 		request.Header.Set(rpc.Source, common.GetApplicationName())
