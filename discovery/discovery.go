@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	discoveryMap = sync.Map{}
+	discoveryMap = make(map[string]IDiscovery)
+	discoveryMu  = sync.RWMutex{}
 )
 
 const (
@@ -109,13 +110,14 @@ func NewServiceDiscovery(discovery IDiscovery) {
 	if discoveryType == "" {
 		return
 	}
-	discoveryMap.Store(discoveryType, discovery)
+	discoveryMu.Lock()
+	defer discoveryMu.Unlock()
+	discoveryMap[discoveryType] = discovery
 }
 
 func GetServiceDiscovery(discoveryType string) (IDiscovery, bool) {
-	value, ok := discoveryMap.Load(discoveryType)
-	if ok {
-		return value.(IDiscovery), true
-	}
-	return nil, false
+	discoveryMu.RLock()
+	defer discoveryMu.RUnlock()
+	value, ok := discoveryMap[discoveryType]
+	return value, ok
 }

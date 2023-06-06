@@ -9,7 +9,8 @@ import (
 //目前只实现consul
 
 var (
-	registryMap = sync.Map{}
+	registryMap = make(map[string]IRegistry)
+	registryMu  = sync.RWMutex{}
 )
 
 const (
@@ -57,13 +58,14 @@ func NewServiceRegistry(registry IRegistry) {
 	if registryType == "" {
 		return
 	}
-	registryMap.Store(registryType, registry)
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	registryMap[registryType] = registry
 }
 
 func GetServiceRegistry(registryType string) (IRegistry, bool) {
-	value, ok := registryMap.Load(registryType)
-	if ok {
-		return value.(IRegistry), true
-	}
-	return nil, false
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	value, ok := registryMap[registryType]
+	return value, ok
 }
