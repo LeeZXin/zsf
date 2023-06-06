@@ -54,7 +54,7 @@ type Handler interface {
 	// GetName 获取节点标识
 	GetName() string
 	// Do 执行业务逻辑的地方
-	Do(*InputParams, Bindings, *ScriptExecutor, context.Context) (Bindings, error)
+	Do(*InputParams, *ScriptExecutor, *ExecContext) (Bindings, error)
 }
 
 // ExecContext 单次执行上下文
@@ -130,7 +130,7 @@ func (d *DAGExecutor) executeNode(dag *DAG, node *Node, ctx *ExecContext, times 
 	if !ok {
 		return errors.New("unknown handler:" + node.Params.HandlerConfig.Name)
 	}
-	output, err := handler.Do(node.Params, ctx.GlobalBindings(), d.luaExecutor, ctx.Context())
+	output, err := handler.Do(node.Params, d.luaExecutor, ctx)
 	if err != nil {
 		return err
 	}
