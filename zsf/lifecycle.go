@@ -8,7 +8,7 @@ import (
 
 var (
 	lifeCycles     = make([]LifeCycle, 0)
-	mu             = sync.RWMutex{}
+	mu             = sync.Mutex{}
 	notifyExecutor *executor.Executor
 )
 
@@ -37,9 +37,9 @@ func RegisterApplicationLifeCycle(lifeCycle LifeCycle) {
 
 func onApplicationStart() {
 	c := copyCtx()
-	mu.RLock()
+	mu.Lock()
 	listeners := lifeCycles[:]
-	mu.RUnlock()
+	mu.Unlock()
 	if len(listeners) == 0 {
 		return
 	}
@@ -52,9 +52,9 @@ func onApplicationStart() {
 
 func onApplicationShutdown() {
 	c := copyCtx()
-	mu.RLock()
+	mu.Lock()
 	listeners := lifeCycles[:]
-	mu.RUnlock()
+	mu.Unlock()
 	if len(listeners) == 0 {
 		return
 	}
