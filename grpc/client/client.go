@@ -157,7 +157,7 @@ func isIp(name string) bool {
 func Dial(serviceName string) (*grpc.ClientConn, error) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	conn, ok = clientCache[serviceName]
+	conn, ok := clientCache[serviceName]
 	if ok {
 		return conn, nil
 	}
