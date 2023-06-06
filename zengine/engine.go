@@ -1,6 +1,7 @@
 package zengine
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/spf13/cast"
@@ -22,9 +23,6 @@ type InputParams struct {
 
 // GetCompiledScript 脚本编译
 func (p *InputParams) GetCompiledScript(luaExecutor *ScriptExecutor) (*lua.FunctionProto, error) {
-	if p.protoCache != nil {
-		return p.protoCache, nil
-	}
 	p.protoMu.Lock()
 	defer p.protoMu.Unlock()
 	if p.protoCache != nil {
@@ -55,12 +53,14 @@ func NewInputParams(config HandlerConfig) *InputParams {
 type Handler interface {
 	// GetName 获取节点标识
 	GetName() string
-	//Do 执行业务逻辑的地方
-	Do(*InputParams, Bindings, *ScriptExecutor) (Bindings, error)
+	// Do 执行业务逻辑的地方
+	Do(*InputParams, Bindings, *ScriptExecutor, context.Context) (Bindings, error)
 }
 
 // ExecContext 单次执行上下文
 type ExecContext struct {
+	ctx context.Context
+	// globalBindings 全局bindings
 	globalBindings Bindings
 }
 
@@ -68,8 +68,14 @@ func (e *ExecContext) GlobalBindings() Bindings {
 	return e.globalBindings
 }
 
-func NewExecContext() *ExecContext {
+func (e *ExecContext) Context() context.Context {
+	return e.ctx
+}
+
+func NewExecContext(ctx context.Context) *ExecContext {
 	return &ExecContext{
+		ctx: ctx,
+		// 初始化
 		globalBindings: make(Bindings),
 	}
 }
@@ -124,7 +130,7 @@ func (d *DAGExecutor) executeNode(dag *DAG, node *Node, ctx *ExecContext, times 
 	if !ok {
 		return errors.New("unknown handler:" + node.Params.HandlerConfig.Name)
 	}
-	output, err := handler.Do(node.Params, ctx.GlobalBindings(), d.luaExecutor)
+	output, err := handler.Do(node.Params, ctx.GlobalBindings(), d.luaExecutor, ctx.Context())
 	if err != nil {
 		return err
 	}
