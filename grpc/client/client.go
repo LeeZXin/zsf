@@ -155,13 +155,8 @@ func isIp(name string) bool {
 // Dial 构建channel
 // 优先从缓存里取
 func Dial(serviceName string) (*grpc.ClientConn, error) {
-	conn, ok := clientCache[serviceName]
-	if ok {
-		return conn, nil
-	}
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	// 双重校验
 	conn, ok = clientCache[serviceName]
 	if ok {
 		return conn, nil
