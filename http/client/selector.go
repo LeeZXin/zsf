@@ -56,9 +56,9 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 	if c.expireTime.IsZero() {
 		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache is empty")
 		c.cacheMu.Lock()
+		defer c.cacheMu.Unlock()
 		//双重校验
 		if !c.expireTime.IsZero() {
-			c.cacheMu.Unlock()
 			node, err = c.getFromCache(ctx, c.cache)
 			return
 		}
@@ -66,7 +66,6 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 		nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
 		if err2 != nil {
 			//获取信息失败
-			c.cacheMu.Unlock()
 			err = err2
 			return
 		}
@@ -75,7 +74,6 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 		newExpireTime := time.Now().Add(time.Duration(httpClientCacheDurationSec) * time.Second)
 		c.cache = newCache
 		c.expireTime = newExpireTime
-		c.cacheMu.Unlock()
 		node, err = c.getFromCache(ctx, newCache)
 		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache get service:", node.Data)
 		return
@@ -83,6 +81,7 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache is expired")
 		//到期并发冲突
 		if c.cacheMu.TryLock() {
+			defer c.cacheMu.Unlock()
 			nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
 			logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache read new cache")
 			if err2 == nil {
@@ -90,12 +89,10 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node se
 				newExpireTime := time.Now().Add(time.Duration(httpClientCacheDurationSec) * time.Second)
 				c.cache = newCache
 				c.expireTime = newExpireTime
-				c.cacheMu.Unlock()
 				node, err = c.getFromCache(ctx, newCache)
 				logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache get service:", node.Data)
 				return
 			}
-			c.cacheMu.Unlock()
 		}
 		logger.Logger.Debug(c.ServiceName, " http cache read old cache")
 		//抢不到锁或更新失败使用老数据
