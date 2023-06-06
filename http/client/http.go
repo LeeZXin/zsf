@@ -42,14 +42,9 @@ func init() {
 
 // Dial 获取服务的client
 func Dial(serviceName string) Client {
-	//双重校验
-	client, ok := clientCache[serviceName]
-	if ok {
-		return client
-	}
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
-	client, ok = clientCache[serviceName]
+	client, ok := clientCache[serviceName]
 	if ok {
 		return client
 	}
