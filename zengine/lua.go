@@ -341,11 +341,11 @@ func (e *ScriptExecutor) Execute(proto *lua.FunctionProto, bindings Bindings) (l
 	if err != nil {
 		return nil, err
 	}
-	value := L.Get(-1)
-	if value != nil && value.Type() != lua.LTNil {
-		L.Pop(1)
+	args := GetFnArgs(L)
+	if len(args) == 0 {
+		return nil, nil
 	}
-	return value, nil
+	return args[0], nil
 }
 
 func (e *ScriptExecutor) ExecuteAndReturnBool(proto *lua.FunctionProto, bindings Bindings) (bool, error) {
