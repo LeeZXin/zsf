@@ -19,7 +19,6 @@ var (
 	// ret = params.id == 1
 	// return ret
 	BoolExprTemplate = `
-		print(params.gg)
 		ret = %s
 		return ret
 	`
