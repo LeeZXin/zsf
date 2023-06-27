@@ -74,8 +74,8 @@ func (b Bindings) Del(key string) {
 
 func (b Bindings) PutAll(data map[string]any) {
 	if data != nil {
-		for k := range data {
-			b[k] = data[k]
+		for k, v := range data {
+			b[k] = v
 		}
 	}
 }
@@ -92,26 +92,10 @@ func (b Bindings) FromLTable(table *lua.LTable) error {
 		return errors.New("nil table")
 	}
 	value := ToGoValue(table).(map[string]any)
-	for k := range value {
-		b[k] = value[k]
+	for k, v := range value {
+		b[k] = v
 	}
 	return nil
-}
-
-// GetFnArgs 获取函数入参
-func GetFnArgs(state *lua.LState) []lua.LValue {
-	ret := make([]lua.LValue, 0)
-	if state != nil {
-		for {
-			v := state.Get(-1)
-			if v == nil || v.Type() == lua.LTNil {
-				break
-			}
-			state.Pop(1)
-			ret = append(ret, v)
-		}
-	}
-	return ret
 }
 
 // fromGoValue go转LValue 只处理基本类型参数 func chan等不处理
@@ -245,9 +229,8 @@ func (p *lStatePool) newLState() *lua.LState {
 	L := lua.NewState()
 	if len(p.globalFn) > 0 {
 		for name, fn := range p.globalFn {
-			f := fn
 			// 注册函数
-			L.SetGlobal(name, L.NewFunction(f))
+			L.SetGlobal(name, L.NewFunction(fn))
 		}
 	}
 	return L
@@ -297,18 +280,27 @@ func NewScriptExecutor(maxSize int, initSize int, fnMap map[string]lua.LGFunctio
 	if err != nil {
 		return nil, err
 	}
-	pool.init()
 	return &ScriptExecutor{pool: pool}, nil
 }
 
 // CompileBoolLua 编译布尔表达式lua
 func (e *ScriptExecutor) CompileBoolLua(x string) (*lua.FunctionProto, error) {
-	x = fmt.Sprintf(BoolExprTemplate, x)
-	return e.CompileLua(x)
+	return CompileBoolLua(x)
 }
 
 // CompileLua 编译lua脚本
 func (e *ScriptExecutor) CompileLua(x string) (*lua.FunctionProto, error) {
+	return CompileLua(x)
+}
+
+// CompileBoolLua 编译布尔表达式lua
+func CompileBoolLua(x string) (*lua.FunctionProto, error) {
+	x = fmt.Sprintf(BoolExprTemplate, x)
+	return CompileLua(x)
+}
+
+// CompileLua 编译lua脚本
+func CompileLua(x string) (*lua.FunctionProto, error) {
 	chunk, err := parse.Parse(strings.NewReader(x), "<script>")
 	if err != nil {
 		return nil, err
@@ -316,13 +308,26 @@ func (e *ScriptExecutor) CompileLua(x string) (*lua.FunctionProto, error) {
 	return lua.Compile(chunk, "<script>")
 }
 
+// GetFnArgs 获取函数入参
+func GetFnArgs(state *lua.LState) []lua.LValue {
+	ret := make([]lua.LValue, 0)
+	if state != nil {
+		for {
+			v := state.Get(-1)
+			if v == nil || v.Type() == lua.LTNil {
+				break
+			}
+			state.Pop(1)
+			ret = append(ret, v)
+		}
+	}
+	return ret
+}
+
 // Execute 执行lua脚本 仅返回单个返回值
 func (e *ScriptExecutor) Execute(proto *lua.FunctionProto, bindings Bindings) (lua.LValue, error) {
 	if proto == nil {
 		return nil, errors.New("nil proto")
-	}
-	if e.pool == nil {
-		return nil, errors.New("NewScriptExecutor first")
 	}
 	if bindings == nil {
 		bindings = make(Bindings)
@@ -332,6 +337,7 @@ func (e *ScriptExecutor) Execute(proto *lua.FunctionProto, bindings Bindings) (l
 	// 默认入参的变量为params
 	params := bindings.ToLTable(L)
 	L.SetGlobal("params", params)
+	defer L.SetGlobal("params", L.CreateTable(0, 0))
 	err := L.CallByParam(lua.P{
 		Fn:      L.NewFunctionFromProto(proto),
 		NRet:    lua.MultRet,

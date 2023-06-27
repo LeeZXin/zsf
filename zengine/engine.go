@@ -4,48 +4,58 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/spf13/cast"
 	lua "github.com/yuin/gopher-lua"
+	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
-const (
-	// LimitTimes 限制节点递归深度，防止无限递归
-	LimitTimes = 1000
-)
-
-type InputParams struct {
-	HandlerConfig HandlerConfig
-	//脚本缓存
-	protoCache *lua.FunctionProto
+type CachedScript struct {
+	ScriptContent string
+	//脚本缓存 *lua.FunctionProto
+	protoCache atomic.Value
 	protoMu    sync.Mutex
 }
 
 // GetCompiledScript 脚本编译
-func (p *InputParams) GetCompiledScript(luaExecutor *ScriptExecutor) (*lua.FunctionProto, error) {
+func (p *CachedScript) GetCompiledScript() (*lua.FunctionProto, error) {
+	scriptCache := p.protoCache.Load()
+	if scriptCache != nil {
+		return scriptCache.(*lua.FunctionProto), nil
+	}
 	p.protoMu.Lock()
 	defer p.protoMu.Unlock()
-	if p.protoCache != nil {
-		return p.protoCache, nil
+	scriptCache = p.protoCache.Load()
+	if scriptCache != nil {
+		return scriptCache.(*lua.FunctionProto), nil
 	}
-	script := ""
-	if p.HandlerConfig.Args != nil {
-		str, ok := p.HandlerConfig.Args.Get("script")
-		if ok {
-			script = cast.ToString(str)
-		}
-	}
-	proto, err := luaExecutor.CompileLua(script)
+	proto, err := CompileLua(p.ScriptContent)
 	if err != nil {
 		return nil, err
 	}
-	p.protoCache = proto
-	return p.protoCache, nil
+	p.protoCache.Store(proto)
+	return proto, nil
+}
+
+type InputParams struct {
+	HandlerConfig HandlerConfig
+	//脚本缓存
+	CachedScript
 }
 
 func NewInputParams(config HandlerConfig) *InputParams {
+	script := ""
+	val, ok := config.Args.GetString("script")
+	if ok {
+		script = val
+	}
 	return &InputParams{
 		HandlerConfig: config,
+		CachedScript: CachedScript{
+			ScriptContent: script,
+			protoCache:    atomic.Value{},
+			protoMu:       sync.Mutex{},
+		},
 	}
 }
 
@@ -53,39 +63,36 @@ func NewInputParams(config HandlerConfig) *InputParams {
 type Handler interface {
 	// GetName 获取节点标识
 	GetName() string
-	// Do 执行业务逻辑的地方
-	Do(*InputParams, *ScriptExecutor, *ExecContext) (Bindings, error)
+	//Do 执行业务逻辑的地方
+	Do(*InputParams, Bindings, *ExecContext) (Bindings, error)
 }
 
 // ExecContext 单次执行上下文
 type ExecContext struct {
-	ctx context.Context
-	// globalBindings 全局bindings
 	globalBindings Bindings
-}
-
-func (e *ExecContext) GlobalBindings() Bindings {
-	return e.globalBindings
+	ctx            context.Context
+	luaExecutor    *ScriptExecutor
 }
 
 func (e *ExecContext) Context() context.Context {
 	return e.ctx
 }
 
-func NewExecContext(ctx context.Context) *ExecContext {
-	return &ExecContext{
-		ctx: ctx,
-		// 初始化
-		globalBindings: make(Bindings),
-	}
+func (e *ExecContext) GlobalBindings() Bindings {
+	return e.globalBindings
+}
+
+func (e *ExecContext) LuaExecutor() *ScriptExecutor {
+	return e.luaExecutor
 }
 
 type DAGExecutor struct {
 	handlerMap  map[string]Handler
 	luaExecutor *ScriptExecutor
+	limitTimes  int
 }
 
-func NewDAGExecutor(handlers []Handler, maxPoolSize, initPoolSize int, fnMap map[string]lua.LGFunction) *DAGExecutor {
+func NewDAGExecutor(handlers []Handler, luaExecutor *ScriptExecutor, limitTimes int) *DAGExecutor {
 	handlerMap := make(map[string]Handler)
 	if handlers != nil {
 		for i := range handlers {
@@ -93,10 +100,27 @@ func NewDAGExecutor(handlers []Handler, maxPoolSize, initPoolSize int, fnMap map
 			handlerMap[handler.GetName()] = handler
 		}
 	}
-	luaExecutor, _ := NewScriptExecutor(maxPoolSize, initPoolSize, fnMap)
+	if luaExecutor == nil {
+		luaExecutor, _ = NewScriptExecutor(1000, 1, nil)
+	}
+	if limitTimes <= 0 {
+		limitTimes = 10000
+	}
 	return &DAGExecutor{
 		handlerMap:  handlerMap,
 		luaExecutor: luaExecutor,
+		limitTimes:  limitTimes,
+	}
+}
+
+func (d *DAGExecutor) NewExecContext(ctx context.Context) *ExecContext {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return &ExecContext{
+		globalBindings: make(Bindings),
+		ctx:            ctx,
+		luaExecutor:    d.luaExecutor,
 	}
 }
 
@@ -105,50 +129,53 @@ func (d *DAGExecutor) Close() {
 }
 
 // Execute 执行规则引擎
-func (d *DAGExecutor) Execute(dag *DAG, ctx *ExecContext) error {
+func (d *DAGExecutor) Execute(dag *DAG, ectx *ExecContext) error {
 	if dag == nil {
 		return errors.New("nil dag")
 	}
-	return d.findAndExecute(dag, dag.StartNode(), ctx, 0)
+	return d.findAndExecute(dag, dag.StartNode(), ectx, 0)
 }
 
 // findAndExecute 找到节点信息并执行
-func (d *DAGExecutor) findAndExecute(dag *DAG, name string, ctx *ExecContext, times int) error {
-	if times > LimitTimes {
-		return errors.New("out of limit")
+func (d *DAGExecutor) findAndExecute(dag *DAG, name string, ectx *ExecContext, times int) error {
+	if ectx.ctx.Err() != nil {
+		return ectx.ctx.Err()
+	}
+	if times > d.limitTimes {
+		return errors.New("out of limit: " + strconv.Itoa(d.limitTimes))
 	}
 	node, ok := dag.GetNode(name)
 	if !ok {
 		return errors.New("unknown node: " + name)
 	}
-	return d.executeNode(dag, node, ctx, times)
+	return d.executeNode(dag, node, ectx, times)
 }
 
 // executeNode 执行节点 递归深度优先遍历
-func (d *DAGExecutor) executeNode(dag *DAG, node *Node, ctx *ExecContext, times int) error {
+func (d *DAGExecutor) executeNode(dag *DAG, node Node, ectx *ExecContext, times int) error {
 	handler, ok := d.handlerMap[node.Params.HandlerConfig.Name]
 	if !ok {
 		return errors.New("unknown handler:" + node.Params.HandlerConfig.Name)
 	}
-	output, err := handler.Do(node.Params, d.luaExecutor, ctx)
+	output, err := handler.Do(node.Params, ectx.GlobalBindings(), ectx)
 	if err != nil {
 		return err
 	}
 	if output != nil {
-		ctx.GlobalBindings().PutAll(output)
+		ectx.GlobalBindings().PutAll(output)
 	}
 	next := node.Next
 	if next != nil {
 		times = times + 1
 		for _, n := range next {
-			res, err1 := d.luaExecutor.ExecuteAndReturnBool(n.Condition, ctx.GlobalBindings())
-			if err1 != nil {
-				return err1
+			res, err := d.luaExecutor.ExecuteAndReturnBool(n.Condition, ectx.GlobalBindings())
+			if err != nil {
+				return err
 			}
 			if res {
-				err1 = d.findAndExecute(dag, n.NextNode, ctx, times)
-				if err1 != nil {
-					return err1
+				err = d.findAndExecute(dag, n.NextNode, ectx, times)
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -194,23 +221,23 @@ func (d *DAGExecutor) buildNext(config []NextConfig) ([]Next, error) {
 	return ret, nil
 }
 
-func (d *DAGExecutor) buildNode(config NodeConfig) (*Node, error) {
+func (d *DAGExecutor) buildNode(config NodeConfig) (Node, error) {
 	next, err := d.buildNext(config.Next)
 	if err != nil {
-		return nil, err
+		return Node{}, err
 	}
-	return &Node{
+	return Node{
 		Name:   config.Name,
 		Params: NewInputParams(config.Handler),
 		Next:   next,
 	}, nil
 }
 
-func (d *DAGExecutor) buildNodes(config []NodeConfig) (map[string]*Node, error) {
+func (d *DAGExecutor) buildNodes(config []NodeConfig) (map[string]Node, error) {
 	if config == nil {
-		return make(map[string]*Node), nil
+		return make(map[string]Node), nil
 	}
-	ret := make(map[string]*Node)
+	ret := make(map[string]Node)
 	for _, nodeConfig := range config {
 		node, err := d.buildNode(nodeConfig)
 		if err != nil {
