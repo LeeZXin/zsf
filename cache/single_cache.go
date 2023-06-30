@@ -2,19 +2,13 @@ package cache
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-var (
-	NilSupplierError   = errors.New("nil supplier")
-	IllegalDuration    = errors.New("illegal duration")
-	IllegalSegmentSize = errors.New("illegal segment size")
-)
-
-type Supplier func(context.Context) (any, error)
+// SingleCache 单个数据缓存
+// 带过期时间
 
 type SingleCacheEntry struct {
 	expireDuration time.Duration
@@ -26,10 +20,10 @@ type SingleCacheEntry struct {
 
 func NewSingleCacheEntry(supplier Supplier, duration time.Duration) (*SingleCacheEntry, error) {
 	if supplier == nil {
-		return nil, NilSupplierError
+		return nil, NilSupplierErr
 	}
 	if duration <= 0 {
-		return nil, IllegalDuration
+		return nil, IllegalDurationErr
 	}
 	return &SingleCacheEntry{
 		expireDuration: duration,
