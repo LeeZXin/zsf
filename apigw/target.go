@@ -26,11 +26,7 @@ var (
 			if serviceName == "" {
 				return nil, nil, errors.New("empty serviceName")
 			}
-			st := &client.CachedHttpSelector{
-				LbPolicy:    config.TargetLbPolicy,
-				ServiceName: serviceName,
-			}
-			return st, &HttpExecutor{}, nil
+			return client.NewCachedHttpSelector(config.TargetLbPolicy, serviceName), &HttpExecutor{}, nil
 		},
 		DomainTargetType: func(config RouterConfig) (selector.Selector, RpcExecutor, error) {
 			targets := config.Targets

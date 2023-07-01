@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/LeeZXin/zsf/cache"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/discovery"
@@ -11,7 +12,6 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/selector"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -36,97 +36,62 @@ type CachedHttpSelector struct {
 	LbPolicy    string
 	ServiceName string
 	//多版本路由
-	cache   map[string]selector.Selector
-	cacheMu sync.RWMutex
-
-	expireTime time.Time
+	targetCache *cache.SingleCacheEntry
 }
 
-func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (node selector.Node, err error) {
-	c.cacheMu.RLock()
-	oldCache := c.cache
-	oldExpireTime := c.expireTime
-	c.cacheMu.RUnlock()
-	if oldExpireTime.After(time.Now()) {
-		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache still valid")
-		node, err = c.getFromCache(ctx, oldCache)
-		return
-	}
-	//首次加载
-	if c.expireTime.IsZero() {
-		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache is empty")
-		c.cacheMu.Lock()
-		defer c.cacheMu.Unlock()
-		//双重校验
-		if !c.expireTime.IsZero() {
-			node, err = c.getFromCache(ctx, c.cache)
-			return
-		}
+func NewCachedHttpSelector(lbPolicy string, serviceName string) *CachedHttpSelector {
+	entry, _ := cache.NewSingleCacheEntry(func(ctx context.Context) (any, error) {
 		//consul拿服务信息
-		nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
-		if err2 != nil {
-			//获取信息失败
-			err = err2
-			return
+		nodesMap, err := serviceMultiVersionNodes(serviceName, ctx)
+		if err != nil {
+			return nil, err
 		}
-		//赋值
-		newCache := convert(nodesMap, c.LbPolicy)
-		newExpireTime := time.Now().Add(time.Duration(httpClientCacheDurationSec) * time.Second)
-		c.cache = newCache
-		c.expireTime = newExpireTime
-		node, err = c.getFromCache(ctx, newCache)
-		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache get service:", node.Data)
-		return
-	} else {
-		logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache is expired")
-		//到期并发冲突
-		if c.cacheMu.TryLock() {
-			defer c.cacheMu.Unlock()
-			nodesMap, err2 := serviceMultiVersionNodes(c.ServiceName)
-			logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache read new cache")
-			if err2 == nil {
-				newCache := convert(nodesMap, c.LbPolicy)
-				newExpireTime := time.Now().Add(time.Duration(httpClientCacheDurationSec) * time.Second)
-				c.cache = newCache
-				c.expireTime = newExpireTime
-				node, err = c.getFromCache(ctx, newCache)
-				logger.Logger.WithContext(ctx).Debug(c.ServiceName, " http cache get service:", node.Data)
-				return
-			}
-		}
-		logger.Logger.Debug(c.ServiceName, " http cache read old cache")
-		//抢不到锁或更新失败使用老数据
-		node, err = c.getFromCache(ctx, oldCache)
-		return
+		return convert(nodesMap, lbPolicy), nil
+	}, time.Duration(httpClientCacheDurationSec)*time.Second)
+	return &CachedHttpSelector{
+		LbPolicy:    lbPolicy,
+		ServiceName: serviceName,
+		targetCache: entry,
 	}
 }
 
-func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]selector.Selector) (node selector.Node, err error) {
+func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (selector.Node, error) {
+	slrMap, err := c.targetCache.LoadData(ctx)
+	if err != nil {
+		return selector.Node{}, err
+	}
+	return c.getFromCache(ctx, slrMap.(map[string]selector.Selector))
+}
+
+func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]selector.Selector) (selector.Node, error) {
 	hit, ok := slr[cmd.GetVersion()]
 	if !ok {
-		node, err = slr[common.DefaultVersion].Select(ctx)
-		return
+		hit = slr[common.DefaultVersion]
 	}
-	node, err = hit.Select(ctx)
-	return
+	return hit.Select(ctx)
 }
 
 func convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]selector.Selector {
-	cache := make(map[string]selector.Selector, len(nodesMap))
+	c := make(map[string]selector.Selector, len(nodesMap))
+	slrFn, ok := selector.NewSelectorFuncMap[lbPolicy]
+	if !ok {
+		slrFn = selector.NewSelectorFuncMap[selector.RoundRobinPolicy]
+	}
 	for ver, nodes := range nodesMap {
-		slr, err := selector.NewSelectorFuncMap[lbPolicy](nodes)
+		slr, err := slrFn(nodes)
 		if err == nil {
-			cache[ver] = slr
+			c[ver] = slr
 		}
 	}
-	return cache
+	return c
 }
 
-func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node, error) {
+func serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node, error) {
 	info, err := discovery.GetServiceInfo(serviceName)
 	if err != nil {
 		return nil, err
 	}
+	logger.Logger.WithContext(ctx).Info("load service:", serviceName, " from discovery result:", info)
 	if len(info) == 0 {
 		return nil, errors.New("can not find ip address")
 	}

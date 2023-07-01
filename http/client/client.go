@@ -68,7 +68,7 @@ type Client interface {
 type Impl struct {
 	ServiceName   string
 	LbPolicy      string
-	routeSelector selector.Selector
+	routeSelector *CachedHttpSelector
 	http          *http.Client
 	Interceptors  []Interceptor
 }
@@ -82,10 +82,7 @@ func (c *Impl) Init() {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
 	}
-	c.routeSelector = &CachedHttpSelector{
-		LbPolicy:    c.LbPolicy,
-		ServiceName: c.ServiceName,
-	}
+	c.routeSelector = NewCachedHttpSelector(c.LbPolicy, c.ServiceName)
 	c.http = newRetryableHttpClient()
 }
 

@@ -13,7 +13,7 @@ grpc:
   port: 8099
   maxConnectionIdleSec: 600
   registry:
-    enabled: true
+    enabled: false
 
 # http 配置
 http:
@@ -21,7 +21,7 @@ http:
   weight: 1
   port: 8091
   registry:
-    enabled: true
+    enabled: false
   client:
     lbPolicy: round_robin
 
@@ -32,7 +32,7 @@ consul:
 
 # 配置自动加载
 property:
-  enabled: true
+  enabled: false
 
 # 服务发现 type = consul or static
 discovery:
