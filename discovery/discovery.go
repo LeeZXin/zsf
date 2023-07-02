@@ -91,14 +91,18 @@ func convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
 // GetServiceInfo 读取consul中的服务信息
 func GetServiceInfo(name string) ([]ServiceAddr, error) {
 	discoveryType := property.GetString("discovery.type")
+	return GetServiceInfoByDiscoveryType(name, discoveryType)
+}
+
+// GetServiceInfoByDiscoveryType 读取consul中的服务信息
+func GetServiceInfoByDiscoveryType(name, discoveryType string) ([]ServiceAddr, error) {
 	if discoveryType == "" {
 		discoveryType = StaticDiscoveryType
 	}
 	dis, ok := GetServiceDiscovery(discoveryType)
-	if ok {
-		return dis.GetServiceInfo(name)
+	if !ok {
+		dis, _ = GetServiceDiscovery(StaticDiscoveryType)
 	}
-	dis, _ = GetServiceDiscovery(StaticDiscoveryType)
 	return dis.GetServiceInfo(name)
 }
 

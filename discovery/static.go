@@ -2,6 +2,8 @@ package discovery
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"os"
@@ -25,14 +27,20 @@ type staticConfig struct {
 }
 
 func init() {
-	content, err := os.ReadFile("./resources/static_discovery.json")
+	path := fmt.Sprintf("./resources/static-discovery-%s.json", cmd.GetEnv())
+	content, err := os.ReadFile(path)
 	if err != nil {
-		return
+		path = "./resources/static-discovery.json"
+		content, err = os.ReadFile(path)
+		if err != nil {
+			return
+		}
 	}
+	logger.Logger.Info("load static discovery json path: ", path)
 	var config staticConfig
 	err = json.Unmarshal(content, &config)
 	if err != nil {
-		logger.Logger.Error("load static_discovery.json err:", err.Error())
+		logger.Logger.Error("load static-discovery.json err:", err.Error())
 		return
 	}
 	static := config.Static
