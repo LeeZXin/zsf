@@ -41,7 +41,8 @@ var (
 
 	ipRegexp, _ = regexp.Compile("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+$")
 	//节点变更watcher
-	watcher *serviceWatcher
+	watcher     *serviceWatcher
+	watcherOnce = sync.Once{}
 	//全局拦截器
 	clientUnaryInterceptors = make([]grpc.UnaryClientInterceptor, 0)
 	//全局拦截器
@@ -62,13 +63,7 @@ func init() {
 		promStreamInterceptor(),
 		skywalkingStreamInterceptor(),
 	)
-	//每十秒更新
-	watcher = newWatcher()
-	watcher.Start()
-	//关闭所有的连接
-	quit.AddShutdownHook(func() {
-		watcher.Shutdown()
-	})
+
 	//开启grpc debug
 	if property.GetBool("grpc.debug") {
 		debug.StartGrpcDebug()
@@ -157,6 +152,13 @@ func isIp(name string) bool {
 func Dial(serviceName string) (*grpc.ClientConn, error) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
+	watcherOnce.Do(func() {
+		watcher = newWatcher()
+		watcher.Start()
+		quit.AddShutdownHook(func() {
+			watcher.Shutdown()
+		})
+	})
 	conn, ok := clientCache[serviceName]
 	if ok {
 		return conn, nil
