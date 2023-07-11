@@ -70,7 +70,7 @@ func (c *RegistryClient) RegisterService(ctx context.Context, reqDTO RegisterSer
 // DeregisterService 注销服务
 func (c *RegistryClient) DeregisterService(ctx context.Context, reqDTO DeregisterServiceReqDTO) error {
 	var respDTO BaseResp
-	if err := c.post(ctx, "/registry/registerService", reqDTO, &respDTO); err != nil {
+	if err := c.post(ctx, "/registry/deregisterService", reqDTO, &respDTO); err != nil {
 		return err
 	}
 	if respDTO.Code != 0 {
