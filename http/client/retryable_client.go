@@ -31,7 +31,7 @@ func (t *retryableRoundTripper) RoundTrip(request *http.Request) (response *http
 	if err != nil {
 		return
 	}
-	for i := 0; i < 3; i++ {
+	for i := 0; i < RetryTimes; i++ {
 		if hasBody {
 			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 		}
