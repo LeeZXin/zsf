@@ -18,11 +18,11 @@ var (
 	}
 )
 
-type RetryableRoundTripper struct {
+type retryableRoundTripper struct {
 	delegated http.RoundTripper
 }
 
-func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
+func (t *retryableRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
 	buf := new(bytes.Buffer)
 	hasBody := request.Body != nil
 	if hasBody {
@@ -31,16 +31,13 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 	if err != nil {
 		return
 	}
-	for i := 0; i < RetryTimes; i++ {
+	for i := 0; i < 3; i++ {
 		if hasBody {
 			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 		}
 		response, err = t.delegated.RoundTrip(request)
 		if err != nil {
 			continue
-		}
-		if response.StatusCode < http.StatusBadRequest {
-			return
 		}
 	}
 	return
@@ -49,7 +46,7 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 // newRetryableHttpClient 可重试client 遇到非2xx或错误会重试
 func newRetryableHttpClient() *http.Client {
 	return &http.Client{
-		Transport: &RetryableRoundTripper{
+		Transport: &retryableRoundTripper{
 			delegated: &http.Transport{
 				Proxy:               proxy,
 				TLSHandshakeTimeout: 10 * time.Second,
