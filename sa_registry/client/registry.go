@@ -142,13 +142,41 @@ func (c *RegistryClient) post(ctx context.Context, url string, reqDTO, respDTO a
 	return nil
 }
 
+type retryableRoundTripper struct {
+	delegated http.RoundTripper
+}
+
+func (t *retryableRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
+	buf := new(bytes.Buffer)
+	hasBody := request.Body != nil
+	if hasBody {
+		_, err = io.Copy(buf, request.Body)
+	}
+	if err != nil {
+		return
+	}
+	for i := 0; i < 3; i++ {
+		if hasBody {
+			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
+		}
+		response, err = t.delegated.RoundTrip(request)
+		if err == nil {
+			break
+		}
+	}
+	return
+}
+
 // newHttpClient http client
 func newHttpClient() *http.Client {
 	return &http.Client{
-		Transport: &http.Transport{
-			TLSHandshakeTimeout: 10 * time.Second,
-			MaxIdleConns:        20,
-			IdleConnTimeout:     time.Minute,
+		Transport: &retryableRoundTripper{
+			delegated: &http.Transport{
+				TLSHandshakeTimeout: 10 * time.Second,
+				MaxIdleConns:        100,
+				IdleConnTimeout:     time.Minute,
+				MaxConnsPerHost:     10,
+			},
 		},
 		Timeout: 30 * time.Second,
 	}
