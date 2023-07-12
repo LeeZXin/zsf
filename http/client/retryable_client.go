@@ -36,8 +36,8 @@ func (t *retryableRoundTripper) RoundTrip(request *http.Request) (response *http
 			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
 		}
 		response, err = t.delegated.RoundTrip(request)
-		if err != nil {
-			continue
+		if err == nil {
+			break
 		}
 	}
 	return
