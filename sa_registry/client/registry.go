@@ -173,7 +173,7 @@ func newHttpClient() *http.Client {
 		Transport: &retryableRoundTripper{
 			delegated: &http.Transport{
 				TLSHandshakeTimeout: 10 * time.Second,
-				MaxIdleConns:        100,
+				MaxIdleConns:        10,
 				IdleConnTimeout:     time.Minute,
 				MaxConnsPerHost:     10,
 			},
