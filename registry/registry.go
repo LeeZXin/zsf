@@ -15,10 +15,12 @@ var (
 
 const (
 	ConsulRegistryType = "consul"
+	SaRegistryType     = "sa"
 )
 
 func init() {
 	NewServiceRegistry(&ConsulRegistry{})
+	NewServiceRegistry(&SaRegistry{})
 }
 
 // IRegistry 插件式实现服务注册

@@ -21,7 +21,7 @@ func (*ConsulDiscovery) GetDiscoveryType() string {
 	return ConsulDiscoveryType
 }
 
-func (*ConsulDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
+func (c *ConsulDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 	services, _, err := consulClient.Health().Service(name, "", true, nil)
 	if err != nil {
 		logger.Logger.Error(err)
@@ -29,8 +29,18 @@ func (*ConsulDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 	}
 	res := make([]ServiceAddr, 0, len(services))
 	for _, service := range services {
-		address := convert2ServiceAddr(service)
+		address := c.convert2ServiceAddr(service)
 		res = append(res, address)
 	}
 	return res, err
+}
+
+// convert2ServiceAddr 转化为ServiceAddress
+func (*ConsulDiscovery) convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
+	return ServiceAddr{
+		Addr:    service.Service.Address,
+		Port:    service.Service.Port,
+		Weight:  service.Service.Weights.Passing,
+		Version: findServiceTagVersion(service.Service.Tags),
+	}
 }

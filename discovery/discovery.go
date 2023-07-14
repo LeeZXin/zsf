@@ -4,7 +4,6 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
-	"github.com/hashicorp/consul/api"
 	"strings"
 	"sync"
 )
@@ -17,11 +16,13 @@ var (
 const (
 	ConsulDiscoveryType = "consul"
 	StaticDiscoveryType = "static"
+	SaDiscoveryType     = "sa"
 )
 
 func init() {
 	NewServiceDiscovery(&ConsulDiscovery{})
 	NewServiceDiscovery(&StaticDiscovery{})
+	NewServiceDiscovery(&SaDiscovery{})
 }
 
 type IDiscovery interface {
@@ -76,16 +77,6 @@ func findServiceTagVersion(tags []string) string {
 		}
 	}
 	return ver
-}
-
-// convert2ServiceAddr 转化为ServiceAddress
-func convert2ServiceAddr(service *api.ServiceEntry) ServiceAddr {
-	return ServiceAddr{
-		Addr:    service.Service.Address,
-		Port:    service.Service.Port,
-		Weight:  service.Service.Weights.Passing,
-		Version: findServiceTagVersion(service.Service.Tags),
-	}
 }
 
 // GetServiceInfo 读取consul中的服务信息

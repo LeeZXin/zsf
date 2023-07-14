@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/selector"
+	"github.com/LeeZXin/zsf/util/httputil"
 	"io"
 	"net"
 	"net/http"
@@ -83,7 +84,7 @@ func (c *Impl) Init() {
 		}
 	}
 	c.routeSelector = NewCachedHttpSelector(c.LbPolicy, c.ServiceName)
-	c.http = newRetryableHttpClient()
+	c.http = httputil.NewRetryableHttpClient()
 }
 
 func (c *Impl) Close() {

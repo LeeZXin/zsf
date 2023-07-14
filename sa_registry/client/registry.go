@@ -5,53 +5,27 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/LeeZXin/zsf/util/httputil"
 	"io"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 const (
 	jsonContentType = "application/json;charset=utf-8"
 )
 
-// ServerHostSupplier 获取server host
-type ServerHostSupplier interface {
-	Supply() (string, error)
-}
-
-type defaultServerHostSupplier struct {
-}
-
-func (*defaultServerHostSupplier) Supply() (string, error) {
-	return "", errors.New("can not get server host")
-}
-
-type SimpleServerHostSupplier struct {
-	Supplier func() (string, error)
-}
-
-func (s *SimpleServerHostSupplier) Supply() (string, error) {
-	if s.Supplier != nil {
-		return s.Supplier()
-	}
-	return "", errors.New("can not get server host")
-}
-
 type RegistryClient struct {
-	http         *http.Client
-	hostSupplier ServerHostSupplier
-	token        string
+	http  *http.Client
+	host  string
+	token string
 }
 
-func NewRegistryClient(hostSupplier ServerHostSupplier, token string) *RegistryClient {
-	if hostSupplier == nil {
-		hostSupplier = &defaultServerHostSupplier{}
-	}
+func NewRegistryClient(host, token string) *RegistryClient {
 	return &RegistryClient{
-		http:         newHttpClient(),
-		hostSupplier: hostSupplier,
-		token:        token,
+		http:  httputil.NewRetryableHttpClient(),
+		host:  host,
+		token: token,
 	}
 }
 
@@ -108,11 +82,7 @@ func (c *RegistryClient) GetServiceInfoList(ctx context.Context, serviceName str
 
 // post 发送post请求
 func (c *RegistryClient) post(ctx context.Context, url string, reqDTO, respDTO any) error {
-	host, err := c.hostSupplier.Supply()
-	if err != nil {
-		return err
-	}
-	url = "http://" + host + url
+	url = "http://" + c.host + url
 	bodyBytes, err := json.Marshal(reqDTO)
 	if err != nil {
 		return err
@@ -140,44 +110,4 @@ func (c *RegistryClient) post(ctx context.Context, url string, reqDTO, respDTO a
 		return err
 	}
 	return nil
-}
-
-type retryableRoundTripper struct {
-	delegated http.RoundTripper
-}
-
-func (t *retryableRoundTripper) RoundTrip(request *http.Request) (response *http.Response, err error) {
-	buf := new(bytes.Buffer)
-	hasBody := request.Body != nil
-	if hasBody {
-		_, err = io.Copy(buf, request.Body)
-	}
-	if err != nil {
-		return
-	}
-	for i := 0; i < 3; i++ {
-		if hasBody {
-			request.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
-		}
-		response, err = t.delegated.RoundTrip(request)
-		if err == nil {
-			break
-		}
-	}
-	return
-}
-
-// newHttpClient http client
-func newHttpClient() *http.Client {
-	return &http.Client{
-		Transport: &retryableRoundTripper{
-			delegated: &http.Transport{
-				TLSHandshakeTimeout: 10 * time.Second,
-				MaxIdleConns:        100,
-				IdleConnTimeout:     time.Minute,
-				MaxConnsPerHost:     10,
-			},
-		},
-		Timeout: 30 * time.Second,
-	}
 }
