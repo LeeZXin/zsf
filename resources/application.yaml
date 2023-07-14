@@ -21,13 +21,17 @@ http:
   weight: 1
   port: 8091
   registry:
-    enabled: false
+    enabled: true
   client:
     lbPolicy: round_robin
 
 # consul配置
 consul:
   address: 127.0.0.1:8500
+  token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
+
+saRegistry:
+  host: 127.0.0.1:9099
   token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
 
 # 配置自动加载
@@ -38,6 +42,9 @@ property:
 discovery:
   type: static
   enabled: true
+
+registry:
+  type: sa
 
 # prometheus server
 prometheus:

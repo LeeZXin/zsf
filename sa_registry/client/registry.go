@@ -56,7 +56,7 @@ func (c *RegistryClient) DeregisterService(ctx context.Context, reqDTO Deregiste
 // PassTTL 心跳续期
 func (c *RegistryClient) PassTTL(ctx context.Context, reqDTO PassTtlReqDTO) error {
 	var respDTO BaseResp
-	if err := c.post(ctx, "/registry/passTtl", reqDTO, &respDTO); err != nil {
+	if err := c.post(ctx, "/registry/passTTL", reqDTO, &respDTO); err != nil {
 		return err
 	}
 	if respDTO.Code != 0 {
