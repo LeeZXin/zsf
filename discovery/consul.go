@@ -7,22 +7,23 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-var (
+type ConsulDiscovery struct {
 	consulClient *api.Client
-)
-
-func init() {
-	consulClient = consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
 }
 
-type ConsulDiscovery struct{}
+func NewConsulDiscovery(consulClient *api.Client) IDiscovery {
+	if consulClient == nil {
+		consulClient = consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
+	}
+	return &ConsulDiscovery{consulClient: consulClient}
+}
 
 func (*ConsulDiscovery) GetDiscoveryType() string {
 	return ConsulDiscoveryType
 }
 
 func (c *ConsulDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
-	services, _, err := consulClient.Health().Service(name, "", true, nil)
+	services, _, err := c.consulClient.Health().Service(name, "", true, nil)
 	if err != nil {
 		logger.Logger.Error(err)
 		return nil, err

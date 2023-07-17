@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // client封装
@@ -83,7 +84,11 @@ func (c *Impl) Init() {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
 	}
-	c.routeSelector = NewCachedHttpSelector(c.LbPolicy, c.ServiceName)
+	c.routeSelector = NewCachedHttpSelector(CachedHttpSelectorConfig{
+		LbPolicy:            c.LbPolicy,
+		ServiceName:         c.ServiceName,
+		CacheExpireDuration: 10 * time.Second,
+	})
 	c.http = httputil.NewRetryableHttpClient()
 }
 

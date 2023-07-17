@@ -2,31 +2,29 @@ package apigw
 
 // TNode 前缀树
 
-type TNode struct {
+type trieNode struct {
 	label    string
-	children map[rune]*TNode
+	children map[rune]*trieNode
 	data     any
 }
 
-type MatchType int
-
 const (
 	// LongestMatchType 最长匹配
-	LongestMatchType = MatchType(1)
+	LongestMatchType = iota + 1
 	// ShortestMatchType 最短匹配
-	ShortestMatchType = MatchType(2)
+	ShortestMatchType
 )
 
 // Trie 通用前缀匹配树
 type Trie struct {
-	root *TNode
+	root *trieNode
 }
 
 // Insert 插入
 func (r *Trie) Insert(key string, data any) {
 	if r.root == nil {
-		r.root = &TNode{
-			children: make(map[rune]*TNode, 8),
+		r.root = &trieNode{
+			children: make(map[rune]*trieNode, 8),
 		}
 	}
 	if key == "" || data == nil {
@@ -35,9 +33,9 @@ func (r *Trie) Insert(key string, data any) {
 	node := r.root
 	for i, k := range key {
 		if c, ok := node.children[k]; !ok {
-			c = &TNode{
+			c = &trieNode{
 				label:    key[:i+1],
-				children: make(map[rune]*TNode, 8),
+				children: make(map[rune]*trieNode, 8),
 			}
 			node.children[k] = c
 		}
@@ -66,12 +64,12 @@ func (r *Trie) FullSearch(key string) (any, bool) {
 }
 
 // PrefixSearch 前缀匹配
-func (r *Trie) PrefixSearch(key string, matchType MatchType) (TNode, bool) {
+func (r *Trie) PrefixSearch(key string, matchType int) (trieNode, bool) {
 	if r.root == nil {
-		return TNode{}, false
+		return trieNode{}, false
 	}
 	node := r.root
-	list := make([]TNode, 0, 8)
+	list := make([]trieNode, 0, 8)
 	for _, k := range key {
 		if node.data != nil {
 			if matchType == ShortestMatchType {
@@ -86,7 +84,7 @@ func (r *Trie) PrefixSearch(key string, matchType MatchType) (TNode, bool) {
 		}
 	}
 	if len(list) == 0 {
-		return TNode{}, false
+		return trieNode{}, false
 	}
 	//最长匹配
 	return list[len(list)-1], true

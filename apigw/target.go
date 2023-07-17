@@ -4,7 +4,9 @@ import (
 	"errors"
 	"github.com/LeeZXin/zsf/http/client"
 	"github.com/LeeZXin/zsf/selector"
+	"net/http"
 	"strconv"
+	"time"
 )
 
 const (
@@ -14,21 +16,26 @@ const (
 )
 
 var (
-	newTargetFuncMap = map[string]NewTargetFunc{
-		MockTargetType: func(config RouterConfig) (selector.Selector, RpcExecutor, error) {
-			if config.MockContent == nil {
-				return nil, nil, errors.New("nil mock content")
-			}
-			return nil, &MockExecutor{MockContent: config.MockContent}, nil
+	newTargetFuncMap = map[string]func(config RouterConfig, httpClient *http.Client) (selector.Selector, RpcExecutor, error){
+		MockTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector, RpcExecutor, error) {
+			return nil, &mockExecutor{
+				mockContent: config.MockContent,
+			}, nil
 		},
-		DiscoveryTargetType: func(config RouterConfig) (selector.Selector, RpcExecutor, error) {
+		DiscoveryTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector, RpcExecutor, error) {
 			serviceName := config.ServiceName
 			if serviceName == "" {
 				return nil, nil, errors.New("empty serviceName")
 			}
-			return client.NewCachedHttpSelector(config.TargetLbPolicy, serviceName), &HttpExecutor{}, nil
+			return client.NewCachedHttpSelector(client.CachedHttpSelectorConfig{
+					LbPolicy:            config.TargetLbPolicy,
+					ServiceName:         serviceName,
+					CacheExpireDuration: 10 * time.Second,
+				}), &httpExecutor{
+					httpClient: httpClient,
+				}, nil
 		},
-		DomainTargetType: func(config RouterConfig) (selector.Selector, RpcExecutor, error) {
+		DomainTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector, RpcExecutor, error) {
 			targets := config.Targets
 			if len(targets) == 0 {
 				return nil, nil, errors.New("empty targets")
@@ -49,11 +56,9 @@ var (
 			if err != nil {
 				return nil, nil, err
 			}
-			return st, &HttpExecutor{}, nil
+			return st, &httpExecutor{
+				httpClient: httpClient,
+			}, nil
 		},
 	}
 )
-
-type NewTargetFunc func(config RouterConfig) (selector.Selector, RpcExecutor, error)
-
-type NewSelectorFunc func([]selector.Node) (selector.Selector, error)

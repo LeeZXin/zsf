@@ -2,19 +2,21 @@ package demo
 
 import (
 	"github.com/LeeZXin/zsf/apigw"
+	"github.com/LeeZXin/zsf/apigw/hexpr"
 	"github.com/LeeZXin/zsf/selector"
+	"github.com/LeeZXin/zsf/util/httputil"
 	"github.com/gin-gonic/gin"
 )
 
 var (
-	routers = &apigw.Routers{}
+	routers = apigw.NewRouters(httputil.NewRetryableHttpClient())
 )
 
 func init() {
 	err := routers.AddRouter(apigw.RouterConfig{
 		MatchType:      apigw.FullMatchType,
 		Path:           "/index",
-		Expr:           nil,
+		Expr:           hexpr.PlainInfo{},
 		ServiceName:    "my-runner-http",
 		Targets:        nil,
 		TargetType:     apigw.DiscoveryTargetType,
@@ -29,7 +31,7 @@ func init() {
 	err = routers.AddRouter(apigw.RouterConfig{
 		MatchType:   apigw.FullMatchType,
 		Path:        "/host",
-		Expr:        nil,
+		Expr:        hexpr.PlainInfo{},
 		ServiceName: "",
 		Targets: []apigw.Target{
 			{
@@ -54,7 +56,7 @@ func init() {
 		MatchType:  apigw.FullMatchType,
 		Path:       "/mock1",
 		TargetType: apigw.MockTargetType,
-		MockContent: &apigw.MockContent{
+		MockContent: apigw.MockContent{
 			ContentType: apigw.MockJsonType,
 			StatusCode:  200,
 			RespStr:     `{"code": 2001, "message": "success"}`,
@@ -68,7 +70,7 @@ func init() {
 		MatchType:  apigw.FullMatchType,
 		Path:       "/mock2",
 		TargetType: apigw.MockTargetType,
-		MockContent: &apigw.MockContent{
+		MockContent: apigw.MockContent{
 			ContentType: apigw.MockStringType,
 			StatusCode:  400,
 			RespStr:     `666666iiiii`,

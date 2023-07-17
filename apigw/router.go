@@ -4,9 +4,9 @@ import (
 	"errors"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
 	"github.com/LeeZXin/zsf/selector"
+	"github.com/LeeZXin/zsf/util/httputil"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"time"
 )
 
 // 路由策略
@@ -25,13 +25,6 @@ const (
 )
 
 var (
-	httpClient = &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConns:    1000,
-			IdleConnTimeout: time.Minute,
-		},
-		Timeout: 10 * time.Second,
-	}
 	putTransportFuncMap = map[string]PutTransportFunc{
 		FullMatchType: func(routers *Routers, config RouterConfig, transport *Transport) error {
 			if config.Path == "" {
@@ -48,10 +41,7 @@ var (
 			return nil
 		},
 		ExprMatchType: func(routers *Routers, config RouterConfig, transport *Transport) error {
-			if config.Expr == nil {
-				return errors.New("empty expr")
-			}
-			expr, err := hexpr.BuildExpr(*config.Expr)
+			expr, err := hexpr.BuildExpr(config.Expr)
 			if err != nil {
 				return err
 			}
@@ -81,7 +71,7 @@ type RouterConfig struct {
 	// Path url path
 	Path string `json:"path"`
 	// Expr 表达式
-	Expr *hexpr.PlainInfo `json:"expr"`
+	Expr hexpr.PlainInfo `json:"expr"`
 	// ServiceName 服务名称 用于服务发现
 	ServiceName string `json:"serviceName"`
 	// Targets 转发目标 配置权重信息
@@ -95,7 +85,7 @@ type RouterConfig struct {
 	// ReplacePath 路径完全覆盖path
 	ReplacePath string `json:"replacePath"`
 	// MockContent mock数据
-	MockContent *MockContent `json:"mockContent"`
+	MockContent MockContent `json:"mockContent"`
 }
 
 func (r *RouterConfig) FillDefaultVal() {
@@ -116,9 +106,6 @@ func (r *RouterConfig) Validate() error {
 		}
 	}
 	if r.MatchType == ExprMatchType {
-		if r.Expr == nil {
-			return errors.New("empty expr")
-		}
 		if err := r.Expr.Validate(); err != nil {
 			return err
 		}
@@ -160,13 +147,24 @@ type Routers struct {
 	prefixMatch *Trie
 	//表达式匹配
 	exprMatch map[*hexpr.Expr]*Transport
+	//连接池
+	httpClient *http.Client
 }
 
-func (r *Routers) putFullMatchTransport(path any, transport *Transport) {
+func NewRouters(httpClient *http.Client) *Routers {
+	if httpClient == nil {
+		httpClient = httputil.NewRetryableHttpClient()
+	}
+	return &Routers{
+		httpClient: httpClient,
+	}
+}
+
+func (r *Routers) putFullMatchTransport(path any, trans *Transport) {
 	if r.fullMatch == nil {
 		r.fullMatch = make(map[string]*Transport, 8)
 	}
-	r.fullMatch[path.(string)] = transport
+	r.fullMatch[path.(string)] = trans
 }
 
 func (r *Routers) putPrefixMatchTransport(path any, transport *Transport) {
@@ -176,20 +174,20 @@ func (r *Routers) putPrefixMatchTransport(path any, transport *Transport) {
 	r.prefixMatch.Insert(path.(string), transport)
 }
 
-func (r *Routers) putExprMatchTransport(expr any, transport *Transport) {
+func (r *Routers) putExprMatchTransport(expr any, trans *Transport) {
 	if r.exprMatch == nil {
 		r.exprMatch = make(map[*hexpr.Expr]*Transport, 8)
 	}
-	r.exprMatch[expr.(*hexpr.Expr)] = transport
+	r.exprMatch[expr.(*hexpr.Expr)] = trans
 }
 
 func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
 	path := c.Request.URL.Path
 	if r.fullMatch != nil {
 		//精确匹配
-		transport, ok := r.fullMatch[path]
+		trans, ok := r.fullMatch[path]
 		if ok {
-			return transport, true
+			return trans, true
 		}
 	}
 	if r.prefixMatch != nil {
@@ -226,11 +224,11 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	if !ok {
 		return errors.New("wrong target type")
 	}
-	st, rpc, err := targetFunc(config)
+	st, rpc, err := targetFunc(config, r.httpClient)
 	if err != nil {
 		return err
 	}
-	transport := &Transport{
+	trans := &Transport{
 		rewriteStrategy: rewrite,
 		targetSelector:  st,
 		rpcExecutor:     rpc,
@@ -239,7 +237,7 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	if !ok {
 		return errors.New("path match type")
 	}
-	err = transportFunc(r, config, transport)
+	err = transportFunc(r, config, trans)
 	if err != nil {
 		return err
 	}

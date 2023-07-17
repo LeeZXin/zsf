@@ -15,30 +15,31 @@ type RpcExecutor interface {
 	DoTransport(c *gin.Context, newHeader http.Header, target, path string)
 }
 
-type MockExecutor struct {
-	MockContent *MockContent
+type mockExecutor struct {
+	mockContent MockContent
 }
 
-func (t *MockExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
-	if t.MockContent.ContentType == MockJsonType {
+func (t *mockExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
+	if t.mockContent.ContentType == MockJsonType {
 		var m map[string]any
-		err := json.Unmarshal([]byte(t.MockContent.RespStr), &m)
+		err := json.Unmarshal([]byte(t.mockContent.RespStr), &m)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "")
 		} else {
-			c.JSON(t.MockContent.StatusCode, m)
+			c.JSON(t.mockContent.StatusCode, m)
 		}
-	} else if t.MockContent.ContentType == MockStringType {
-		c.String(t.MockContent.StatusCode, t.MockContent.RespStr)
+	} else if t.mockContent.ContentType == MockStringType {
+		c.String(t.mockContent.StatusCode, t.mockContent.RespStr)
 	} else {
 		c.String(http.StatusBadRequest, "bad request")
 	}
 }
 
-type HttpExecutor struct {
+type httpExecutor struct {
+	httpClient *http.Client
 }
 
-func (t *HttpExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
+func (t *httpExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
 	request := c.Request
 	rawQuery := request.URL.RawQuery
 	path = selectHost + path
@@ -52,7 +53,7 @@ func (t *HttpExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 		return
 	}
 	newReq.Header = newHeader
-	resp, err := httpClient.Do(newReq)
+	resp, err := t.httpClient.Do(newReq)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -60,7 +61,7 @@ func (t *HttpExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 	t.handleHttpResp(resp, c)
 }
 
-func (*HttpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
+func (*httpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
 	defer resp.Body.Close()
 	for k, vs := range resp.Header {
 		item := strings.Builder{}
@@ -72,7 +73,6 @@ func (*HttpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
 		}
 		c.Header(k, item.String())
 	}
-	c.Header("x-gw-type", "zgw")
 	if strings.Contains(c.GetHeader("Content-Encoding"), "gzip") {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {

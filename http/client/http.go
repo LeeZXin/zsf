@@ -56,7 +56,7 @@ func Dial(serviceName string) Client {
 
 // initClient 初始化带有服务发现的http client
 func initClient(serviceName string) Client {
-	lbPolicyConfig := property.GetString("http.client.LbPolicy")
+	lbPolicyConfig := property.GetString("http.client.lbPolicy")
 	var lbPolicy string
 	_, ok := supportedLbPolicy[lbPolicyConfig]
 	if ok {

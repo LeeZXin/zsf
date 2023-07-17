@@ -20,7 +20,7 @@ const (
 )
 
 func init() {
-	NewServiceDiscovery(&ConsulDiscovery{})
+	NewServiceDiscovery(NewConsulDiscovery(nil))
 	NewServiceDiscovery(&StaticDiscovery{})
 	NewServiceDiscovery(&SaDiscovery{})
 }
@@ -81,14 +81,13 @@ func findServiceTagVersion(tags []string) string {
 
 // GetServiceInfo 读取consul中的服务信息
 func GetServiceInfo(name string) ([]ServiceAddr, error) {
-	discoveryType := property.GetString("discovery.type")
-	return GetServiceInfoByDiscoveryType(name, discoveryType)
+	return GetServiceInfoByDiscoveryType(name, "")
 }
 
 // GetServiceInfoByDiscoveryType 读取consul中的服务信息
 func GetServiceInfoByDiscoveryType(name, discoveryType string) ([]ServiceAddr, error) {
 	if discoveryType == "" {
-		discoveryType = StaticDiscoveryType
+		discoveryType = property.GetString("discovery.type")
 	}
 	dis, ok := GetServiceDiscovery(discoveryType)
 	if !ok {

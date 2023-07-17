@@ -9,7 +9,6 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/selector"
 	"strconv"
 	"time"
@@ -19,40 +18,42 @@ import (
 // 每十秒会尝试更新服务ip，若有并发获取或服务发现错误，返回旧值
 // 根据版本号路由，优先发送到相同版本服务，若不存在，发送到其他版本服务
 
-var (
-	httpClientCacheDurationSec int
-)
-
-func init() {
-	// 服务发现过期时间
-	sec := property.GetInt("http.client.cacheDurationSec")
-	if sec <= 0 {
-		sec = 30
-	}
-	httpClientCacheDurationSec = 30
-}
-
 type CachedHttpSelector struct {
-	LbPolicy    string
-	ServiceName string
+	lbPolicy    string
+	serviceName string
 	//多版本路由
 	targetCache *cache.SingleCacheEntry
+
+	discoveryType string
 }
 
-func NewCachedHttpSelector(lbPolicy string, serviceName string) *CachedHttpSelector {
+type CachedHttpSelectorConfig struct {
+	LbPolicy            string
+	ServiceName         string
+	CacheExpireDuration time.Duration
+	DiscoveryType       string
+}
+
+func NewCachedHttpSelector(config CachedHttpSelectorConfig) *CachedHttpSelector {
+	st := &CachedHttpSelector{
+		lbPolicy:      config.LbPolicy,
+		serviceName:   config.ServiceName,
+		discoveryType: config.DiscoveryType,
+	}
+	cacheExpireDuration := 10 * time.Second
+	if config.CacheExpireDuration > 0 {
+		cacheExpireDuration = config.CacheExpireDuration
+	}
 	entry, _ := cache.NewSingleCacheEntry(func(ctx context.Context) (any, error) {
 		//consul拿服务信息
-		nodesMap, err := serviceMultiVersionNodes(serviceName, ctx)
+		nodesMap, err := st.serviceMultiVersionNodes(config.ServiceName, ctx)
 		if err != nil {
 			return nil, err
 		}
-		return convert(nodesMap, lbPolicy), nil
-	}, time.Duration(httpClientCacheDurationSec)*time.Second)
-	return &CachedHttpSelector{
-		LbPolicy:    lbPolicy,
-		ServiceName: serviceName,
-		targetCache: entry,
-	}
+		return st.convert(nodesMap, config.LbPolicy), nil
+	}, cacheExpireDuration)
+	st.targetCache = entry
+	return st
 }
 
 func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (selector.Node, error) {
@@ -71,8 +72,8 @@ func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]se
 	return hit.Select(ctx)
 }
 
-func convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]selector.Selector {
-	c := make(map[string]selector.Selector, len(nodesMap))
+func (c *CachedHttpSelector) convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]selector.Selector {
+	ret := make(map[string]selector.Selector, len(nodesMap))
 	slrFn, ok := selector.NewSelectorFuncMap[lbPolicy]
 	if !ok {
 		slrFn = selector.NewSelectorFuncMap[selector.RoundRobinPolicy]
@@ -80,14 +81,14 @@ func convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]se
 	for ver, nodes := range nodesMap {
 		slr, err := slrFn(nodes)
 		if err == nil {
-			c[ver] = slr
+			ret[ver] = slr
 		}
 	}
-	return c
+	return ret
 }
 
-func serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node, error) {
-	info, err := discovery.GetServiceInfo(serviceName)
+func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node, error) {
+	info, err := discovery.GetServiceInfoByDiscoveryType(serviceName, c.discoveryType)
 	if err != nil {
 		return nil, err
 	}
