@@ -123,8 +123,10 @@ func (r *RouterConfig) Validate() error {
 		if !ok {
 			return errors.New("wrong target type")
 		}
-		if r.Targets == nil || len(r.Targets) == 0 {
-			return errors.New("empty target")
+		if r.TargetType == DomainTargetType {
+			if r.Targets == nil || len(r.Targets) == 0 {
+				return errors.New("empty target")
+			}
 		}
 		_, ok = selector.NewSelectorFuncMap[r.TargetLbPolicy]
 		if !ok {
