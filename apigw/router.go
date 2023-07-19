@@ -86,6 +86,8 @@ type RouterConfig struct {
 	ReplacePath string `json:"replacePath"`
 	// MockContent mock数据
 	MockContent MockContent `json:"mockContent"`
+	// Extra 附加信息
+	Extra map[string]any
 }
 
 func (r *RouterConfig) FillDefaultVal() {
@@ -228,7 +230,12 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	if err != nil {
 		return err
 	}
+	extra := config.Extra
+	if extra == nil {
+		extra = make(map[string]any)
+	}
 	trans := &Transport{
+		Extra:           extra,
 		rewriteStrategy: rewrite,
 		targetSelector:  st,
 		rpcExecutor:     rpc,

@@ -8,6 +8,7 @@ import (
 )
 
 type Transport struct {
+	Extra           map[string]any
 	rewriteStrategy RewriteStrategy
 	targetSelector  selector.Selector
 	rpcExecutor     RpcExecutor
