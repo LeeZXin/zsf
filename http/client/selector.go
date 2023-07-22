@@ -8,7 +8,6 @@ import (
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/discovery"
-	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/selector"
 	"strconv"
 	"time"
@@ -92,7 +91,6 @@ func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx co
 	if err != nil {
 		return nil, err
 	}
-	logger.Logger.WithContext(ctx).Info("load service:", serviceName, " from discovery result:", info)
 	if len(info) == 0 {
 		return nil, errors.New("can not find ip address")
 	}

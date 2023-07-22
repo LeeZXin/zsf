@@ -7,11 +7,13 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
+	"github.com/LeeZXin/zsf/util/ginutil"
 	"github.com/SkyAPM/go2sky"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"runtime"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
@@ -24,6 +26,7 @@ import (
 
 var (
 	acceptedHeaders = make(map[string]bool)
+	actuatorEnabled = property.GetBool("actuator.enabled")
 )
 
 func init() {
@@ -34,6 +37,58 @@ func init() {
 			acceptedHeaders[s[i]] = true
 		}
 	}
+}
+
+func actuatorFilter() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if path == "/health" {
+			c.String(http.StatusOK, "")
+			c.Abort()
+			return
+		}
+		if !actuatorEnabled {
+			c.Next()
+			return
+		}
+		if path == "/updateLogLevel" {
+			var reqVO UpdateLogLevelReqVO
+			if ginutil.BindJson(&reqVO, c) {
+				level := reqVO.LogLevel
+				switch level {
+				case "info":
+					logger.Logger.SetLevel(logrus.InfoLevel)
+					break
+				case "debug":
+					logger.Logger.SetLevel(logrus.DebugLevel)
+					break
+				case "warn":
+					logger.Logger.SetLevel(logrus.WarnLevel)
+					break
+				case "error":
+					logger.Logger.SetLevel(logrus.ErrorLevel)
+					break
+				case "trace":
+					logger.Logger.SetLevel(logrus.TraceLevel)
+					break
+				default:
+					break
+				}
+				c.String(http.StatusOK, "")
+			}
+			c.Abort()
+		} else if path == "/triggerGC" {
+			runtime.GC()
+			c.String(http.StatusOK, "")
+			c.Abort()
+		} else {
+			c.Next()
+		}
+	}
+}
+
+type UpdateLogLevelReqVO struct {
+	LogLevel string `json:"logLevel"`
 }
 
 // recoverFilter recover封装
