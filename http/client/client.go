@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/selector"
+	"github.com/LeeZXin/zsf/util/hashset"
 	"github.com/LeeZXin/zsf/util/httputil"
 	"io"
 	"net"
@@ -26,10 +27,10 @@ const (
 )
 
 var (
-	supportedLbPolicy = map[string]bool{
-		selector.RoundRobinPolicy:         true,
-		selector.WeightedRoundRobinPolicy: true,
-	}
+	supportedLbPolicy = hashset.NewHashSet([]string{
+		selector.RoundRobinPolicy,
+		selector.WeightedRoundRobinPolicy,
+	})
 )
 
 type dialOption struct {

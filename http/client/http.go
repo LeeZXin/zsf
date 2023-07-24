@@ -58,8 +58,7 @@ func Dial(serviceName string) Client {
 func initClient(serviceName string) Client {
 	lbPolicyConfig := property.GetString("http.client.lbPolicy")
 	var lbPolicy string
-	_, ok := supportedLbPolicy[lbPolicyConfig]
-	if ok {
+	if supportedLbPolicy.Contains(lbPolicyConfig) {
 		lbPolicy = lbPolicyConfig
 	} else {
 		lbPolicy = selector.RoundRobinPolicy

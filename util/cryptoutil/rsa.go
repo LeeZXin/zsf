@@ -3,7 +3,6 @@ package cryptoutil
 import (
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -15,55 +14,45 @@ import (
 	"time"
 )
 
-var (
-	rsaHashMap = map[int]hash.Hash{
-		128: sha1.New(),
-		256: sha256.New(),
-		384: sha256.New(),
-	}
-)
-
-func generateRSAKeyPair(bits int) (*rsa.PrivateKey, error) {
-	return rsa.GenerateKey(rand.Reader, bits)
+func generateRSAKeyPair(bits int) *rsa.PrivateKey {
+	ret, _ := rsa.GenerateKey(rand.Reader, bits)
+	return ret
 }
 
-func Generate3072RSAKeyPair() (*rsa.PrivateKey, error) {
+func Generate3072RSAKeyPair() *rsa.PrivateKey {
 	return generateRSAKeyPair(3072)
 }
 
-func Generate2048RSAKeyPair() (*rsa.PrivateKey, error) {
+func Generate2048RSAKeyPair() *rsa.PrivateKey {
 	return generateRSAKeyPair(2048)
 }
 
-func Generate1024RSAKeyPair() (*rsa.PrivateKey, error) {
-	return rsa.GenerateKey(rand.Reader, 1024)
+func Generate1024RSAKeyPair() *rsa.PrivateKey {
+	return generateRSAKeyPair(1024)
 }
 
-type rsaOEP struct {
+type rsaOAEP struct {
 	hashFn hash.Hash
 	pri    *rsa.PrivateKey
 	label  []byte
 }
 
-func NewRsaOEP(key *rsa.PrivateKey, label ...[]byte) (Crypto, error) {
+func NewRsaOAEP(key *rsa.PrivateKey, label ...[]byte) (Crypto, error) {
 	if key == nil {
 		return nil, errors.New("empty privateKey")
 	}
 	if label == nil || len(label) == 0 {
 		label = [][]byte{[]byte("")}
 	}
-	fn, ok := rsaHashMap[key.PublicKey.Size()]
-	if !ok {
-		return nil, errors.New("unsupported hash fn")
-	}
-	return &rsaOEP{
-		hashFn: fn,
+	return &rsaOAEP{
+		hashFn: sha256.New(),
 		pri:    key,
 		label:  label[0],
 	}, nil
 }
 
-func (r *rsaOEP) Encrypt(messageBytes []byte) ([]byte, error) {
+// Encrypt 分段加密
+func (r *rsaOAEP) Encrypt(messageBytes []byte) ([]byte, error) {
 	maxLength := r.pri.PublicKey.Size() - 2*r.hashFn.Size() - 2
 	var ciphertext []byte
 	for len(messageBytes) > 0 {
@@ -88,7 +77,8 @@ func (r *rsaOEP) Encrypt(messageBytes []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func (r *rsaOEP) Decrypt(messageBytes []byte) ([]byte, error) {
+// Decrypt 分段解密
+func (r *rsaOAEP) Decrypt(messageBytes []byte) ([]byte, error) {
 	maxLength := r.pri.Size()
 	var ciphertext []byte
 	for len(messageBytes) > 0 {
