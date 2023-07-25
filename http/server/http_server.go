@@ -48,8 +48,8 @@ func InitAndStartHttpServer(config Config) {
 	//filter
 	filters := []gin.HandlerFunc{
 		recoverFilter(),
-		headerFilter(),
 		actuatorFilter(),
+		headerFilter(),
 		promFilter(),
 		skywalkingFilter(),
 	}

@@ -2,6 +2,7 @@ package httputil
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"time"
@@ -45,4 +46,46 @@ func NewRetryableHttpClient() *http.Client {
 		},
 		Timeout: 30 * time.Second,
 	}
+}
+
+func Post(client *http.Client, url string, req, resp any) error {
+	var (
+		reqJson []byte
+		err     error
+	)
+	if req != nil {
+		reqJson, err = json.Marshal(req)
+		if err != nil {
+			return err
+		}
+	}
+	post, err := client.Post(url, "application/json;charset=utf-8", bytes.NewReader(reqJson))
+	if err != nil {
+		return err
+	}
+	defer post.Body.Close()
+	respBody, err := io.ReadAll(post.Body)
+	if err != nil {
+		return err
+	}
+	if resp != nil {
+		return json.Unmarshal(respBody, resp)
+	}
+	return nil
+}
+
+func Get(client *http.Client, url string, resp any) error {
+	post, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer post.Body.Close()
+	respBody, err := io.ReadAll(post.Body)
+	if err != nil {
+		return err
+	}
+	if resp != nil {
+		return json.Unmarshal(respBody, resp)
+	}
+	return nil
 }
