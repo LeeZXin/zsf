@@ -17,6 +17,7 @@ func (t *RetryableRoundTripper) RoundTrip(request *http.Request) (response *http
 	hasBody := request.Body != nil
 	if hasBody {
 		_, err = io.Copy(buf, request.Body)
+		request.Body.Close()
 	}
 	if err != nil {
 		return

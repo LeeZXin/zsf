@@ -1,0 +1,6 @@
+logger:
+  async:
+    executorNum: 1
+    enabled: true
+    queueSize: 5000
+    discardPolicy: abort

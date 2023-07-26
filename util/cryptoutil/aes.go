@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"github.com/LeeZXin/zsf/util/strutil"
 )
 
 type aesCTR struct {
@@ -86,4 +87,28 @@ func (a *aesCBC) padData(data []byte, blockSize int) []byte {
 func (a *aesCBC) unpadData(data []byte) []byte {
 	padding := int(data[len(data)-1])
 	return data[:len(data)-padding]
+}
+
+func generateAesKey(keyLen int) (string, error) {
+	key := strutil.RandomStr(keyLen)
+	_, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func Generate16AesKey() string {
+	key, _ := generateAesKey(16)
+	return key
+}
+
+func Generate24AesKey() string {
+	key, _ := generateAesKey(24)
+	return key
+}
+
+func Generate32AesKey() string {
+	key, _ := generateAesKey(32)
+	return key
 }

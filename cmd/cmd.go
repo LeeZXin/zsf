@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"flag"
-	"github.com/LeeZXin/zsf/logger"
 )
 
 var (
@@ -28,13 +27,10 @@ func init() {
 	} else {
 		version = *verCmd
 	}
-	logger.Logger.Info("project version is ", version)
 	env = *envCmd
 	if env == "" {
-		logger.Logger.Info("project env is nil set to default: ", DefaultEnv)
 		env = DefaultEnv
 	}
-	logger.Logger.Info("project env is ", env)
 }
 
 func GetEnv() string {

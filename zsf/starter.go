@@ -1,6 +1,7 @@
 package zsf
 
 import (
+	"github.com/LeeZXin/zsf/cmd"
 	grpcclient "github.com/LeeZXin/zsf/grpc/client"
 	grpcserver "github.com/LeeZXin/zsf/grpc/server"
 	httpclient "github.com/LeeZXin/zsf/http/client"
@@ -57,6 +58,9 @@ func RegisterHttpGlobalClientInterceptor(is ...httpclient.Interceptor) {
 func Run() {
 	startOnce.Do(func() {
 		logger.Logger.Info("runtime.GOMAXPROCS(0)=", runtime.GOMAXPROCS(0))
+		logger.Logger.Info("project version is ", cmd.GetVersion())
+		logger.Logger.Info("project env is ", cmd.GetEnv())
+		logger.Logger.Info("logger config:", property.GetStringMap("logger"))
 		if property.GetBool("http.enabled") {
 			httpserver.InitAndStartHttpServer(httpserver.Config{
 				Register: httpRouter,

@@ -1,4 +1,4 @@
-package property
+package propertywatcher
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/psub"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/hashicorp/consul/api"
@@ -26,12 +27,8 @@ var (
 func init() {
 	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
 	notifyChannel, _ = psub.NewChannel(channelExecutor)
-}
-
-func startLoader() {
-	enabled := GetBool("property.enabled")
+	enabled := property.GetBool("property.enabled")
 	if enabled {
-		logger.Logger.Info("startWatchPropertyChange")
 		//启动consul配置监听
 		startWatchPropertyChange()
 	}
@@ -40,31 +37,26 @@ func startLoader() {
 type ChangeCallback func()
 
 func startWatchPropertyChange() {
-	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), GetString("application.name"))
-	logger.Logger.Info("listen consul property key:", propertyKey)
-
+	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), property.GetString("application.name"))
+	logger.Logger.Info("listen property key:", propertyKey)
 	plan, err := watch.Parse(map[string]any{
 		"type": "key",
 		"key":  propertyKey,
 	})
 	if err != nil {
-		logger.Logger.Panic(err)
+		panic(err)
 	}
-
-	consulClient := consul.NewConsulClient(GetString("consul.address"), GetString("consul.token"))
-
+	consulClient := consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
 	var firstModifyIndex uint64
 	//首次需要加载远程配置
 	kv, _, err := consulClient.KV().Get(propertyKey, nil)
 	if err == nil {
-		err = MergeConfig(bytes.NewReader(kv.Value))
-		if err != nil {
-			logger.Logger.Error(err)
-		} else {
+		err = property.MergeConfig(bytes.NewReader(kv.Value))
+		if err == nil {
 			firstModifyIndex = kv.ModifyIndex
+		} else {
+			logger.Logger.Error(err.Error())
 		}
-	} else {
-		logger.Logger.Error(err)
 	}
 	plan.Handler = func(u uint64, i interface{}) {
 		//防止触发两次
@@ -87,9 +79,8 @@ func startWatchPropertyChange() {
 			//获取旧配置
 			oldProperties := getAllProperties(listenKeys)
 			//合并配置
-			err = MergeConfig(bytes.NewReader(kvPair.Value))
+			err = property.MergeConfig(bytes.NewReader(kvPair.Value))
 			if err != nil {
-				logger.Logger.Error(err)
 				return
 			}
 			//获取新配置
@@ -124,7 +115,7 @@ func startWatchPropertyChange() {
 func getAllProperties(listenKeys []string) map[string]string {
 	properties := make(map[string]string, len(listenKeys))
 	for _, key := range listenKeys {
-		oldProperty := Get(key)
+		oldProperty := property.Get(key)
 		if oldProperty == nil {
 			properties[key] = ""
 		} else {
@@ -141,10 +132,10 @@ func getAllProperties(listenKeys []string) map[string]string {
 
 // OnKeyChange 监听某个key的变化来触发回调
 func OnKeyChange(key string, callback ChangeCallback) {
+	logger.Logger.Info("property onKeyChange:", key)
 	if key == "" || callback == nil {
 		return
 	}
-	logger.Logger.Info("listen property key change:", key)
 	registerMu.Lock()
 	defer registerMu.Unlock()
 	watchKeys[key] = true
