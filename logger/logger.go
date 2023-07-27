@@ -80,6 +80,9 @@ func (w *asyncWrapper) Write(p []byte) (int, error) {
 }
 
 func newLogWriter() io.Writer {
+	if property.GetString("logger.mode") == "kafka" {
+		return newKafkaWriter(newLumberjackLogger())
+	}
 	if property.GetBool("logger.async.enabled") {
 		return newAsyncWrapper()
 	}

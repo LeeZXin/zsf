@@ -1,7 +1,6 @@
 package common
 
 import (
-	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"net"
 )
@@ -25,7 +24,7 @@ func init() {
 	//获取applicationName
 	applicationName = property.GetString("application.name")
 	if applicationName == "" {
-		logger.Logger.Panic("nil applicationName")
+		panic("nil applicationName")
 	}
 
 	//region
@@ -43,9 +42,7 @@ func init() {
 	//获取本地ip
 	localIP = getIp()
 	if localIP == "" {
-		logger.Logger.Panic("can not get local ipv4")
-	} else {
-		logger.Logger.Info("get local ipv4: ", localIP)
+		panic("can not get local ipv4")
 	}
 }
 

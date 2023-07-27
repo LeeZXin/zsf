@@ -1,7 +1,6 @@
 package quit
 
 import (
-	"github.com/LeeZXin/zsf/logger"
 	"os"
 	"os/signal"
 	"sync"
@@ -36,5 +35,4 @@ func Wait() {
 	for _, fn := range hookList {
 		fn()
 	}
-	logger.Logger.Println("Shutdown Server ...")
 }

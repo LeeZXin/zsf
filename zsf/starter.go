@@ -77,6 +77,7 @@ func Run() {
 		onApplicationStart()
 		quit.AddShutdownHook(func() {
 			onApplicationShutdown()
+			logger.Logger.Println("Shutdown Server ...")
 		})
 		quit.Wait()
 	})
