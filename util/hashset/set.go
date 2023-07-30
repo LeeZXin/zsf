@@ -34,6 +34,14 @@ func (s HashSet[T]) Copy() HashSet[T] {
 	return ret
 }
 
+func (s HashSet[T]) ToSlice() []T {
+	ret := make([]T, 0, len(s))
+	for k := range s {
+		ret = append(ret, k)
+	}
+	return ret
+}
+
 func (s HashSet[T]) Intersect(h HashSet[T]) HashSet[T] {
 	ret := make(HashSet[T], 8)
 	if h != nil {
