@@ -54,3 +54,13 @@ func (s HashSet[T]) Intersect(h HashSet[T]) HashSet[T] {
 	}
 	return ret
 }
+
+func (s HashSet[T]) Remove(n HashSet[T]) HashSet[T] {
+	c := s.Copy()
+	for k := range c {
+		if n.Contains(k) {
+			delete(c, k)
+		}
+	}
+	return c
+}
