@@ -63,11 +63,11 @@ func NewRegistryServer(serverPort int, token string, logger Logger) *RegistrySer
 	gin.SetMode(gin.ReleaseMode)
 	httpEngine := gin.New()
 	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", serverPort),
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       5 * time.Minute,
-		Handler:           httpEngine,
+		Addr:         fmt.Sprintf(":%d", serverPort),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  5 * time.Minute,
+		Handler:      httpEngine,
 	}
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	ret := &RegistryServer{

@@ -18,6 +18,10 @@ import (
 // 常见异常处理、header处理等
 // 服务注册
 
+const (
+	DefaultServerPort = 15003
+)
+
 type Config struct {
 	Register RegisterRouterFunc
 	Filters  []gin.HandlerFunc
@@ -36,8 +40,8 @@ func http404(c *gin.Context) {
 // InitAndStartHttpServer 初始化http server
 func InitAndStartHttpServer(config Config) {
 	port := property.GetInt("http.port")
-	if port == 0 {
-		logger.Logger.Panic("nil http port, fill it on application.yaml first")
+	if port <= 0 {
+		port = DefaultServerPort
 	}
 	//gin mode
 	gin.SetMode(gin.ReleaseMode)
@@ -46,13 +50,22 @@ func InitAndStartHttpServer(config Config) {
 	//重写404请求
 	r.NoRoute(http404)
 	//filter
-	filters := []gin.HandlerFunc{
-		recoverFilter(),
-		actuatorFilter(),
-		headerFilter(),
-		promFilter(),
-		skywalkingFilter(),
+	var filters []gin.HandlerFunc
+	// 禁用filter
+	if property.GetBool("application.disableMicro") {
+		filters = []gin.HandlerFunc{
+			recoverFilter(),
+		}
+	} else {
+		filters = []gin.HandlerFunc{
+			recoverFilter(),
+			actuatorFilter(),
+			headerFilter(),
+			promFilter(),
+			skywalkingFilter(),
+		}
 	}
+
 	if config.Filters != nil {
 		filters = append(filters, config.Filters...)
 	}

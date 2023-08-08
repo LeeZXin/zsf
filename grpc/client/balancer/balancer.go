@@ -1,6 +1,7 @@
 package balancer
 
 import (
+	"errors"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/selector"
@@ -28,9 +29,9 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 	if len(info.ReadySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
-	nodesMap := make(map[string][]selector.Node)
+	nodesMap := make(map[string][]selector.Node[balancer.SubConn])
 	//默认版本节点先初始化
-	nodesMap[common.DefaultVersion] = make([]selector.Node, 0)
+	nodesMap[common.DefaultVersion] = make([]selector.Node[balancer.SubConn], 0)
 	i := 0
 	for subConn, subConnInfo := range info.ReadySCs {
 		weight := 1
@@ -43,7 +44,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		if version == "" {
 			version = common.DefaultVersion
 		}
-		node := selector.Node{
+		node := selector.Node[balancer.SubConn]{
 			Id:     strconv.Itoa(i),
 			Data:   subConn,
 			Weight: weight,
@@ -52,16 +53,20 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		if ok {
 			nodesMap[version] = append(nodes, node)
 		} else {
-			nodesMap[version] = append(make([]selector.Node, 0), node)
+			nodesMap[version] = append(make([]selector.Node[balancer.SubConn], 0), node)
 		}
 		if version != common.DefaultVersion {
 			nodesMap[common.DefaultVersion] = append(nodesMap[common.DefaultVersion], node)
 		}
 		i += 1
 	}
-	selectorMap := make(map[string]selector.Selector, len(nodesMap))
+	selectorMap := make(map[string]selector.Selector[balancer.SubConn], len(nodesMap))
 	for version, nodes := range nodesMap {
-		st, err := selector.NewSelectorFuncMap[p.lbPolicy](nodes)
+		slr, b := selector.FindNewSelectorFunc[balancer.SubConn](p.lbPolicy)
+		if !b {
+			return base.NewErrPicker(errors.New("unknown lbPolicy"))
+		}
+		st, err := slr(nodes)
 		if err != nil {
 			return base.NewErrPicker(err)
 		}
@@ -75,15 +80,15 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 
 type picker struct {
 	lbPolicy    string
-	selectorMap map[string]selector.Selector
+	selectorMap map[string]selector.Selector[balancer.SubConn]
 }
 
 func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err error) {
 	version := cmd.GetVersion()
 	var (
-		nodeSelector selector.Selector
+		nodeSelector selector.Selector[balancer.SubConn]
 		ok           bool
-		node         selector.Node
+		node         selector.Node[balancer.SubConn]
 	)
 	nodeSelector, ok = p.selectorMap[version]
 	if !ok {

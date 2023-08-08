@@ -18,24 +18,31 @@ const (
 )
 
 var (
-	NewSelectorFuncMap = map[string]func([]Node) (Selector, error){
-		WeightedRoundRobinPolicy: NewWeightedRoundRobinSelector,
-		RoundRobinPolicy:         NewRoundRobinSelector,
-		HashPolicy:               NewHashSelector,
-	}
-
 	EmptyNodesErr = errors.New("empty nodes")
 )
 
 // Selector 路由选择器interface
-type Selector interface {
+type Selector[T any] interface {
 	// Select 选择
-	Select(ctx context.Context, key ...string) (Node, error)
+	Select(ctx context.Context, key ...string) (Node[T], error)
 }
 
 // Node 路由节点信息
-type Node struct {
+type Node[T any] struct {
 	Id     string `json:"id"`
-	Data   any    `json:"data"`
+	Data   T      `json:"data"`
 	Weight int    `json:"weight"`
+}
+
+func FindNewSelectorFunc[T any](lbPolicy string) (func(nodes []Node[T]) (Selector[T], error), bool) {
+	switch lbPolicy {
+	case RoundRobinPolicy:
+		return NewRoundRobinSelector[T], true
+	case WeightedRoundRobinPolicy:
+		return NewWeightedRoundRobinSelector[T], true
+	case HashPolicy:
+		return NewHashSelector[T], true
+	default:
+		return nil, false
+	}
 }

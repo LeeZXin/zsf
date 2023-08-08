@@ -3,6 +3,7 @@ package ginutil
 import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/util/bizerr"
+	"github.com/LeeZXin/zsf/util/runtimeutil"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -23,7 +24,7 @@ func HandleErr(err error, c *gin.Context) {
 	if err != nil {
 		berr, ok := err.(*bizerr.Err)
 		if !ok {
-			logger.Logger.WithContext(c.Request.Context()).Error(err.Error())
+			logger.Logger.WithContext(c.Request.Context()).Error(err.Error() + "\n" + runtimeutil.PrettyErrCallerTrace(10))
 			c.String(http.StatusInternalServerError, "系统错误")
 		} else {
 			c.JSON(http.StatusOK, BaseResp{
@@ -49,4 +50,8 @@ func GetClientIp(c *gin.Context) string {
 		return "127.0.0.1"
 	}
 	return ip
+}
+
+func RetHttpJson(result any, c *gin.Context) {
+	c.JSON(http.StatusOK, result)
 }

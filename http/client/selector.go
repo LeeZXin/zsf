@@ -21,7 +21,7 @@ type CachedHttpSelector struct {
 	lbPolicy    string
 	serviceName string
 	//多版本路由
-	targetCache *cache.SingleCacheEntry
+	targetCache *cache.SingleCacheEntry[map[string]selector.Selector[string]]
 
 	discoveryType string
 }
@@ -43,7 +43,7 @@ func NewCachedHttpSelector(config CachedHttpSelectorConfig) *CachedHttpSelector 
 	if config.CacheExpireDuration > 0 {
 		cacheExpireDuration = config.CacheExpireDuration
 	}
-	entry, _ := cache.NewSingleCacheEntry(func(ctx context.Context) (any, error) {
+	entry, _ := cache.NewSingleCacheEntry[map[string]selector.Selector[string]](func(ctx context.Context) (map[string]selector.Selector[string], error) {
 		//consul拿服务信息
 		nodesMap, err := st.serviceMultiVersionNodes(config.ServiceName, ctx)
 		if err != nil {
@@ -55,15 +55,15 @@ func NewCachedHttpSelector(config CachedHttpSelectorConfig) *CachedHttpSelector 
 	return st
 }
 
-func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (selector.Node, error) {
+func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (selector.Node[string], error) {
 	slrMap, err := c.targetCache.LoadData(ctx)
 	if err != nil {
-		return selector.Node{}, err
+		return selector.Node[string]{}, err
 	}
-	return c.getFromCache(ctx, slrMap.(map[string]selector.Selector))
+	return c.getFromCache(ctx, slrMap)
 }
 
-func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]selector.Selector) (selector.Node, error) {
+func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]selector.Selector[string]) (selector.Node[string], error) {
 	hit, ok := slr[cmd.GetVersion()]
 	if !ok {
 		hit = slr[common.DefaultVersion]
@@ -71,11 +71,11 @@ func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]se
 	return hit.Select(ctx)
 }
 
-func (c *CachedHttpSelector) convert(nodesMap map[string][]selector.Node, lbPolicy string) map[string]selector.Selector {
-	ret := make(map[string]selector.Selector, len(nodesMap))
-	slrFn, ok := selector.NewSelectorFuncMap[lbPolicy]
+func (c *CachedHttpSelector) convert(nodesMap map[string][]selector.Node[string], lbPolicy string) map[string]selector.Selector[string] {
+	ret := make(map[string]selector.Selector[string], len(nodesMap))
+	slrFn, ok := selector.FindNewSelectorFunc[string](lbPolicy)
 	if !ok {
-		slrFn = selector.NewSelectorFuncMap[selector.RoundRobinPolicy]
+		slrFn = selector.NewRoundRobinSelector[string]
 	}
 	for ver, nodes := range nodesMap {
 		slr, err := slrFn(nodes)
@@ -86,7 +86,7 @@ func (c *CachedHttpSelector) convert(nodesMap map[string][]selector.Node, lbPoli
 	return ret
 }
 
-func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node, error) {
+func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node[string], error) {
 	info, err := discovery.GetServiceInfoByDiscoveryType(serviceName, c.discoveryType)
 	if err != nil {
 		return nil, err
@@ -94,12 +94,12 @@ func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx co
 	if len(info) == 0 {
 		return nil, errors.New("can not find ip address")
 	}
-	res := make(map[string][]selector.Node)
+	res := make(map[string][]selector.Node[string])
 	//默认版本节点先初始化
-	res[common.DefaultVersion] = make([]selector.Node, 0)
+	res[common.DefaultVersion] = make([]selector.Node[string], 0)
 	i := 0
 	for _, item := range info {
-		n := selector.Node{
+		n := selector.Node[string]{
 			Id:     strconv.Itoa(i),
 			Weight: item.Weight,
 			Data:   fmt.Sprintf("%s:%d", item.Addr, item.Port),
@@ -112,7 +112,7 @@ func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx co
 		if ok {
 			res[version] = append(ns, n)
 		} else {
-			res[version] = append(make([]selector.Node, 0), n)
+			res[version] = append(make([]selector.Node[string], 0), n)
 		}
 		if version != common.DefaultVersion {
 			res[common.DefaultVersion] = append(res[common.DefaultVersion], n)

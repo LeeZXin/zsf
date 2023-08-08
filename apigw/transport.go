@@ -10,7 +10,7 @@ import (
 type Transport struct {
 	Extra           map[string]any
 	rewriteStrategy RewriteStrategy
-	targetSelector  selector.Selector
+	targetSelector  selector.Selector[string]
 	rpcExecutor     RpcExecutor
 }
 
@@ -27,7 +27,7 @@ func (t *Transport) Transport(c *gin.Context) {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
-		host := node.Data.(string)
+		host := node.Data
 		if !strings.HasPrefix(host, "http") {
 			host = "http://" + host
 		}

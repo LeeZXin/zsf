@@ -57,14 +57,15 @@ func init() {
 	Logger.SetReportCaller(true)
 	Logger.SetFormatter(&logFormatter{})
 	Logger.SetLevel(logrus.InfoLevel)
-	env := cmd.GetEnv()
-	switch env {
+	if property.GetBool("logger.kafka.enabled") {
+		Logger.AddHook(newKafkaHook())
+	}
+	switch cmd.GetEnv() {
 	case "prd":
 		Logger.SetOutput(newLogWriter())
 	default:
 		Logger.SetOutput(io.MultiWriter(os.Stdout, newLogWriter()))
 	}
-
 }
 
 type asyncWrapper struct {
@@ -80,9 +81,6 @@ func (w *asyncWrapper) Write(p []byte) (int, error) {
 }
 
 func newLogWriter() io.Writer {
-	if property.GetString("logger.mode") == "kafka" {
-		return newKafkaWriter(newLumberjackLogger())
-	}
 	if property.GetBool("logger.async.enabled") {
 		return newAsyncWrapper()
 	}

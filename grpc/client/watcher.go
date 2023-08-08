@@ -1,11 +1,11 @@
 package grpcclient
 
 import (
-	"context"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/executor"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/psub"
+	"github.com/LeeZXin/zsf/util/taskutil"
 	"sync"
 	"time"
 )
@@ -29,18 +29,18 @@ func init() {
 type addrUpdateCallback func([]discovery.ServiceAddr)
 
 type serviceWatcher struct {
-	mu         sync.RWMutex
+	mu         sync.Mutex
 	serviceMap map[string][]discovery.ServiceAddr
-	listener   *psub.Channel
-	cancelFunc context.CancelFunc
-	ctx        context.Context
+	listener   *psub.Channel[[]discovery.ServiceAddr]
+
+	ptask *taskutil.PeriodicalTask
 }
 
 // OnChange 注册节点变更回调
 func (w *serviceWatcher) OnChange(serviceName string, callback addrUpdateCallback) {
-	_ = w.listener.Subscribe(serviceName, func(data any) {
+	_ = w.listener.Subscribe(serviceName, func(data []discovery.ServiceAddr) {
 		if data != nil {
-			callback(data.([]discovery.ServiceAddr))
+			callback(data)
 		}
 	})
 	//首次加载需要先获取服务列表
@@ -57,78 +57,67 @@ func (w *serviceWatcher) OnChange(serviceName string, callback addrUpdateCallbac
 
 // Start 开启定时获取
 func (w *serviceWatcher) Start() {
-	go func() {
-		ticker := time.NewTicker(time.Duration(watchDuration) * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				break
-			case <-w.ctx.Done():
-				return
-			}
-			w.mu.RLock()
-			if len(w.serviceMap) == 0 {
-				w.mu.RUnlock()
-				continue
-			}
-			services, addrs := w.copyService()
-			w.mu.RUnlock()
+	w.ptask.Start()
+}
 
-			//记录变更的服务
-			changeNames := make([]string, 0)
-			changeAddrs := make([][]discovery.ServiceAddr, 0)
-			for i, service := range services {
-				newAddrs, err := discovery.GetServiceInfo(service)
-				if err != nil {
-					break
-				}
-				oldArrs := addrs[i]
-				if !discovery.DiffServiceAddr(oldArrs, newAddrs) {
-					changeNames = append(changeNames, service)
-					changeAddrs = append(changeAddrs, newAddrs)
-				}
-			}
-			if len(changeNames) > 0 {
-				for i, name := range changeNames {
-					//通知节点变更
-					_ = w.listener.Publish(name, changeAddrs[i])
-				}
-				w.mu.Lock()
-				for i, name := range changeNames {
-					//存储新节点
-					w.serviceMap[name] = changeAddrs[i]
-				}
-				w.mu.Unlock()
-			}
+// watch 开启定时获取
+func (w *serviceWatcher) watch() {
+	serviceMap := w.copyServiceMap()
+	if len(serviceMap) == 0 {
+		return
+	}
+	//记录变更的服务
+	changeNames := make([]string, 0)
+	changeAddrs := make([][]discovery.ServiceAddr, 0)
+	for name, oldArr := range serviceMap {
+		newAddr, err := discovery.GetServiceInfo(name)
+		if err != nil {
+			break
 		}
-	}()
+		if !discovery.DiffServiceAddr(oldArr, newAddr) {
+			changeNames = append(changeNames, name)
+			changeAddrs = append(changeAddrs, newAddr)
+		}
+	}
+	if len(changeNames) > 0 {
+		for i, name := range changeNames {
+			//通知节点变更
+			_ = w.listener.Publish(name, changeAddrs[i])
+			serviceMap[name] = changeAddrs[i]
+		}
+		w.setServiceMap(serviceMap)
+	}
 }
 
 // 复制map数据
-func (w *serviceWatcher) copyService() ([]string, [][]discovery.ServiceAddr) {
-	names := make([]string, 0, len(w.serviceMap))
-	addrs := make([][]discovery.ServiceAddr, 0, len(w.serviceMap))
-	for serviceName, serviceAddrs := range w.serviceMap {
-		names = append(names, serviceName)
-		addrs = append(addrs, serviceAddrs)
+func (w *serviceWatcher) copyServiceMap() map[string][]discovery.ServiceAddr {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	ret := make(map[string][]discovery.ServiceAddr, len(w.serviceMap))
+	for k, v := range w.serviceMap {
+		ret[k] = v
 	}
-	return names, addrs
+	return ret
+}
+
+func (w *serviceWatcher) setServiceMap(data map[string][]discovery.ServiceAddr) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.serviceMap = data
 }
 
 func (w *serviceWatcher) Shutdown() {
 	w.listener.Shutdown()
-	w.cancelFunc()
+	w.ptask.Stop()
 }
 
 func newWatcher() *serviceWatcher {
 	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
-	channel, _ := psub.NewChannel(channelExecutor)
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	return &serviceWatcher{
+	channel, _ := psub.NewChannel[[]discovery.ServiceAddr](channelExecutor)
+	w := &serviceWatcher{
 		serviceMap: make(map[string][]discovery.ServiceAddr, 8),
 		listener:   channel,
-		cancelFunc: cancelFunc,
-		ctx:        ctx,
 	}
+	w.ptask, _ = taskutil.NewPeriodicalTask(time.Duration(watchDuration)*time.Second, w.watch)
+	return w
 }

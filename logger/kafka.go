@@ -1,106 +1,108 @@
 package logger
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/IBM/sarama"
+	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
+	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/sirupsen/logrus"
-	"io"
 	"strings"
 	"time"
 )
 
-type kafkaWriter struct {
-	topic     string
-	producer  sarama.AsyncProducer
-	errLogger *logrus.Logger
+const (
+	LogVersion = "1"
+)
+
+type LogContent struct {
+	Timestamp int64  `json:"@timestamp"`
+	Version   string `json:"@version"`
+	Level     string `json:"level"`
+	Env       string `json:"env"`
+
+	SourceIp string `json:"sourceIp"`
+	Type     string `json:"type"`
+	FileName string `json:"fileName"`
+
+	Application string   `json:"application"`
+	Content     string   `json:"content"`
+	Tags        []string `json:"tags"`
 }
 
-func (w *kafkaWriter) Write(p []byte) (int, error) {
-	now := time.Now()
-	t, _ := now.MarshalBinary()
-	v := kafkaLogContent{
-		Ip:              common.GetLocalIp(),
-		InstanceId:      "xxx",
-		ApplicationName: common.GetApplicationName(),
-		LogContent:      string(p),
-		SendTime:        now.UnixMilli(),
-	}
-	value, _ := json.Marshal(v)
-	w.producer.Input() <- &sarama.ProducerMessage{
-		Key:   sarama.ByteEncoder(t),
-		Topic: w.topic,
-		Value: sarama.ByteEncoder(value),
-	}
-	return len(p), nil
-}
-
-func (w *kafkaWriter) logErr() {
-	go func() {
-		for msg := range w.producer.Errors() {
-			w.errLogger.Error(msg.Error())
-		}
-	}()
-}
-
-func newKafkaWriter(writer ...io.Writer) io.Writer {
-	errLogger := newKafkaErrLogger(writer...)
+func newKafkaHook() logrus.Hook {
 	kafkaHosts := property.GetString("logger.kafka.hosts")
 	if kafkaHosts == "" {
-		errLogger.Panic("logger.kafka.hosts is empty")
+		panic("logger.kafka.hosts is empty")
 	}
 	topic := property.GetString("logger.kafka.topic")
 	if topic == "" {
-		errLogger.Panic("logger.kafka.topic is empty")
+		panic("logger.kafka.topic is empty")
 	}
-	hosts := strings.Split(kafkaHosts, ",")
-	kafkaConfig := sarama.NewConfig()
-	kafkaConfig.Producer.RequiredAcks = sarama.WaitForLocal       // Only wait for the leader to ack
-	kafkaConfig.Producer.Compression = sarama.CompressionSnappy   // Compress messages
-	kafkaConfig.Producer.Flush.Frequency = 500 * time.Millisecond // Flush batches every 500ms
-	kafkaConfig.Net.DialTimeout = 5 * time.Second
-	kafkaConfig.Net.ReadTimeout = 5 * time.Second
-	kafkaConfig.Net.WriteTimeout = 5 * time.Second
-	kafkaConfig.Net.SASL.Enable = property.GetBool("logger.kafka.sasl")
-	kafkaConfig.Net.SASL.Mechanism = sarama.SASLTypePlaintext
-	kafkaConfig.Net.SASL.User = property.GetString("logger.kafka.username")
-	kafkaConfig.Net.SASL.Password = property.GetString("logger.kafka.password")
-	kafkaClient, err := sarama.NewClient(hosts, kafkaConfig)
-	if err != nil {
-		errLogger.Panic(err.Error())
+	kw := &kafka.Writer{
+		Addr:         kafka.TCP(strings.Split(kafkaHosts, ",")...),
+		Topic:        topic,
+		MaxAttempts:  1,
+		BatchSize:    100,
+		BatchTimeout: 3 * time.Second,
+		Async:        true,
+		Compression:  kafka.Snappy,
+		Balancer:     &kafka.Hash{},
+		RequiredAcks: kafka.RequireNone,
 	}
-	producer, err := sarama.NewAsyncProducerFromClient(kafkaClient)
-	if err != nil {
-		errLogger.Panic(err.Error())
+	if property.GetBool("logger.kafka.sasl") {
+		mechanism := plain.Mechanism{
+			Username: property.GetString("logger.kafka.username"),
+			Password: property.GetString("logger.kafka.password"),
+		}
+		kw.Transport = &kafka.Transport{
+			SASL: mechanism,
+		}
 	}
 	quit.AddShutdownHook(func() {
-		_ = kafkaClient.Close()
-		_ = producer.Close()
+		_ = kw.Close()
 	})
-	ret := &kafkaWriter{
-		topic:     topic,
-		producer:  producer,
-		errLogger: errLogger,
+	ret := &kafkaHook{
+		writer:    kw,
+		formatter: &logFormatter{},
 	}
-	ret.logErr()
 	return ret
 }
 
-func newKafkaErrLogger(writer ...io.Writer) *logrus.Logger {
-	logger := logrus.New()
-	logger.SetReportCaller(true)
-	logger.SetFormatter(&logFormatter{})
-	logger.SetLevel(logrus.InfoLevel)
-	logger.SetOutput(io.MultiWriter(writer...))
-	return logger
+type kafkaHook struct {
+	formatter logrus.Formatter
+	writer    *kafka.Writer
 }
 
-type kafkaLogContent struct {
-	Ip              string `json:"ip"`
-	InstanceId      string `json:"instanceId"`
-	ApplicationName string `json:"applicationName"`
-	LogContent      string `json:"logContent"`
-	SendTime        int64  `json:"sendTime"`
+func (*kafkaHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
+func (k *kafkaHook) Fire(entry *logrus.Entry) error {
+	content, err := k.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	t, _ := now.MarshalBinary()
+	v := LogContent{
+		Timestamp:   now.UnixMilli(),
+		Version:     LogVersion,
+		Level:       entry.Level.String(),
+		Env:         cmd.GetEnv(),
+		SourceIp:    common.GetLocalIp(),
+		Type:        "kafka",
+		Application: common.GetApplicationName(),
+		Content:     string(content),
+		Tags:        []string{},
+	}
+	value, _ := json.Marshal(v)
+	_ = k.writer.WriteMessages(context.Background(), kafka.Message{
+		Key:   t,
+		Value: value,
+	})
+	return nil
 }

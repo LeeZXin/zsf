@@ -9,6 +9,7 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
+	"github.com/LeeZXin/zsf/util/hashset"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"net"
@@ -18,16 +19,20 @@ import (
 
 // grpc server封装
 
+const (
+	DefaultServerPort = 15004
+)
+
 var (
-	acceptedHeaders = make(map[string]bool)
+	acceptedHeaders = make(hashset.HashSet[string])
 )
 
 func init() {
 	h := property.GetString("grpc.server.acceptedHeaders")
 	if h != "" {
-		s := strings.Split(h, ";")
-		for i := range s {
-			acceptedHeaders[s[i]] = true
+		sp := strings.Split(h, ";")
+		for _, s := range sp {
+			acceptedHeaders.Add(s)
 		}
 	}
 }
@@ -44,8 +49,8 @@ type RegisterServiceFunc func(server *grpc.Server)
 func InitAndStartGrpcServer(config Config) {
 	// 端口信息
 	port := property.GetInt("grpc.port")
-	if port == 0 {
-		logger.Logger.Panic("nil grpc port, fill it on application.yaml")
+	if port <= 0 {
+		port = DefaultServerPort
 	}
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

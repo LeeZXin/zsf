@@ -45,7 +45,7 @@ var (
 			if err != nil {
 				return err
 			}
-			routers.putExprMatchTransport(expr, transport)
+			routers.putExprMatchTransport(&expr, transport)
 			return nil
 		},
 	}
@@ -123,12 +123,10 @@ func (r *RouterConfig) Validate() error {
 		if !ok {
 			return errors.New("wrong target type")
 		}
-		if r.TargetType == DomainTargetType {
-			if r.Targets == nil || len(r.Targets) == 0 {
-				return errors.New("empty target")
-			}
+		if r.Targets == nil || len(r.Targets) == 0 {
+			return errors.New("empty target")
 		}
-		_, ok = selector.NewSelectorFuncMap[r.TargetLbPolicy]
+		_, ok = selector.FindNewSelectorFunc(r.TargetLbPolicy)
 		if !ok {
 			return errors.New("wrong lb policy")
 		}
@@ -148,7 +146,7 @@ type Routers struct {
 	//精确匹配
 	fullMatch map[string]*Transport
 	//前缀匹配
-	prefixMatch *Trie
+	prefixMatch *Trie[*Transport]
 	//表达式匹配
 	exprMatch map[*hexpr.Expr]*Transport
 	//连接池
@@ -164,25 +162,25 @@ func NewRouters(httpClient *http.Client) *Routers {
 	}
 }
 
-func (r *Routers) putFullMatchTransport(path any, trans *Transport) {
+func (r *Routers) putFullMatchTransport(path string, trans *Transport) {
 	if r.fullMatch == nil {
 		r.fullMatch = make(map[string]*Transport, 8)
 	}
-	r.fullMatch[path.(string)] = trans
+	r.fullMatch[path] = trans
 }
 
-func (r *Routers) putPrefixMatchTransport(path any, transport *Transport) {
+func (r *Routers) putPrefixMatchTransport(path string, transport *Transport) {
 	if r.prefixMatch == nil {
-		r.prefixMatch = &Trie{}
+		r.prefixMatch = &Trie[*Transport]{}
 	}
-	r.prefixMatch.Insert(path.(string), transport)
+	r.prefixMatch.Insert(path, transport)
 }
 
-func (r *Routers) putExprMatchTransport(expr any, trans *Transport) {
+func (r *Routers) putExprMatchTransport(expr *hexpr.Expr, trans *Transport) {
 	if r.exprMatch == nil {
 		r.exprMatch = make(map[*hexpr.Expr]*Transport, 8)
 	}
-	r.exprMatch[expr.(*hexpr.Expr)] = trans
+	r.exprMatch[expr] = trans
 }
 
 func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
@@ -198,7 +196,7 @@ func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
 		//前缀匹配
 		node, ok := r.prefixMatch.PrefixSearch(path, LongestMatchType)
 		if ok {
-			return node.data.(*Transport), true
+			return node.data, true
 		}
 	}
 	if r.exprMatch != nil {

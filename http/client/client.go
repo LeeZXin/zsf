@@ -80,7 +80,7 @@ func (c *Impl) Init() {
 	if c.LbPolicy == "" {
 		c.LbPolicy = selector.RoundRobinPolicy
 	} else {
-		_, ok := selector.NewSelectorFuncMap[c.LbPolicy]
+		_, ok := selector.FindNewSelectorFunc[any](c.LbPolicy)
 		if !ok {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
@@ -104,7 +104,7 @@ func (c *Impl) Select(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return node.Data.(string), nil
+	return node.Data, nil
 }
 
 func (c *Impl) Get(ctx context.Context, path string, resp any, opts ...Option) error {
@@ -142,7 +142,7 @@ func (c *Impl) send(ctx context.Context, path, method, contentType string, req, 
 		}
 	}
 	// 拼接host
-	host := node.Data.(string)
+	host := node.Data
 	url := "http://" + host
 	if !strings.HasPrefix(path, "/") {
 		url += "/"
@@ -165,7 +165,6 @@ func (c *Impl) send(ctx context.Context, path, method, contentType string, req, 
 	}
 	// 塞target信息
 	request.Header.Set(rpc.Target, c.ServiceName)
-
 	invoker := func(request *http.Request) (*http.Response, error) {
 		return c.http.Do(request)
 	}

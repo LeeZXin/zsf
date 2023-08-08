@@ -8,11 +8,13 @@ import (
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
 	"github.com/LeeZXin/zsf/util/ginutil"
+	"github.com/LeeZXin/zsf/util/hashset"
+	"github.com/LeeZXin/zsf/util/idutil"
+	"github.com/LeeZXin/zsf/util/threadutil"
 	"github.com/SkyAPM/go2sky"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"runtime"
@@ -25,16 +27,16 @@ import (
 //常见filter封装
 
 var (
-	acceptedHeaders = make(map[string]bool)
+	acceptedHeaders = make(hashset.HashSet[string])
 	actuatorEnabled = property.GetBool("actuator.enabled")
 )
 
 func init() {
 	h := property.GetString("http.server.acceptedHeaders")
 	if h != "" {
-		s := strings.Split(h, ";")
-		for i := range s {
-			acceptedHeaders[s[i]] = true
+		sp := strings.Split(h, ";")
+		for _, s := range sp {
+			acceptedHeaders.Add(s)
 		}
 	}
 }
@@ -94,23 +96,14 @@ type UpdateLogLevelReqVO struct {
 // recoverFilter recover封装
 func recoverFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		defer func() {
-			fatal := recover()
-			if fatal != nil {
-				stack := make([]string, 0, 20)
-				for i := 0; i < 20; i++ {
-					_, file, line, ok := runtime.Caller(i)
-					if !ok {
-						break
-					}
-					stack = append(stack, file+":"+strconv.Itoa(line))
-				}
-				logger.Logger.WithContext(c.Request.Context()).Error(fatal, "\n", strings.Join(stack, "\n"))
-				c.String(500, "系统异常,稍后重试")
-				c.Abort()
-			}
-		}()
-		c.Next()
+		err := threadutil.RunSafe(func() {
+			c.Next()
+		})
+		if err != nil {
+			logger.Logger.WithContext(c.Request.Context()).Error(err.Error())
+			c.String(500, "系统异常,稍后重试")
+			c.Abort()
+		}
 	}
 }
 
@@ -143,7 +136,7 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 func headerFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Header.Get(rpc.TraceId) == "" {
-			c.Request.Header.Set(rpc.TraceId, strings.ReplaceAll(uuid.New().String(), "-", ""))
+			c.Request.Header.Set(rpc.TraceId, idutil.RandomUuid())
 		}
 		clone := CopyRequestHeader(c)
 		ctx := rpc.SetHeaders(c.Request.Context(), clone)
@@ -157,8 +150,7 @@ func CopyRequestHeader(c *gin.Context) rpc.Header {
 	clone := make(rpc.Header, len(c.Request.Header))
 	for key := range c.Request.Header {
 		key = strings.ToLower(key)
-		_, ok := acceptedHeaders[key]
-		if ok || strings.HasPrefix(key, rpc.Prefix) {
+		if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpc.Prefix) {
 			clone[key] = c.Request.Header.Get(key)
 		}
 	}

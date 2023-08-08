@@ -7,13 +7,11 @@ import (
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
+	"github.com/LeeZXin/zsf/util/threadutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"runtime"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -61,24 +59,15 @@ func prometheusStreamInterceptor() grpc.StreamServerInterceptor {
 
 func logErrorStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
-		defer func() {
-			fatal := recover()
-			if fatal != nil {
-				stack := make([]string, 0, 20)
-				for i := 0; i < 20; i++ {
-					_, file, line, ok := runtime.Caller(i)
-					if !ok {
-						break
-					}
-					stack = append(stack, file+":"+strconv.Itoa(line))
-				}
-				logger.Logger.WithContext(ss.Context()).Error(fatal, "\n", strings.Join(stack, "\n"))
-				err = status.Errorf(codes.Internal, "panic with %v\n", fatal)
+		fatal := threadutil.RunSafe(func() {
+			err = handler(srv, ss)
+			if err != nil {
+				logger.Logger.WithContext(ss.Context()).Error(err)
 			}
-		}()
-		err = handler(srv, ss)
-		if err != nil {
-			logger.Logger.WithContext(ss.Context()).Error(err)
+		})
+		if fatal != nil {
+			logger.Logger.WithContext(ss.Context()).Error(fatal.Error())
+			err = status.Error(codes.Internal, "panic with err\n")
 		}
 		return
 	}

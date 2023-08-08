@@ -19,9 +19,8 @@ grpc:
 http:
   enabled: true
   weight: 1
-  port: 8091
   registry:
-    enabled: true
+    enabled: false
   client:
     lbPolicy: round_robin
 
@@ -40,8 +39,7 @@ property:
 
 # 服务发现 type = consul or static
 discovery:
-  type: static
-  enabled: true
+  type: consul
 
 registry:
   type: sa

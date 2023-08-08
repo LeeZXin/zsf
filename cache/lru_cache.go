@@ -9,13 +9,13 @@ import (
 // lru缓存 带过期时间
 // 双向链表 + map
 
-type dNode struct {
-	Pre   *dNode
-	Next  *dNode
-	Entry *dEntry
+type dNode[T any] struct {
+	Pre   *dNode[T]
+	Next  *dNode[T]
+	Entry *dEntry[T]
 }
 
-func (n *dNode) addToNext(node *dNode) {
+func (n *dNode[T]) addToNext(node *dNode[T]) {
 	if node.Next != nil {
 		node.Next.Pre = node
 	}
@@ -24,7 +24,7 @@ func (n *dNode) addToNext(node *dNode) {
 	n.Next = node
 }
 
-func (n *dNode) delSelf() {
+func (n *dNode[T]) delSelf() {
 	pre := n.Pre
 	next := n.Next
 	pre.Next = next
@@ -36,23 +36,23 @@ func (n *dNode) delSelf() {
 	n.Next = nil
 }
 
-type dEntry struct {
-	*SingleCacheEntry
-	Node *dNode
+type dEntry[T any] struct {
+	*SingleCacheEntry[T]
+	Node *dNode[T]
 	Key  string
 }
 
-type LRUCache struct {
+type LRUCache[T any] struct {
 	mu             sync.Mutex
-	cache          map[string]*dEntry
-	head           *dNode
-	tail           *dNode
+	cache          map[string]*dEntry[T]
+	head           *dNode[T]
+	tail           *dNode[T]
 	maxSize        int
-	supplier       SupplierWithKey
+	supplier       SupplierWithKey[T]
 	expireDuration time.Duration
 }
 
-func NewLRUCache(supplier SupplierWithKey, duration time.Duration, maxSize int) (*LRUCache, error) {
+func NewLRUCache[T any](supplier SupplierWithKey[T], duration time.Duration, maxSize int) (ExpireCache[T], error) {
 	if maxSize <= 0 {
 		return nil, IllegalMaxSizeErr
 	}
@@ -62,14 +62,14 @@ func NewLRUCache(supplier SupplierWithKey, duration time.Duration, maxSize int) 
 	if duration <= 0 {
 		return nil, IllegalDurationErr
 	}
-	defaultNode := &dNode{
+	defaultNode := &dNode[T]{
 		Pre:   nil,
 		Next:  nil,
 		Entry: nil,
 	}
-	return &LRUCache{
+	return &LRUCache[T]{
 		mu:             sync.Mutex{},
-		cache:          make(map[string]*dEntry, 8),
+		cache:          make(map[string]*dEntry[T], 8),
 		head:           defaultNode,
 		tail:           defaultNode,
 		maxSize:        maxSize,
@@ -78,8 +78,8 @@ func NewLRUCache(supplier SupplierWithKey, duration time.Duration, maxSize int) 
 	}, nil
 }
 
-func (c *LRUCache) LoadData(ctx context.Context, key string) (any, error) {
-	getEntry := func() (*dEntry, error) {
+func (c *LRUCache[T]) LoadData(ctx context.Context, key string) (T, error) {
+	getEntry := func() (*dEntry[T], error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		entry, ok := c.getKey(key)
@@ -88,14 +88,14 @@ func (c *LRUCache) LoadData(ctx context.Context, key string) (any, error) {
 			c.addToTail(entry)
 			return entry, nil
 		}
-		singleEntry, err := NewSingleCacheEntry(func(ctx context.Context) (any, error) {
+		singleEntry, err := NewSingleCacheEntry(func(ctx context.Context) (T, error) {
 			return c.supplier(ctx, key)
 		}, c.expireDuration)
 		if err != nil {
 			return nil, err
 		}
-		node := &dNode{}
-		entry = &dEntry{
+		node := &dNode[T]{}
+		entry = &dEntry[T]{
 			Key:              key,
 			Node:             node,
 			SingleCacheEntry: singleEntry,
@@ -108,21 +108,22 @@ func (c *LRUCache) LoadData(ctx context.Context, key string) (any, error) {
 		c.cache[key] = entry
 		return entry, nil
 	}
+	var ret T
 	entry, err := getEntry()
 	if err != nil {
-		return nil, err
+		return ret, err
 	}
 	return entry.LoadData(ctx)
 }
 
 // addToTail 添加到尾部
-func (c *LRUCache) addToTail(entry *dEntry) {
+func (c *LRUCache[T]) addToTail(entry *dEntry[T]) {
 	c.tail.addToNext(entry.Node)
 	c.tail = entry.Node
 }
 
 // removeEldestKey 移除最老的key
-func (c *LRUCache) removeEldestKey() {
+func (c *LRUCache[T]) removeEldestKey() {
 	eldest := c.head.Next
 	if eldest == nil {
 		return
@@ -132,7 +133,7 @@ func (c *LRUCache) removeEldestKey() {
 	eldest.delSelf()
 }
 
-func (c *LRUCache) AllKeys() []string {
+func (c *LRUCache[T]) AllKeys() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	keys := make([]string, 0, len(c.cache))
@@ -143,12 +144,12 @@ func (c *LRUCache) AllKeys() []string {
 	return keys
 }
 
-func (c *LRUCache) getKey(key string) (*dEntry, bool) {
+func (c *LRUCache[T]) getKey(key string) (*dEntry[T], bool) {
 	ret, ok := c.cache[key]
 	return ret, ok
 }
 
-func (c *LRUCache) RemoveKey(key string) {
+func (c *LRUCache[T]) RemoveKey(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	entry, ok := c.getKey(key)
@@ -158,14 +159,14 @@ func (c *LRUCache) RemoveKey(key string) {
 	}
 }
 
-func (c *LRUCache) ContainsKey(key string) bool {
+func (c *LRUCache[T]) ContainsKey(key string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_, ok := c.getKey(key)
 	return ok
 }
 
-func (c *LRUCache) Clear() {
+func (c *LRUCache[T]) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for key := range c.cache {

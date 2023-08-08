@@ -7,14 +7,13 @@ import (
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
-	"github.com/google/uuid"
+	"github.com/LeeZXin/zsf/util/idutil"
+	"github.com/LeeZXin/zsf/util/threadutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"runtime"
 	agentv3 "skywalking.apache.org/repo/goapi/collect/language/agent/v3"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -37,8 +36,7 @@ func CopyIncomingContext(ctx context.Context) rpc.Header {
 	if ok {
 		for key := range md {
 			key = strings.ToLower(key)
-			_, ok = acceptedHeaders[key]
-			if ok || strings.HasPrefix(key, rpc.Prefix) {
+			if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpc.Prefix) {
 				val := md.Get(key)
 				if val != nil && len(val) > 0 {
 					clone[key] = val[0]
@@ -48,7 +46,7 @@ func CopyIncomingContext(ctx context.Context) rpc.Header {
 	}
 	_, ok = clone[rpc.TraceId]
 	if !ok {
-		clone[rpc.TraceId] = strings.ReplaceAll(uuid.New().String(), "-", "")
+		clone[rpc.TraceId] = idutil.RandomUuid()
 	}
 	return clone
 }
@@ -68,24 +66,15 @@ func prometheusUnaryInterceptor() grpc.UnaryServerInterceptor {
 // logErrorUnaryInterceptor 错误信息打印
 func logErrorUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		defer func() {
-			fatal := recover()
-			if fatal != nil {
-				stack := make([]string, 0, 20)
-				for i := 0; i < 20; i++ {
-					_, file, line, ok := runtime.Caller(i)
-					if !ok {
-						break
-					}
-					stack = append(stack, file+":"+strconv.Itoa(line))
-				}
-				logger.Logger.WithContext(ctx).Error(fatal, "\n", strings.Join(stack, "\n"))
-				err = status.Errorf(codes.Internal, "panic with %v\n", fatal)
+		fatal := threadutil.RunSafe(func() {
+			resp, err = handler(ctx, req)
+			if err != nil {
+				logger.Logger.WithContext(ctx).Error(err)
 			}
-		}()
-		resp, err = handler(ctx, req)
-		if err != nil {
-			logger.Logger.WithContext(ctx).Error(err)
+		})
+		if fatal != nil {
+			logger.Logger.WithContext(ctx).Error(fatal.Error())
+			err = status.Errorf(codes.Internal, "panic with %v\n", fatal)
 		}
 		return
 	}

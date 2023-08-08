@@ -9,9 +9,8 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
-	"github.com/google/uuid"
+	"github.com/LeeZXin/zsf/util/idutil"
 	"github.com/hashicorp/consul/api"
-	"strings"
 	"time"
 )
 
@@ -40,8 +39,7 @@ func (s *consulImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	agent := consulClient.Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(),
-		strings.ReplaceAll(uuid.New().String(), "-", ""))
+	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), idutil.RandomUuid())
 	s.checkID = s.serviceId + "-checkID"
 
 	quit.AddShutdownHook(func() {

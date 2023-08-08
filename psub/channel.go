@@ -22,20 +22,20 @@ var (
 	noSubscriberErr = errors.New("no subscriber")
 	invalidArgErr   = errors.New("invalid arguments")
 
-	defaultChannel *Channel
+	defaultChannel *Channel[any]
 )
 
-type Channel struct {
+type Channel[T any] struct {
 	mu       sync.RWMutex
-	ch       map[string][]Subscriber
+	ch       map[string][]Subscriber[T]
 	executor *executor.Executor
 }
 
-type Subscriber func(data any)
+type Subscriber[T any] func(data T)
 
 // Publish 发布数据
-func (c *Channel) Publish(topic string, data any) error {
-	if topic == "" || data == nil {
+func (c *Channel[T]) Publish(topic string, data T) error {
+	if topic == "" {
 		return nilErr
 	}
 	c.mu.RLock()
@@ -55,34 +55,34 @@ func (c *Channel) Publish(topic string, data any) error {
 }
 
 // Subscribe 订阅数据
-func (c *Channel) Subscribe(topic string, subscriber Subscriber) error {
+func (c *Channel[T]) Subscribe(topic string, subscriber Subscriber[T]) error {
 	if topic == "" || subscriber == nil {
 		return invalidArgErr
 	}
 	c.mu.Lock()
 	subs, ok := c.ch[topic]
 	if !ok {
-		subs = make([]Subscriber, 0)
+		subs = make([]Subscriber[T], 0)
 	}
 	c.ch[topic] = append(subs, subscriber)
 	c.mu.Unlock()
 	return nil
 }
 
-func (c *Channel) Shutdown() {
+func (c *Channel[T]) Shutdown() {
 	if c.executor != nil {
 		c.executor.Shutdown()
 	}
 }
 
 // NewChannel 初始化channel 入参是协程池
-func NewChannel(executor *executor.Executor) (*Channel, error) {
+func NewChannel[T any](executor *executor.Executor) (*Channel[T], error) {
 	if executor == nil {
 		return nil, invalidArgErr
 	}
-	return &Channel{
+	return &Channel[T]{
 		mu:       sync.RWMutex{},
-		ch:       make(map[string][]Subscriber),
+		ch:       make(map[string][]Subscriber[T]),
 		executor: executor,
 	}, nil
 }
@@ -90,7 +90,7 @@ func NewChannel(executor *executor.Executor) (*Channel, error) {
 func init() {
 	// 默认带实现队列长度为1024的协程池
 	e, _ := executor.NewExecutor(runtime.GOMAXPROCS(0), 1024, 10*time.Minute, &executor.CallerRunsPolicy{})
-	channel, _ := NewChannel(e)
+	channel, _ := NewChannel[any](e)
 	defaultChannel = channel
 }
 
@@ -98,6 +98,6 @@ func Publish(topic string, data any) error {
 	return defaultChannel.Publish(topic, data)
 }
 
-func Subscribe(topic string, subscriber Subscriber) error {
+func Subscribe(topic string, subscriber Subscriber[any]) error {
 	return defaultChannel.Subscribe(topic, subscriber)
 }

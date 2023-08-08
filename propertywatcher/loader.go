@@ -21,12 +21,12 @@ import (
 var (
 	registerMu    = sync.Mutex{}
 	watchKeys     = make(map[string]bool)
-	notifyChannel *psub.Channel
+	notifyChannel *psub.Channel[any]
 )
 
 func init() {
 	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
-	notifyChannel, _ = psub.NewChannel(channelExecutor)
+	notifyChannel, _ = psub.NewChannel[any](channelExecutor)
 	enabled := property.GetBool("property.enabled")
 	if enabled {
 		//启动consul配置监听

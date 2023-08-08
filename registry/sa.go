@@ -8,8 +8,6 @@ import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/sa_registry/client"
-	"github.com/google/uuid"
-	"strings"
 	"time"
 )
 
@@ -34,7 +32,7 @@ type saImpl struct {
 func (s *saImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
-	s.instanceId = strings.ReplaceAll(uuid.New().String(), "-", "")
+	s.instanceId = common.GetInstanceId()
 	s.serviceName = common.GetApplicationName() + "-" + info.Scheme
 	quit.AddShutdownHook(func() {
 		//取消注册

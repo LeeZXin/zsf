@@ -2,6 +2,7 @@ package common
 
 import (
 	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/util/idutil"
 	"net"
 )
 
@@ -11,6 +12,8 @@ var (
 	zone            string
 
 	localIP string
+
+	instanceId = idutil.RandomUuid()
 )
 
 const (
@@ -88,4 +91,8 @@ func GetZone() string {
 
 func GetLocalIp() string {
 	return localIP
+}
+
+func GetInstanceId() string {
+	return instanceId
 }

@@ -21,9 +21,9 @@ type Context struct {
 
 type LifeCycle interface {
 	// OnApplicationStart 服务启动
-	OnApplicationStart(ctx Context)
+	OnApplicationStart()
 	// OnApplicationShutdown 服务关闭
-	OnApplicationShutdown(ctx Context)
+	OnApplicationShutdown()
 }
 
 func RegisterApplicationLifeCycle(lifeCycle LifeCycle) {
@@ -36,7 +36,6 @@ func RegisterApplicationLifeCycle(lifeCycle LifeCycle) {
 }
 
 func onApplicationStart() {
-	c := copyCtx()
 	mu.Lock()
 	listeners := lifeCycles[:]
 	mu.Unlock()
@@ -45,13 +44,12 @@ func onApplicationStart() {
 	}
 	_ = notifyExecutor.Execute(func() {
 		for _, listener := range listeners {
-			listener.OnApplicationStart(c)
+			listener.OnApplicationStart()
 		}
 	})
 }
 
 func onApplicationShutdown() {
-	c := copyCtx()
 	mu.Lock()
 	listeners := lifeCycles[:]
 	mu.Unlock()
@@ -60,11 +58,7 @@ func onApplicationShutdown() {
 	}
 	_ = notifyExecutor.Execute(func() {
 		for _, listener := range listeners {
-			listener.OnApplicationShutdown(c)
+			listener.OnApplicationShutdown()
 		}
 	})
-}
-
-func copyCtx() Context {
-	return Context{}
 }

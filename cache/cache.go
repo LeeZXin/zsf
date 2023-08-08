@@ -11,13 +11,13 @@ var (
 	IllegalMaxSizeErr  = errors.New("maxSize should greater than 0")
 )
 
-type Supplier func(context.Context) (any, error)
+type Supplier[T any] func(context.Context) (T, error)
 
-type SupplierWithKey func(context.Context, string) (any, error)
+type SupplierWithKey[T any] func(context.Context, string) (T, error)
 
-type ExpireCache interface {
+type ExpireCache[T any] interface {
 	// LoadData 获取数据
-	LoadData(ctx context.Context, key string) (any, error)
+	LoadData(ctx context.Context, key string) (T, error)
 	// RemoveKey 删除key
 	RemoveKey(key string)
 	// AllKeys 获取所有的key

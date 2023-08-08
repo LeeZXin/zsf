@@ -18,13 +18,13 @@ var (
 )
 
 // HashSelector 哈希路由选择器
-type HashSelector struct {
-	Nodes        []Node
+type HashSelector[T any] struct {
+	Nodes        []Node[T]
 	HashFuncName string
 	HashFunc     HashFunc
 }
 
-func (s *HashSelector) Init() error {
+func (s *HashSelector[T]) Init() error {
 	if s.Nodes == nil || len(s.Nodes) == 0 {
 		return errors.New("empty nodes")
 	}
@@ -42,7 +42,7 @@ func (s *HashSelector) Init() error {
 	return nil
 }
 
-func (s *HashSelector) Select(ctx context.Context, key ...string) (Node, error) {
+func (s *HashSelector[T]) Select(ctx context.Context, key ...string) (Node[T], error) {
 	sk := "noneKey"
 	if key != nil && len(key) > 0 {
 		sk = key[0]
@@ -51,13 +51,13 @@ func (s *HashSelector) Select(ctx context.Context, key ...string) (Node, error) 
 	return s.Nodes[h%uint32(len(s.Nodes))], nil
 }
 
-func NewHashSelector(nodes []Node) (Selector, error) {
+func NewHashSelector[T any](nodes []Node[T]) (Selector[T], error) {
 	if nodes == nil || len(nodes) == 0 {
 		return nil, EmptyNodesErr
 	} else if len(nodes) == 1 {
-		return &SingleNodeSelector{Node: nodes[0]}, nil
+		return &SingleNodeSelector[T]{Node: nodes[0]}, nil
 	}
-	h := &HashSelector{Nodes: nodes}
+	h := &HashSelector[T]{Nodes: nodes}
 	err := h.Init()
 	if err != nil {
 		return nil, err

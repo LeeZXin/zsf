@@ -6,6 +6,7 @@ logger:
     queueSize: 5000
     discardPolicy: abort
   kafka:
+    enabled: true
     sasl: true
     username: test
     password: test

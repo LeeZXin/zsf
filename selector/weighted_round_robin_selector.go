@@ -7,15 +7,15 @@ import (
 )
 
 // WeightedRoundRobinSelector 加权平滑路由选择器
-type WeightedRoundRobinSelector struct {
-	Nodes       []Node
+type WeightedRoundRobinSelector[T any] struct {
+	Nodes       []Node[T]
 	selectMutex sync.Mutex
 	current     int
 	gcd         int
 	max         int
 }
 
-func (s *WeightedRoundRobinSelector) Select(ctx context.Context, key ...string) (Node, error) {
+func (s *WeightedRoundRobinSelector[T]) Select(ctx context.Context, key ...string) (Node[T], error) {
 	s.selectMutex.Lock()
 	defer s.selectMutex.Unlock()
 	for {
@@ -32,7 +32,7 @@ func (s *WeightedRoundRobinSelector) Select(ctx context.Context, key ...string) 
 	}
 }
 
-func (s *WeightedRoundRobinSelector) maxWeight() int {
+func (s *WeightedRoundRobinSelector[T]) maxWeight() int {
 	m := 0
 	for _, server := range s.Nodes {
 		if server.Weight > m {
@@ -42,7 +42,7 @@ func (s *WeightedRoundRobinSelector) maxWeight() int {
 	return m
 }
 
-func (s *WeightedRoundRobinSelector) init() error {
+func (s *WeightedRoundRobinSelector[T]) init() error {
 	nodes := s.Nodes
 	weights := make([]int, len(nodes))
 	for i, node := range nodes {
@@ -56,13 +56,13 @@ func (s *WeightedRoundRobinSelector) init() error {
 	return nil
 }
 
-func NewWeightedRoundRobinSelector(nodes []Node) (Selector, error) {
+func NewWeightedRoundRobinSelector[T any](nodes []Node[T]) (Selector[T], error) {
 	if nodes == nil || len(nodes) == 0 {
 		return nil, EmptyNodesErr
 	} else if len(nodes) == 1 {
-		return &SingleNodeSelector{Node: nodes[0]}, nil
+		return &SingleNodeSelector[T]{Node: nodes[0]}, nil
 	}
-	w := &WeightedRoundRobinSelector{Nodes: nodes}
+	w := &WeightedRoundRobinSelector[T]{Nodes: nodes}
 	err := w.init()
 	if err != nil {
 		return nil, err

@@ -7,27 +7,27 @@ import (
 )
 
 // RoundRobinSelector 轮询路由选择器
-type RoundRobinSelector struct {
-	Nodes []Node
+type RoundRobinSelector[T any] struct {
+	Nodes []Node[T]
 	index uint64
 }
 
-func (s *RoundRobinSelector) init() {
+func (s *RoundRobinSelector[T]) init() {
 	s.index = uint64(rand.Intn(len(s.Nodes)))
 }
 
-func (s *RoundRobinSelector) Select(ctx context.Context, key ...string) (Node, error) {
+func (s *RoundRobinSelector[T]) Select(ctx context.Context, key ...string) (Node[T], error) {
 	index := atomic.AddUint64(&s.index, 1)
 	return s.Nodes[index%uint64(len(s.Nodes))], nil
 }
 
-func NewRoundRobinSelector(nodes []Node) (Selector, error) {
+func NewRoundRobinSelector[T any](nodes []Node[T]) (Selector[T], error) {
 	if nodes == nil || len(nodes) == 0 {
 		return nil, EmptyNodesErr
 	} else if len(nodes) == 1 {
-		return &SingleNodeSelector{Node: nodes[0]}, nil
+		return &SingleNodeSelector[T]{Node: nodes[0]}, nil
 	}
-	r := &RoundRobinSelector{Nodes: nodes}
+	r := &RoundRobinSelector[T]{Nodes: nodes}
 	r.init()
 	return r, nil
 }
