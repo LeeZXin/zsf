@@ -35,10 +35,10 @@ func HandleErr(err error, c *gin.Context) {
 	}
 }
 
-func BindJson(obj any, c *gin.Context) bool {
-	err := c.ShouldBindJSON(obj)
+func ShouldBind(obj any, c *gin.Context) bool {
+	err := c.ShouldBind(obj)
 	if err != nil {
-		c.String(http.StatusBadRequest, "bind err")
+		c.String(http.StatusBadRequest, "request format err")
 		return false
 	}
 	return true

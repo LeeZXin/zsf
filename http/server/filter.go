@@ -55,7 +55,7 @@ func actuatorFilter() gin.HandlerFunc {
 		}
 		if path == "/updateLogLevel" {
 			var reqVO UpdateLogLevelReqVO
-			if ginutil.BindJson(&reqVO, c) {
+			if ginutil.ShouldBind(&reqVO, c) {
 				level := reqVO.LogLevel
 				switch level {
 				case "info":
