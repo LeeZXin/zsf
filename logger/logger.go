@@ -60,6 +60,9 @@ func init() {
 	if property.GetBool("logger.kafka.enabled") {
 		Logger.AddHook(newKafkaHook())
 	}
+	if property.GetBool("logger.nsq.enabled") {
+		Logger.AddHook(newNsqHook())
+	}
 	switch cmd.GetEnv() {
 	case "prd":
 		Logger.SetOutput(newLogWriter())

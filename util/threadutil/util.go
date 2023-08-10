@@ -29,7 +29,12 @@ func doRecover(echan chan error, after ...func()) {
 	if e := recover(); e != nil {
 		err, ok := e.(error)
 		if !ok {
-			err = errors.New("unknown errors")
+			str, ok := e.(string)
+			if ok {
+				err = errors.New(str)
+			} else {
+				err = errors.New("unknown errors")
+			}
 		}
 		echan <- runtimeutil.NewRuntimeErr(err, 10, 6)
 	}

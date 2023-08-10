@@ -5,7 +5,7 @@ zsf
 > 在gin、grpc、consul、skywalking、prometheus、pprof、xorm等基础上扩展了新功能  
 > 基础组件有协程池、广播组件、通用负载均衡组件等   
 > 以consul作为服务发现、注册以及配置中心使用  
-> logrus异步化写日志支持和kafka hook  
+> logrus异步化写日志支持和kafka、nsq hook  
 > kafka、nsq consumer封装  
 > 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等   
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  

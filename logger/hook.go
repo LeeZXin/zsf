@@ -7,6 +7,8 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/quit"
+	"github.com/LeeZXin/zsf/util/taskutil"
+	"github.com/nsqio/go-nsq"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/sirupsen/logrus"
@@ -104,5 +106,83 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 		Key:   t,
 		Value: value,
 	})
+	return nil
+}
+
+func newNsqHook() logrus.Hook {
+	host := property.GetString("logger.nsq.host")
+	if host == "" {
+		panic("empty nsq host")
+	}
+	topic := property.GetString("logger.nsq.topic")
+	if topic == "" {
+		panic("empty nsq topic")
+	}
+	cnf := nsq.NewConfig()
+	cnf.AuthSecret = property.GetString("logger.nsq.authSecret")
+	producer, err := nsq.NewProducer(host, cnf)
+	producer.SetLogger(&nsqLogger{}, nsq.LogLevelInfo)
+	if err != nil {
+		panic(err)
+	}
+	task, _ := taskutil.NewChunkTask[[]byte](10e6, func(content []taskutil.Chunk[[]byte]) {
+		if content == nil || len(content) == 0 {
+			return
+		}
+		send := make([][]byte, 0, len(content))
+		for _, t := range content {
+			send = append(send, t.Data)
+		}
+		_ = producer.MultiPublish(topic, send)
+	}, 3*time.Second)
+	task.Start()
+	quit.AddShutdownHook(func() {
+		task.Stop()
+		producer.Stop()
+	})
+	ret := &nsqHook{
+		topic:     topic,
+		task:      task,
+		formatter: &logFormatter{},
+	}
+	return ret
+}
+
+type nsqHook struct {
+	topic     string
+	formatter logrus.Formatter
+	task      *taskutil.ChunkTask[[]byte]
+}
+
+func (*nsqHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
+func (k *nsqHook) Fire(entry *logrus.Entry) error {
+	content, err := k.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	v := LogContent{
+		Timestamp:   now.UnixMilli(),
+		Version:     LogVersion,
+		Level:       entry.Level.String(),
+		Env:         cmd.GetEnv(),
+		SourceIp:    common.GetLocalIp(),
+		Type:        "nsq",
+		Application: common.GetApplicationName(),
+		Content:     string(content),
+		Tags:        []string{},
+	}
+	value, _ := json.Marshal(v)
+	k.task.Execute(value, len(value))
+	return nil
+}
+
+type nsqLogger struct {
+}
+
+func (l *nsqLogger) Output(int, string) error {
 	return nil
 }
