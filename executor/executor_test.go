@@ -8,7 +8,7 @@ import (
 )
 
 func TestFuture(t *testing.T) {
-	e, _ := NewExecutor(10, 1024, 10*time.Minute, &CallerRunsPolicy{})
+	e, _ := NewExecutor(10, 1024, 10*time.Minute, CallerRunsStrategy)
 	futureTask, err := e.Submit(func() (any, error) {
 		time.Sleep(10 * time.Second)
 		return "ss", errors.New("something wrong")
@@ -21,7 +21,7 @@ func TestFuture(t *testing.T) {
 }
 
 func TestFuturePromise(t *testing.T) {
-	e, _ := NewExecutor(10, 1024, 10*time.Minute, &CallerRunsPolicy{})
+	e, _ := NewExecutor(10, 1024, 10*time.Minute, CallerRunsStrategy)
 	futureTask, err := e.Submit(func() (any, error) {
 		time.Sleep(10 * time.Second)
 		return "ss", errors.New("something wrong")
@@ -30,15 +30,26 @@ func TestFuturePromise(t *testing.T) {
 		panic(err)
 	}
 	go func() {
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Second)
 		fmt.Println(futureTask.SetError(errors.New("wrong ! ooops")))
 	}()
 	result, err := futureTask.Get()
 	fmt.Println(result, err)
 }
 
+func TestRun(t *testing.T) {
+	e, _ := NewExecutor(1, 0, 10*time.Minute, CallerRunsStrategy)
+	for i := 0; i < 10; i++ {
+		err := e.Execute(func() {
+			fmt.Println("xxx")
+		})
+		fmt.Println(err)
+	}
+
+}
+
 func TestShutdown(t *testing.T) {
-	e, _ := NewExecutor(10, 1024, 10*time.Minute, &CallerRunsPolicy{})
+	e, _ := NewExecutor(10, 1024, 10*time.Minute, CallerRunsStrategy)
 	e.Shutdown()
 	for i := 0; i < 10; i++ {
 		go func() {

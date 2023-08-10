@@ -102,21 +102,21 @@ func newAsyncWrapper() io.Writer {
 	if queueSize <= 0 {
 		queueSize = 5000
 	}
-	var rejectHandler executor.RejectHandler
+	var rejectStrategy executor.RejectStrategy
 	discardPolicy := property.GetString("logger.async.discardPolicy")
 	switch discardPolicy {
 	case "abort":
-		rejectHandler = &executor.AbortPolicy{}
+		rejectStrategy = executor.AbortStrategy
 		break
 	default:
-		rejectHandler = &executor.CallerRunsPolicy{}
+		rejectStrategy = executor.CallerRunsStrategy
 		break
 	}
 	poolSize := property.GetInt("logger.async.executorNum")
 	if poolSize <= 0 {
 		poolSize = 1
 	}
-	w, _ := executor.NewExecutor(poolSize, queueSize, time.Minute, rejectHandler)
+	w, _ := executor.NewExecutor(poolSize, queueSize, time.Minute, rejectStrategy)
 	return &asyncWrapper{
 		l: newLumberjackLogger(),
 		w: w,

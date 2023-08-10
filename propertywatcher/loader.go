@@ -25,7 +25,7 @@ var (
 )
 
 func init() {
-	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
+	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, executor.CallerRunsStrategy)
 	notifyChannel, _ = psub.NewChannel[any](channelExecutor)
 	enabled := property.GetBool("property.enabled")
 	if enabled {

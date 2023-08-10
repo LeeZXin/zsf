@@ -23,14 +23,10 @@ type Runnable interface {
 }
 
 // RunnableImpl 默认实现类
-type RunnableImpl struct {
-	Runnable func()
-}
+type RunnableImpl func()
 
-func (r *RunnableImpl) Run() {
-	if r.Runnable != nil {
-		r.Runnable()
-	}
+func (r RunnableImpl) Run() {
+	r()
 }
 
 // futureResult promise result

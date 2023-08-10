@@ -13,7 +13,7 @@ var (
 )
 
 func init() {
-	notifyExecutor, _ = executor.NewExecutor(8, 1024, time.Minute, &executor.CallerRunsPolicy{})
+	notifyExecutor, _ = executor.NewExecutor(8, 1024, time.Minute, executor.CallerRunsStrategy)
 }
 
 type Context struct {

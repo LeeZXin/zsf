@@ -13,14 +13,15 @@ import (
 )
 
 type KafkaConfig struct {
-	Brokers              []string `json:"brokers"`
-	Topic                string   `json:"topic"`
-	GroupId              string   `json:"groupId"`
-	Offset               int64    `json:"offset"`
-	StartFromFirstOffset bool     `json:"startFromFirstOffset"`
-	Username             string   `json:"username"`
-	Password             string   `json:"password"`
-	SaslMechanism        string   `json:"saslMechanism"`
+	Brokers                []string `json:"brokers"`
+	Topic                  string   `json:"topic"`
+	GroupId                string   `json:"groupId"`
+	Offset                 int64    `json:"offset"`
+	StartFromFirstOffset   bool     `json:"startFromFirstOffset"`
+	StartAtTimestampOffset int64    `json:"startAtTimestampOffset"`
+	Username               string   `json:"username"`
+	Password               string   `json:"password"`
+	SaslMechanism          string   `json:"saslMechanism"`
 }
 
 func (c *KafkaConfig) Validate() error {
@@ -83,7 +84,12 @@ func NewKafkaConsumer(config KafkaConfig) (*KafkaConsumer, error) {
 		Dialer:         dialer,
 	}
 	reader := kafka.NewReader(readerConfig)
-	if config.Offset > 0 {
+	if config.StartAtTimestampOffset > 0 {
+		err := reader.SetOffsetAt(context.Background(), time.UnixMilli(config.StartAtTimestampOffset))
+		if err != nil {
+			return nil, err
+		}
+	} else if config.Offset > 0 {
 		err := reader.SetOffset(config.Offset)
 		if err != nil {
 			return nil, err

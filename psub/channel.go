@@ -89,7 +89,7 @@ func NewChannel[T any](executor *executor.Executor) (*Channel[T], error) {
 
 func init() {
 	// 默认带实现队列长度为1024的协程池
-	e, _ := executor.NewExecutor(runtime.GOMAXPROCS(0), 1024, 10*time.Minute, &executor.CallerRunsPolicy{})
+	e, _ := executor.NewExecutor(runtime.GOMAXPROCS(0), 1024, 10*time.Minute, executor.CallerRunsStrategy)
 	channel, _ := NewChannel[any](e)
 	defaultChannel = channel
 }

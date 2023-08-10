@@ -112,7 +112,7 @@ func (w *serviceWatcher) Shutdown() {
 }
 
 func newWatcher() *serviceWatcher {
-	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, &executor.CallerRunsPolicy{})
+	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, executor.CallerRunsStrategy)
 	channel, _ := psub.NewChannel[[]discovery.ServiceAddr](channelExecutor)
 	w := &serviceWatcher{
 		serviceMap: make(map[string][]discovery.ServiceAddr, 8),

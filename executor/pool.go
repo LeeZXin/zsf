@@ -22,16 +22,16 @@ import (
 //rejectHandler 当大于协程池执行能力时的拒绝策略
 
 type Executor struct {
-	poolSize      int
-	timeout       time.Duration
-	queue         chan Runnable
-	workNum       int
-	rejectHandler RejectHandler
-	addWorkerMu   sync.Mutex
-	cancelFunc    context.CancelFunc
-	ctx           context.Context
-	closeOnce     sync.Once
-	status        int
+	poolSize       int
+	timeout        time.Duration
+	queue          chan Runnable
+	workNum        int
+	rejectStrategy RejectStrategy
+	addWorkerMu    sync.Mutex
+	cancelFunc     context.CancelFunc
+	ctx            context.Context
+	closeOnce      sync.Once
+	status         int
 }
 
 const (
@@ -40,23 +40,23 @@ const (
 )
 
 // NewExecutor 初始化协程池
-func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectHandler RejectHandler) (*Executor, error) {
+func NewExecutor(poolSize, queueSize int, timeout time.Duration, rejectStrategy RejectStrategy) (*Executor, error) {
 	if poolSize <= 0 {
 		return nil, errors.New("pool size should greater than 0")
 	}
 	if queueSize < 0 {
 		return nil, errors.New("queueSize should not less than 0")
 	}
-	if rejectHandler == nil {
+	if rejectStrategy == nil {
 		return nil, errors.New("nil rejectHandler")
 	}
 	e := &Executor{
-		poolSize:      poolSize,
-		timeout:       timeout,
-		queue:         make(chan Runnable, queueSize),
-		workNum:       0,
-		rejectHandler: rejectHandler,
-		status:        runningStatus,
+		poolSize:       poolSize,
+		timeout:        timeout,
+		queue:          make(chan Runnable, queueSize),
+		workNum:        0,
+		rejectStrategy: rejectStrategy,
+		status:         runningStatus,
 	}
 	e.ctx, e.cancelFunc = context.WithCancel(context.Background())
 	return e, nil
@@ -86,7 +86,7 @@ func (e *Executor) ExecuteRunnable(runnable Runnable) error {
 	default:
 		break
 	}
-	return e.rejectHandler.RejectedExecution(runnable, e)
+	return e.rejectStrategy(runnable, e)
 }
 
 // Execute 异步无返回值的执行
@@ -94,9 +94,7 @@ func (e *Executor) Execute(fn func()) error {
 	if fn == nil {
 		return errors.New("nil function")
 	}
-	return e.ExecuteRunnable(&RunnableImpl{
-		Runnable: fn,
-	})
+	return e.ExecuteRunnable(RunnableImpl(fn))
 }
 
 // Submit 异步可返回函数执行结果
