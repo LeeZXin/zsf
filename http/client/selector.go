@@ -8,6 +8,7 @@ import (
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/selector"
 	"strconv"
 	"time"
@@ -45,7 +46,7 @@ func NewCachedHttpSelector(config CachedHttpSelectorConfig) *CachedHttpSelector 
 	}
 	entry, _ := cache.NewSingleCacheEntry[map[string]selector.Selector[string]](func(ctx context.Context) (map[string]selector.Selector[string], error) {
 		//consul拿服务信息
-		nodesMap, err := st.serviceMultiVersionNodes(config.ServiceName, ctx)
+		nodesMap, err := st.serviceMultiVersionNodes(config.ServiceName)
 		if err != nil {
 			return nil, err
 		}
@@ -64,7 +65,11 @@ func (c *CachedHttpSelector) Select(ctx context.Context, key ...string) (selecto
 }
 
 func (c *CachedHttpSelector) getFromCache(ctx context.Context, slr map[string]selector.Selector[string]) (selector.Node[string], error) {
-	hit, ok := slr[cmd.GetVersion()]
+	ver := rpc.GetHeaders(ctx).Get(rpc.ApiVersion)
+	if ver == "" {
+		ver = cmd.GetVersion()
+	}
+	hit, ok := slr[ver]
 	if !ok {
 		hit = slr[common.DefaultVersion]
 	}
@@ -86,7 +91,7 @@ func (c *CachedHttpSelector) convert(nodesMap map[string][]selector.Node[string]
 	return ret
 }
 
-func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string, ctx context.Context) (map[string][]selector.Node[string], error) {
+func (c *CachedHttpSelector) serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node[string], error) {
 	info, err := discovery.GetServiceInfoByDiscoveryType(serviceName, c.discoveryType)
 	if err != nil {
 		return nil, err

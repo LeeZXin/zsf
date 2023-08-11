@@ -20,11 +20,12 @@ func (h Header) Set(key, value string) {
 }
 
 const (
-	TraceId = "z-trace-id"
-	Shadow  = "z-shadow"
-	Prefix  = "z-"
-	Source  = "z-source"
-	Target  = "z-target"
+	TraceId    = "z-trace-id"
+	Shadow     = "z-shadow"
+	ApiVersion = "z-api-version"
+	Prefix     = "z-"
+	Source     = "z-source"
+	Target     = "z-target"
 
 	// PrefixForSw 为了skywalking传递header用的
 	PrefixForSw = "z-sw-"

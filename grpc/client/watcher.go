@@ -3,7 +3,6 @@ package grpcclient
 import (
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/executor"
-	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/psub"
 	"github.com/LeeZXin/zsf/util/taskutil"
 	"sync"
@@ -12,19 +11,6 @@ import (
 
 // 一个协程定时获取grpc节点地址变更
 // 而不是一个client一个协程去监听
-
-var (
-	watchDuration int
-)
-
-func init() {
-	// grpc服务发现间隔
-	duration := property.GetInt("grpc.client.watchDuration")
-	if duration <= 0 {
-		duration = 30
-	}
-	watchDuration = duration
-}
 
 type addrUpdateCallback func([]discovery.ServiceAddr)
 
@@ -118,6 +104,6 @@ func newWatcher() *serviceWatcher {
 		serviceMap: make(map[string][]discovery.ServiceAddr, 8),
 		listener:   channel,
 	}
-	w.ptask, _ = taskutil.NewPeriodicalTask(time.Duration(watchDuration)*time.Second, w.watch)
+	w.ptask, _ = taskutil.NewPeriodicalTask(10*time.Second, w.watch)
 	return w
 }

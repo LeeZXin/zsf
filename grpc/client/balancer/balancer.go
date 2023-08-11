@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/selector"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -84,13 +85,16 @@ type picker struct {
 }
 
 func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err error) {
-	version := cmd.GetVersion()
+	ver := rpc.GetHeaders(b.Ctx).Get(rpc.ApiVersion)
+	if ver == "" {
+		ver = cmd.GetVersion()
+	}
 	var (
 		nodeSelector selector.Selector[balancer.SubConn]
 		ok           bool
 		node         selector.Node[balancer.SubConn]
 	)
-	nodeSelector, ok = p.selectorMap[version]
+	nodeSelector, ok = p.selectorMap[ver]
 	if !ok {
 		nodeSelector = p.selectorMap[common.DefaultVersion]
 	}

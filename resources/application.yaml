@@ -13,14 +13,14 @@ grpc:
   port: 8099
   maxConnectionIdleSec: 600
   registry:
-    enabled: false
+    enabled: true
 
 # http 配置
 http:
   enabled: true
   weight: 1
   registry:
-    enabled: false
+    enabled: true
   client:
     lbPolicy: round_robin
 
@@ -42,7 +42,7 @@ discovery:
   type: consul
 
 registry:
-  type: sa
+  type: consul
 
 # prometheus server
 prometheus:
