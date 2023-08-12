@@ -13,14 +13,14 @@ grpc:
   port: 8099
   maxConnectionIdleSec: 600
   registry:
-    enabled: true
+    enabled: false
 
 # http 配置
 http:
   enabled: true
   weight: 1
   registry:
-    enabled: true
+    enabled: false
   client:
     lbPolicy: round_robin
 

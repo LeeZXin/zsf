@@ -6,6 +6,7 @@ type TrieNode[T any] struct {
 	label    string
 	children map[rune]*TrieNode[T]
 	data     T
+	has      bool
 }
 
 const (
@@ -27,7 +28,7 @@ func (r *Trie[T]) Insert(key string, data T) {
 			children: make(map[rune]*TrieNode[T], 8),
 		}
 	}
-	if key == "" || data == nil {
+	if key == "" {
 		return
 	}
 	node := r.root
@@ -42,6 +43,7 @@ func (r *Trie[T]) Insert(key string, data T) {
 		node = node.children[k]
 	}
 	node.data = data
+	node.has = true
 }
 
 // FullSearch 完全匹配
@@ -57,7 +59,7 @@ func (r *Trie[T]) FullSearch(key string) (any, bool) {
 			return nil, false
 		}
 	}
-	if node.data == nil {
+	if !node.has {
 		return nil, false
 	}
 	return node.data, true
@@ -71,7 +73,7 @@ func (r *Trie[T]) PrefixSearch(key string, matchType int) (TrieNode[T], bool) {
 	node := r.root
 	list := make([]TrieNode[T], 0, 8)
 	for _, k := range key {
-		if node.data != nil {
+		if node.has {
 			if matchType == ShortestMatchType {
 				return *node, true
 			}

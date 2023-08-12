@@ -126,7 +126,7 @@ func (r *RouterConfig) Validate() error {
 		if r.Targets == nil || len(r.Targets) == 0 {
 			return errors.New("empty target")
 		}
-		_, ok = selector.FindNewSelectorFunc(r.TargetLbPolicy)
+		_, ok = selector.FindNewSelectorFunc[any](r.TargetLbPolicy)
 		if !ok {
 			return errors.New("wrong lb policy")
 		}
