@@ -6,7 +6,7 @@ application:
 
 # grpc 配置
 grpc:
-  enabled: true
+  enabled: false
   lbPolicy: round_robin
   debug: false
   weight: 1

@@ -123,20 +123,26 @@ func (r *RouterConfig) Validate() error {
 		if !ok {
 			return errors.New("wrong target type")
 		}
-		if r.Targets == nil || len(r.Targets) == 0 {
-			return errors.New("empty target")
+		if r.TargetType == DomainTargetType {
+			if r.Targets == nil || len(r.Targets) == 0 {
+				return errors.New("empty target")
+			}
 		}
-		_, ok = selector.FindNewSelectorFunc[any](r.TargetLbPolicy)
-		if !ok {
-			return errors.New("wrong lb policy")
+		if r.TargetType != MockTargetType {
+			_, ok = selector.FindNewSelectorFunc[any](r.TargetLbPolicy)
+			if !ok {
+				return errors.New("wrong lb policy")
+			}
 		}
 	}
-	if r.RewriteType == "" {
-		return errors.New("empty RewriteType")
-	} else {
-		_, ok := rewriteStrategyFuncMap[r.RewriteType]
-		if !ok {
-			return errors.New("wrong RewriteType")
+	if r.TargetType != MockTargetType {
+		if r.RewriteType == "" {
+			return errors.New("empty RewriteType")
+		} else {
+			_, ok := rewriteStrategyFuncMap[r.RewriteType]
+			if !ok {
+				return errors.New("wrong RewriteType")
+			}
 		}
 	}
 	return nil
@@ -214,6 +220,10 @@ func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
 
 // AddRouter 添加路由转发
 func (r *Routers) AddRouter(config RouterConfig) error {
+	err := config.Validate()
+	if err != nil {
+		return err
+	}
 	var rewrite RewriteStrategy
 	if config.TargetType != MockTargetType {
 		strategyFunc, ok := rewriteStrategyFuncMap[config.RewriteType]

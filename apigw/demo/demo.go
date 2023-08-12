@@ -67,7 +67,7 @@ func init() {
 	}
 
 	err = routers.AddRouter(apigw.RouterConfig{
-		MatchType:  apigw.FullMatchType,
+		MatchType:  apigw.PrefixMatchType,
 		Path:       "/mock2",
 		TargetType: apigw.MockTargetType,
 		MockContent: apigw.MockContent{
