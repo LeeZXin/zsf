@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	JsonContentType = "application/json;charset=utf-8"
+)
+
 type RetryableRoundTripper struct {
 	Delegated http.RoundTripper
 }
@@ -49,7 +53,7 @@ func NewRetryableHttpClient() *http.Client {
 	}
 }
 
-func Post(client *http.Client, url string, req, resp any) error {
+func Post(client *http.Client, url string, header map[string]string, req, resp any) error {
 	var (
 		reqJson []byte
 		err     error
@@ -59,8 +63,20 @@ func Post(client *http.Client, url string, req, resp any) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		reqJson = []byte{}
 	}
-	post, err := client.Post(url, "application/json;charset=utf-8", bytes.NewReader(reqJson))
+	request, err := http.NewRequest("POST", url, bytes.NewReader(reqJson))
+	if err != nil {
+		return err
+	}
+	if header != nil {
+		for k, v := range header {
+			request.Header.Set(k, v)
+		}
+	}
+	request.Header.Set("Content-Type", JsonContentType)
+	post, err := client.Do(request)
 	if err != nil {
 		return err
 	}
@@ -75,13 +91,22 @@ func Post(client *http.Client, url string, req, resp any) error {
 	return nil
 }
 
-func Get(client *http.Client, url string, resp any) error {
-	post, err := client.Get(url)
+func Get(client *http.Client, url string, header map[string]string, resp any) error {
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-	defer post.Body.Close()
-	respBody, err := io.ReadAll(post.Body)
+	if header != nil {
+		for k, v := range header {
+			request.Header.Set(k, v)
+		}
+	}
+	get, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer get.Body.Close()
+	respBody, err := io.ReadAll(get.Body)
 	if err != nil {
 		return err
 	}

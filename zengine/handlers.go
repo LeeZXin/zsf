@@ -1,6 +1,7 @@
 package zengine
 
 import (
+	"github.com/LeeZXin/zsf/util/luautil"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -12,8 +13,8 @@ func (*ScriptHandler) GetName() string {
 	return "scriptNode"
 }
 
-func (*ScriptHandler) Do(params *InputParams, bindings Bindings, ectx *ExecContext) (Bindings, error) {
-	output := make(Bindings)
+func (*ScriptHandler) Do(params *InputParams, bindings luautil.Bindings, ectx *ExecContext) (luautil.Bindings, error) {
+	output := luautil.NewBindings()
 	ctx := ectx.Context()
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
@@ -27,7 +28,7 @@ func (*ScriptHandler) Do(params *InputParams, bindings Bindings, ectx *ExecConte
 		return output, err
 	}
 	if scriptRet.Type() == lua.LTTable {
-		m, ok := ToGoValue(scriptRet).(map[string]any)
+		m, ok := luautil.ToGoValue(scriptRet).(map[string]any)
 		if ok {
 			output.PutAll(m)
 		}

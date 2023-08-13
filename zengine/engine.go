@@ -4,43 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	lua "github.com/yuin/gopher-lua"
+	"github.com/LeeZXin/zsf/util/luautil"
 	"strconv"
-	"sync"
-	"sync/atomic"
 )
-
-type CachedScript struct {
-	ScriptContent string
-	//脚本缓存 *lua.FunctionProto
-	protoCache atomic.Value
-	protoMu    sync.Mutex
-}
-
-// GetCompiledScript 脚本编译
-func (p *CachedScript) GetCompiledScript() (*lua.FunctionProto, error) {
-	scriptCache := p.protoCache.Load()
-	if scriptCache != nil {
-		return scriptCache.(*lua.FunctionProto), nil
-	}
-	p.protoMu.Lock()
-	defer p.protoMu.Unlock()
-	scriptCache = p.protoCache.Load()
-	if scriptCache != nil {
-		return scriptCache.(*lua.FunctionProto), nil
-	}
-	proto, err := CompileLua(p.ScriptContent)
-	if err != nil {
-		return nil, err
-	}
-	p.protoCache.Store(proto)
-	return proto, nil
-}
 
 type InputParams struct {
 	HandlerConfig HandlerConfig
 	//脚本缓存
-	CachedScript
+	luautil.CachedScript
 }
 
 func NewInputParams(config HandlerConfig) *InputParams {
@@ -51,11 +22,7 @@ func NewInputParams(config HandlerConfig) *InputParams {
 	}
 	return &InputParams{
 		HandlerConfig: config,
-		CachedScript: CachedScript{
-			ScriptContent: script,
-			protoCache:    atomic.Value{},
-			protoMu:       sync.Mutex{},
-		},
+		CachedScript:  luautil.NewCachedScript(script),
 	}
 }
 
@@ -64,12 +31,12 @@ type Handler interface {
 	// GetName 获取节点标识
 	GetName() string
 	//Do 执行业务逻辑的地方
-	Do(*InputParams, Bindings, *ExecContext) (Bindings, error)
+	Do(*InputParams, luautil.Bindings, *ExecContext) (luautil.Bindings, error)
 }
 
 // ExecContext 单次执行上下文
 type ExecContext struct {
-	globalBindings Bindings
+	globalBindings luautil.Bindings
 	ctx            context.Context
 	luaExecutor    *ScriptExecutor
 }
@@ -78,7 +45,7 @@ func (e *ExecContext) Context() context.Context {
 	return e.ctx
 }
 
-func (e *ExecContext) GlobalBindings() Bindings {
+func (e *ExecContext) GlobalBindings() luautil.Bindings {
 	return e.globalBindings
 }
 
@@ -118,7 +85,7 @@ func (d *DAGExecutor) NewExecContext(ctx context.Context) *ExecContext {
 		ctx = context.Background()
 	}
 	return &ExecContext{
-		globalBindings: make(Bindings),
+		globalBindings: luautil.NewBindings(),
 		ctx:            ctx,
 		luaExecutor:    d.luaExecutor,
 	}
