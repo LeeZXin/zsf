@@ -11,7 +11,7 @@ import (
 type InputParams struct {
 	HandlerConfig HandlerConfig
 	//脚本缓存
-	luautil.CachedScript
+	*luautil.CachedScript
 }
 
 func NewInputParams(config HandlerConfig) *InputParams {
@@ -38,7 +38,7 @@ type Handler interface {
 type ExecContext struct {
 	globalBindings luautil.Bindings
 	ctx            context.Context
-	luaExecutor    *ScriptExecutor
+	luaExecutor    *luautil.ScriptExecutor
 }
 
 func (e *ExecContext) Context() context.Context {
@@ -49,17 +49,17 @@ func (e *ExecContext) GlobalBindings() luautil.Bindings {
 	return e.globalBindings
 }
 
-func (e *ExecContext) LuaExecutor() *ScriptExecutor {
+func (e *ExecContext) LuaExecutor() *luautil.ScriptExecutor {
 	return e.luaExecutor
 }
 
 type DAGExecutor struct {
 	handlerMap  map[string]Handler
-	luaExecutor *ScriptExecutor
+	luaExecutor *luautil.ScriptExecutor
 	limitTimes  int
 }
 
-func NewDAGExecutor(handlers []Handler, luaExecutor *ScriptExecutor, limitTimes int) *DAGExecutor {
+func NewDAGExecutor(handlers []Handler, luaExecutor *luautil.ScriptExecutor, limitTimes int) *DAGExecutor {
 	handlerMap := make(map[string]Handler)
 	if handlers != nil {
 		for i := range handlers {
@@ -68,7 +68,7 @@ func NewDAGExecutor(handlers []Handler, luaExecutor *ScriptExecutor, limitTimes 
 		}
 	}
 	if luaExecutor == nil {
-		luaExecutor, _ = NewScriptExecutor(1000, 1, nil)
+		luaExecutor, _ = luautil.NewScriptExecutor(1000, 1, nil)
 	}
 	if limitTimes <= 0 {
 		limitTimes = 10000

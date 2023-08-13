@@ -29,6 +29,14 @@ func NewBindings() Bindings {
 	return make(Bindings, 8)
 }
 
+func Copy2Bindings(data map[string]any) Bindings {
+	ret := NewBindings()
+	for k, v := range data {
+		ret.Set(k, v)
+	}
+	return ret
+}
+
 func (b Bindings) Get(key string) (any, bool) {
 	ret, ok := b[key]
 	return ret, ok
@@ -335,8 +343,8 @@ type CachedScript struct {
 	protoMu    sync.Mutex
 }
 
-func NewCachedScript(scriptContent string) CachedScript {
-	return CachedScript{
+func NewCachedScript(scriptContent string) *CachedScript {
+	return &CachedScript{
 		ScriptContent: scriptContent,
 		protoCache:    atomic.Value{},
 		protoMu:       sync.Mutex{},
@@ -383,4 +391,54 @@ func Execute(L *lua.LState, proto *lua.FunctionProto, bindings Bindings) ([]lua.
 		return nil, err
 	}
 	return GetFnArgs(L), nil
+}
+
+// ScriptExecutor 脚本执行器
+type ScriptExecutor struct {
+	pool *LStatePool
+}
+
+// NewScriptExecutor 构建执行器
+func NewScriptExecutor(maxSize int, initSize int, fnMap map[string]lua.LGFunction) (*ScriptExecutor, error) {
+	pool, err := NewLStatePool(maxSize, initSize, fnMap)
+	if err != nil {
+		return nil, err
+	}
+	return &ScriptExecutor{pool: pool}, nil
+}
+
+// CompileBoolLua 编译布尔表达式lua
+func (e *ScriptExecutor) CompileBoolLua(x string) (*lua.FunctionProto, error) {
+	return CompileBoolLua(x)
+}
+
+// CompileLua 编译lua脚本
+func (e *ScriptExecutor) CompileLua(x string) (*lua.FunctionProto, error) {
+	return CompileLua(x)
+}
+
+// Execute 执行lua脚本 仅返回单个返回值
+func (e *ScriptExecutor) Execute(proto *lua.FunctionProto, bindings Bindings) (lua.LValue, error) {
+	L := e.pool.Get()
+	defer e.pool.Put(L)
+	args, err := Execute(L, proto, bindings)
+	if err != nil {
+		return nil, err
+	}
+	if len(args) > 0 {
+		return args[0], nil
+	}
+	return lua.LNil, nil
+}
+
+func (e *ScriptExecutor) ExecuteAndReturnBool(proto *lua.FunctionProto, bindings Bindings) (bool, error) {
+	res, err := e.Execute(proto, bindings)
+	if err != nil {
+		return false, err
+	}
+	return cast.ToBool(ToGoValue(res)), nil
+}
+
+func (e *ScriptExecutor) Close() {
+	e.pool.CloseAll()
 }
