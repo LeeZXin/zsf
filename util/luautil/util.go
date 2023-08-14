@@ -37,11 +37,6 @@ func Copy2Bindings(data map[string]any) Bindings {
 	return ret
 }
 
-func (b Bindings) Get(key string) (any, bool) {
-	ret, ok := b[key]
-	return ret, ok
-}
-
 func (b Bindings) GetInt(key string) (int, bool) {
 	ret, ok := b.Get(key)
 	if ok {
@@ -72,6 +67,37 @@ func (b Bindings) GetBool(key string) (bool, bool) {
 		return cast.ToBool(ret), true
 	}
 	return false, false
+}
+
+func (b Bindings) Get(path string) (any, bool) {
+	sp := strings.Split(path, ".")
+	t := map[string]any(b)
+	var (
+		data any = nil
+		has      = false
+	)
+	for i, s := range sp {
+		data, has = t[s]
+		if !has {
+			return nil, false
+		}
+		if i < len(sp)-1 {
+			if b.isMapStringAny(data) {
+				t = data.(map[string]any)
+			} else {
+				return nil, false
+			}
+		}
+	}
+	return data, true
+}
+
+func (b Bindings) isMapStringAny(data any) bool {
+	t := reflect.TypeOf(data)
+	if t.Kind() != reflect.Map {
+		return false
+	}
+	return t.Key().Kind() == reflect.String
 }
 
 func (b Bindings) Set(key string, val any) {
