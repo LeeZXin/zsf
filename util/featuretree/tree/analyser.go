@@ -89,7 +89,6 @@ func (t *NodeAnalyser) Analyse() AnalyseResult {
 
 // AnalyseWithInterceptors 解析整棵树 带拦截器
 func (t *NodeAnalyser) AnalyseWithInterceptors(interceptors []Interceptor) AnalyseResult {
-	resultChan := make(chan AnalyseResult)
 	ctx := t.FeatureAnalyseContext.Ctx
 	beginTime := time.Now()
 	// 是否有超时控制
@@ -97,10 +96,11 @@ func (t *NodeAnalyser) AnalyseWithInterceptors(interceptors []Interceptor) Analy
 	if !hasTimeout {
 		return t.doAnalyse(interceptors)
 	}
+	resultChan := make(chan AnalyseResult)
+	defer func() {
+		close(resultChan)
+	}()
 	go func() {
-		defer func() {
-			close(resultChan)
-		}()
 		resultChan <- t.doAnalyse(interceptors)
 	}()
 	select {
