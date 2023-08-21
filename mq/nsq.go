@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"context"
 	"errors"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/nsqio/go-nsq"
