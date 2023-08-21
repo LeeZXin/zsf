@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/util/idutil"
 	"github.com/nsqio/go-nsq"
 	"sync"
 	"time"
