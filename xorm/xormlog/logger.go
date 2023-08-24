@@ -4,12 +4,13 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/propertywatcher"
+	"sync/atomic"
 	"time"
 	log "xorm.io/xorm/log"
 )
 
 var (
-	showSql          bool
+	showSql          atomic.Bool
 	XormReportLogger log.ContextLogger
 	slowSqlDuration  time.Duration
 )
@@ -17,7 +18,7 @@ var (
 func init() {
 	showSqlKey := "xorm.showSql"
 	slowSqlDurationKey := "xorm.slowSqlDuration"
-	showSql = property.GetBool(showSqlKey)
+	showSql.Store(property.GetBool(showSqlKey))
 	XormReportLogger = &xLogger{
 		DiscardLogger: log.DiscardLogger{},
 	}
@@ -26,7 +27,7 @@ func init() {
 		slowSqlDuration = time.Duration(duration) * time.Millisecond
 	}
 	propertywatcher.OnKeyChange(showSqlKey, func() {
-		showSql = property.GetBool(showSqlKey)
+		showSql.Store(property.GetBool(showSqlKey))
 	})
 }
 
@@ -42,7 +43,7 @@ func (x *xLogger) IsShowSQL() bool {
 func (x *xLogger) BeforeSQL(log.LogContext) {}
 
 func (x *xLogger) AfterSQL(ctx log.LogContext) {
-	if showSql {
+	if showSql.Load() {
 		logger.Logger.WithContext(ctx.Ctx).Infof("[SQL] %s %v - %v", ctx.SQL, ctx.Args, ctx.ExecuteTime)
 	}
 	if slowSqlDuration > 0 && ctx.ExecuteTime > slowSqlDuration {

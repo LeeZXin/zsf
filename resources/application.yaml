@@ -60,7 +60,7 @@ pprof:
 
 xorm:
   dataSourceName: "root:root@tcp(127.0.0.1:3306)/xxx?charset=utf8"
-  showSql: true
+  showSql: false
 
 actuator:
   enabled: true

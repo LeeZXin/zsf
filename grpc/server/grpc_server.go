@@ -61,22 +61,38 @@ func InitAndStartGrpcServer(config Config) {
 		debug.StartGrpcDebug()
 	}
 	// unary拦截器
-	uints := []grpc.UnaryServerInterceptor{
-		headerUnaryInterceptor(),
-		logErrorUnaryInterceptor(),
-		prometheusUnaryInterceptor(),
-		skywalkingUnaryInterceptor(),
+	var uints []grpc.UnaryServerInterceptor
+	if property.GetBool("application.disableMicro") {
+		uints = []grpc.UnaryServerInterceptor{
+			logErrorUnaryInterceptor(),
+		}
+	} else {
+		uints = []grpc.UnaryServerInterceptor{
+			headerUnaryInterceptor(),
+			logErrorUnaryInterceptor(),
+			prometheusUnaryInterceptor(),
+			skywalkingUnaryInterceptor(),
+		}
 	}
+
 	if config.UnaryServerInterceptors != nil {
 		uints = append(uints, config.UnaryServerInterceptors...)
 	}
 	// stream拦截器
-	sints := []grpc.StreamServerInterceptor{
-		headerStreamInterceptor(),
-		logErrorStreamInterceptor(),
-		prometheusStreamInterceptor(),
-		skywalkingStreamInterceptor(),
+	var sints []grpc.StreamServerInterceptor
+	if property.GetBool("application.disableMicro") {
+		sints = []grpc.StreamServerInterceptor{
+			logErrorStreamInterceptor(),
+		}
+	} else {
+		sints = []grpc.StreamServerInterceptor{
+			logErrorStreamInterceptor(),
+			headerStreamInterceptor(),
+			prometheusStreamInterceptor(),
+			skywalkingStreamInterceptor(),
+		}
 	}
+
 	if config.StreamServerInterceptors != nil {
 		sints = append(sints, config.StreamServerInterceptors...)
 	}

@@ -20,7 +20,18 @@ type mockExecutor struct {
 }
 
 func (t *mockExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
-	if t.mockContent.ContentType == MockJsonType {
+	headersStr := t.mockContent.Headers
+	if headersStr != "" {
+		var h map[string]string
+		err := json.Unmarshal([]byte(headersStr), &h)
+		if err == nil {
+			for k, v := range h {
+				c.Header(k, v)
+			}
+		}
+	}
+	switch t.mockContent.ContentType {
+	case MockJsonType:
 		var m map[string]any
 		err := json.Unmarshal([]byte(t.mockContent.RespStr), &m)
 		if err != nil {
@@ -28,9 +39,9 @@ func (t *mockExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 		} else {
 			c.JSON(t.mockContent.StatusCode, m)
 		}
-	} else if t.mockContent.ContentType == MockStringType {
+	case MockStringType:
 		c.String(t.mockContent.StatusCode, t.mockContent.RespStr)
-	} else {
+	default:
 		c.String(http.StatusBadRequest, "bad request")
 	}
 }
@@ -80,7 +91,7 @@ func (*httpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
 		} else {
 			writer := gzip.NewWriter(c.Writer)
 			defer writer.Close()
-			if _, err := writer.Write(body); err != nil {
+			if _, err = writer.Write(body); err != nil {
 				c.String(http.StatusInternalServerError, "error")
 			}
 		}

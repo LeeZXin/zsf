@@ -19,7 +19,7 @@ func (t *Transport) Transport(c *gin.Context) {
 	path := request.URL.Path
 	header := request.Header.Clone()
 	if t.rewriteStrategy != nil {
-		t.rewriteStrategy.Rewrite(&path, &header)
+		t.rewriteStrategy.Rewrite(&path, header)
 	}
 	if t.targetSelector != nil {
 		node, err := t.targetSelector.Select(c.Request.Context())

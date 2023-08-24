@@ -59,6 +59,7 @@ type Target struct {
 type PutTransportFunc func(*Routers, RouterConfig, *Transport) error
 
 type MockContent struct {
+	Headers     string `json:"headers"`
 	ContentType string `json:"contentType"`
 	StatusCode  int    `json:"statusCode"`
 	RespStr     string `json:"respStr"`
