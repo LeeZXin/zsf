@@ -1,8 +1,10 @@
 package mq
 
 import (
+	"context"
 	"errors"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/util/idutil"
 	"github.com/nsqio/go-nsq"
 	"sync"
 	"time"
@@ -71,26 +73,31 @@ func (c *NsqConsumer) Stop() {
 	})
 }
 
-func (c *NsqConsumer) ConsumeNsqds(handlerFunc nsq.HandlerFunc) {
-	if handlerFunc == nil {
+func (c *NsqConsumer) ConsumeNsqds(consumer func(context.Context, *nsq.Message) error) {
+	if consumer == nil {
 		return
 	}
 	c.startOnce.Do(func() {
-		go c.connect(handlerFunc, 0)
+		go c.connect(consumer, 0)
 	})
 }
 
-func (c *NsqConsumer) ConsumeLookupds(handlerFunc nsq.HandlerFunc) {
-	if handlerFunc == nil {
+func (c *NsqConsumer) ConsumeLookupds(consumer func(context.Context, *nsq.Message) error) {
+	if consumer == nil {
 		return
 	}
 	c.startOnce.Do(func() {
-		go c.connect(handlerFunc, 1)
+		go c.connect(consumer, 1)
 	})
 }
 
-func (c *NsqConsumer) connect(handlerFunc nsq.HandlerFunc, targetType int) {
-	c.consumer.AddConcurrentHandlers(handlerFunc, c.config.ExecutorNums)
+func (c *NsqConsumer) connect(consumer func(context.Context, *nsq.Message) error, targetType int) {
+	c.consumer.AddConcurrentHandlers(nsq.HandlerFunc(func(message *nsq.Message) error {
+		mdcCtx := logger.AppendToMDC(context.Background(), map[string]string{
+			logger.TraceId: idutil.RandomUuid(),
+		})
+		return consumer(mdcCtx, message)
+	}), c.config.ExecutorNums)
 	var err error
 	if targetType == 0 {
 		logger.Logger.Info("consume nsqds:", c.config)

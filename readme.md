@@ -11,7 +11,6 @@ zsf
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  
 > xorm慢sql日志告警  
 > 支持自定义流程编排规则zengine  
-> 支持简单http和grpc反向代理，反向代理上可新增鉴权、限流等功能
 >
 1、通用负载均衡路由实现
 
@@ -131,13 +130,7 @@ sentinel做限流熔断
 mock请求返回结果, 支持任意http的statusCode，返回结果支持json和string两种类型
 ```
 
-14、反向代理proxy
-
-```
-支持grpc和http的反向代理，在反向代理上可做限流鉴权等操作
-```
-
-15、流程编排引擎zengine
+14、流程编排引擎zengine
 
 ```
 可通过配置，对流程节点进行编排，不用发版便可修改函数调用顺序
