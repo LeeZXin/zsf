@@ -1,8 +1,8 @@
 package hashset
 
-type HashSet[T string | int | float64 | float32 | int32 | int64] map[T]struct{}
+type HashSet[T comparable] map[T]struct{}
 
-func NewHashSet[T string | int | float64 | float32 | int32 | int64](l []T) HashSet[T] {
+func NewHashSet[T comparable](l []T) HashSet[T] {
 	if l == nil {
 		return make(HashSet[T])
 	}
