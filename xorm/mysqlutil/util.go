@@ -109,7 +109,7 @@ func (e *Engine) TxContext(pctx context.Context) (context.Context, Committer, er
 	if pctx == nil {
 		pctx = context.Background()
 	}
-	session := e.GetXormSession(pctx)
+	session := e.getTxXormSession(pctx)
 	if session.IsInTx() {
 		return pctx, &xormCommitter{session: session}, nil
 	}
@@ -151,12 +151,21 @@ func (e *Engine) AutoCloseContext(pctx context.Context) context.Context {
 }
 
 func (e *Engine) GetXormSession(ctx context.Context) *xorm.Session {
-	if ctx != nil {
-		if xctx, ok := ctx.(*xormContext); ok {
-			return xctx.session
-		}
-	}
-	return e.NewXormSession(ctx)
+        if ctx != nil {
+                if xctx, ok := ctx.(*xormContext); ok {
+                        return xctx.session
+                }
+        }
+        return e.NewAutoCloseXormSession(ctx)
+}
+
+func (e *Engine) getTxXormSession(ctx context.Context) *xorm.Session {
+        if ctx != nil {
+                if xctx, ok := ctx.(*xormContext); ok {
+                        return xctx.session
+                }
+        }
+        return e.NewXormSession(ctx)
 }
 
 func (e *Engine) NewXormSession(ctx context.Context) *xorm.Session {
