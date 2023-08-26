@@ -9,7 +9,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"hash"
 	"math/big"
 	"time"
 )
@@ -32,9 +31,8 @@ func Generate1024RSAKeyPair() *rsa.PrivateKey {
 }
 
 type rsaOAEP struct {
-	hashFn hash.Hash
-	pri    *rsa.PrivateKey
-	label  []byte
+	pri   *rsa.PrivateKey
+	label []byte
 }
 
 func NewRsaOAEP(key *rsa.PrivateKey, label ...[]byte) (Crypto, error) {
@@ -45,15 +43,14 @@ func NewRsaOAEP(key *rsa.PrivateKey, label ...[]byte) (Crypto, error) {
 		label = [][]byte{[]byte("")}
 	}
 	return &rsaOAEP{
-		hashFn: sha256.New(),
-		pri:    key,
-		label:  label[0],
+		pri:   key,
+		label: label[0],
 	}, nil
 }
 
 // Encrypt 分段加密
 func (r *rsaOAEP) Encrypt(messageBytes []byte) ([]byte, error) {
-	maxLength := r.pri.PublicKey.Size() - 2*r.hashFn.Size() - 2
+	maxLength := r.pri.PublicKey.Size() - 2*sha256.Size - 2
 	var ciphertext []byte
 	for len(messageBytes) > 0 {
 		chunkSize := maxLength
@@ -63,7 +60,7 @@ func (r *rsaOAEP) Encrypt(messageBytes []byte) ([]byte, error) {
 		chunk := messageBytes[:chunkSize]
 		messageBytes = messageBytes[chunkSize:]
 		chunkCiphertext, err := rsa.EncryptOAEP(
-			r.hashFn,
+			sha256.New(),
 			rand.Reader,
 			&r.pri.PublicKey,
 			chunk,
@@ -89,7 +86,7 @@ func (r *rsaOAEP) Decrypt(messageBytes []byte) ([]byte, error) {
 		chunk := messageBytes[:chunkSize]
 		messageBytes = messageBytes[chunkSize:]
 		chunkCiphertext, err := rsa.DecryptOAEP(
-			r.hashFn,
+			sha256.New(),
 			rand.Reader,
 			r.pri,
 			chunk,
