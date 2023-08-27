@@ -41,18 +41,10 @@ func Context(pctx context.Context) (context.Context, mysqlutil.Closer) {
 	return engine.Context(pctx)
 }
 
-func AutoCloseContext(pctx context.Context) context.Context {
-	return engine.AutoCloseContext(pctx)
-}
-
 func GetXormSession(ctx context.Context) *xorm.Session {
 	return engine.GetXormSession(ctx)
 }
 
 func NewXormSession(ctx context.Context) *xorm.Session {
 	return engine.NewXormSession(ctx)
-}
-
-func NewAutoCloseXormSession(ctx context.Context) *xorm.Session {
-	return engine.NewAutoCloseXormSession(ctx)
 }

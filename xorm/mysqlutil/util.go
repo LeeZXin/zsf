@@ -143,20 +143,13 @@ func (e *Engine) Context(pctx context.Context) (context.Context, Closer) {
 	return e.newContext(pctx, session), &xormCloser{session: session}
 }
 
-func (e *Engine) AutoCloseContext(pctx context.Context) context.Context {
-	if pctx == nil {
-		pctx = context.Background()
-	}
-	return e.newContext(pctx, e.NewAutoCloseXormSession(pctx))
-}
-
 func (e *Engine) GetXormSession(ctx context.Context) *xorm.Session {
 	if ctx != nil {
 		if xctx, ok := ctx.(*xormContext); ok {
 			return xctx.session
 		}
 	}
-	return e.NewAutoCloseXormSession(ctx)
+	return e.newAutoCloseXormSession(ctx)
 }
 
 func (e *Engine) getTxXormSession(ctx context.Context) *xorm.Session {
@@ -174,6 +167,6 @@ func (e *Engine) NewXormSession(ctx context.Context) *xorm.Session {
 	return session
 }
 
-func (e *Engine) NewAutoCloseXormSession(ctx context.Context) *xorm.Session {
+func (e *Engine) newAutoCloseXormSession(ctx context.Context) *xorm.Session {
 	return e.engine.Context(ctx)
 }
