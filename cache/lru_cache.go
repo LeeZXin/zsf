@@ -59,9 +59,6 @@ func NewLRUCache[T any](supplier SupplierWithKey[T], duration time.Duration, max
 	if supplier == nil {
 		return nil, NilSupplierErr
 	}
-	if duration <= 0 {
-		return nil, IllegalDurationErr
-	}
 	defaultNode := &dNode[T]{
 		Pre:   nil,
 		Next:  nil,

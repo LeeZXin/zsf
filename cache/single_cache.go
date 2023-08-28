@@ -22,9 +22,6 @@ func NewSingleCacheEntry[T any](supplier Supplier[T], duration time.Duration) (*
 	if supplier == nil {
 		return nil, NilSupplierErr
 	}
-	if duration <= 0 {
-		return nil, IllegalDurationErr
-	}
 	return &SingleCacheEntry[T]{
 		expireDuration: duration,
 		expireTime:     atomic.Value{},
@@ -55,17 +52,19 @@ func (e *SingleCacheEntry[T]) LoadData(ctx context.Context) (T, error) {
 		e.expireTime.Store(time.Now().Add(e.expireDuration))
 		return result, nil
 	}
-	now := time.Now()
-	if etime.(time.Time).Before(now) {
-		// 过期
-		if e.mu.TryLock() {
-			defer e.mu.Unlock()
-			result, err = e.supplier(ctx)
-			if err == nil {
-				e.data.Store(result)
-				e.expireTime.Store(time.Now().Add(e.expireDuration))
+	if e.expireDuration > 0 {
+		now := time.Now()
+		if etime.(time.Time).Before(now) {
+			// 过期
+			if e.mu.TryLock() {
+				defer e.mu.Unlock()
+				result, err = e.supplier(ctx)
+				if err == nil {
+					e.data.Store(result)
+					e.expireTime.Store(time.Now().Add(e.expireDuration))
+				}
+				return result, nil
 			}
-			return result, nil
 		}
 	}
 	return e.data.Load().(T), nil

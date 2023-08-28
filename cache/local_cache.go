@@ -96,9 +96,6 @@ func NewLocalCache[T any](supplier SupplierWithKey[T], duration time.Duration) (
 	if supplier == nil {
 		return nil, NilSupplierErr
 	}
-	if duration <= 0 {
-		return nil, IllegalDurationErr
-	}
 	segments := make([]*segment[T], 0, segmentSize)
 	for i := 0; i < segmentSize; i++ {
 		segments = append(segments, newSegment(supplier, duration))
