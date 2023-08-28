@@ -9,35 +9,18 @@ import (
 
 type HashFunc func([]byte) uint32
 
-var (
-	// 哈希函数映射
-	hashFuncMap = map[string]HashFunc{
-		"crc32":   crc32.ChecksumIEEE,
-		"murmur3": murmur3,
-	}
-)
-
 // HashSelector 哈希路由选择器
 type HashSelector[T any] struct {
-	Nodes        []Node[T]
-	HashFuncName string
-	HashFunc     HashFunc
+	Nodes    []Node[T]
+	HashFunc HashFunc
 }
 
-func (s *HashSelector[T]) Init() error {
+func (s *HashSelector[T]) init() error {
 	if s.Nodes == nil || len(s.Nodes) == 0 {
 		return errors.New("empty nodes")
 	}
 	if s.HashFunc == nil {
-		if s.HashFuncName == "" {
-			s.HashFuncName = "crc32"
-		}
-		hashFunc, ok := hashFuncMap[s.HashFuncName]
-		if ok {
-			s.HashFunc = hashFunc
-		} else {
-			return errors.New("hash func not found")
-		}
+		s.HashFunc = crc32.ChecksumIEEE
 	}
 	return nil
 }
@@ -58,14 +41,14 @@ func NewHashSelector[T any](nodes []Node[T]) (Selector[T], error) {
 		return &SingleNodeSelector[T]{Node: nodes[0]}, nil
 	}
 	h := &HashSelector[T]{Nodes: nodes}
-	err := h.Init()
+	err := h.init()
 	if err != nil {
 		return nil, err
 	}
 	return h, nil
 }
 
-func murmur3(key []byte) uint32 {
+func Murmur3(key []byte) uint32 {
 	const (
 		c1 = 0xcc9e2d51
 		c2 = 0x1b873593
