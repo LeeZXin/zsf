@@ -87,7 +87,7 @@ func RegisterWebsocketService(newFunc NewServiceFunc, config Config) gin.Handler
 			return
 		}
 		h := newHandler(conn, service, config, c)
-		defer h.close(websocket.StatusInternalError, "system error")
+		defer h.close(websocket.StatusNormalClosure, "")
 		h.open()
 		go h.serve()
 		h.read()
