@@ -3,10 +3,15 @@ package ws
 import (
 	"context"
 	"errors"
+	"github.com/LeeZXin/zsf/util/threadutil"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"nhooyr.io/websocket"
 	"sync"
+)
+
+var (
+	msgTooBigErr = errors.New("message too big")
 )
 
 type msgWrapper struct {
@@ -15,8 +20,16 @@ type msgWrapper struct {
 }
 
 type Session struct {
-	connWrapper
+	request   *http.Request
+	conn      *websocket.Conn
+	ctx       context.Context
+	buf       *bpool
 	extraInfo sync.Map
+	handler   *handler
+}
+
+func (s *Session) Request() *http.Request {
+	return s.request
 }
 
 func (s *Session) GetExtraInfo(key string) (any, bool) {
@@ -27,28 +40,16 @@ func (s *Session) PutExtraInfo(key string, data any) {
 	s.extraInfo.Store(key, data)
 }
 
-type connWrapper struct {
-	conn *websocket.Conn
-	ctx  context.Context
-	bf   buffer
+func (s *Session) WriteTextMessage(msg string) error {
+	return s.conn.Write(s.ctx, websocket.MessageText, []byte(msg))
 }
 
-func (c *connWrapper) WriteTextMessage(msg string) error {
-	b := c.bf.Get()
-	defer c.bf.Put(b)
-	b.WriteString(msg)
-	return c.conn.Write(c.ctx, websocket.MessageText, b.Bytes())
+func (s *Session) WriteBinaryMessage(msg []byte) error {
+	return s.conn.Write(s.ctx, websocket.MessageBinary, msg)
 }
 
-func (c *connWrapper) WriteBinaryMessage(msg string) error {
-	b := c.bf.Get()
-	defer c.bf.Put(b)
-	b.WriteString(msg)
-	return c.conn.Write(c.ctx, websocket.MessageBinary, b.Bytes())
-}
-
-func (c *connWrapper) Close(code websocket.StatusCode, reason string) error {
-	return c.conn.Close(code, reason)
+func (s *Session) Close(code websocket.StatusCode, reason string) {
+	s.handler.close(code, reason)
 }
 
 type Service interface {
@@ -56,7 +57,6 @@ type Service interface {
 	OnTextMessage(*Session, string)
 	OnBinaryMessage(*Session, []byte)
 	OnClose(*Session)
-	OnError(*Session, error)
 }
 
 type Config struct {
@@ -66,96 +66,132 @@ type Config struct {
 
 type NewServiceFunc func() Service
 
-func RegisterWebsocketService(newFuc NewServiceFunc, config Config) gin.HandlerFunc {
+func RegisterWebsocketService(newFunc NewServiceFunc, config Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if !c.IsWebsocket() {
 			c.String(http.StatusBadRequest, "wrong protocol")
 			return
 		}
-		if newFuc == nil {
+		if newFunc == nil {
 			c.String(http.StatusInternalServerError, "")
 			return
 		}
-		service := newFuc()
+		service := newFunc()
+		if service == nil {
+			c.String(http.StatusInternalServerError, "")
+			return
+		}
 		wsoptions := websocket.AcceptOptions{InsecureSkipVerify: true}
 		conn, err := websocket.Accept(c.Writer, c.Request, &wsoptions)
 		if err != nil {
 			return
 		}
-		msgQueueSize := 64
-		if config.MsgQueueSize > 0 {
-			msgQueueSize = config.MsgQueueSize
-		}
-		msgQueue := make(chan *msgWrapper, msgQueueSize)
-		ctx := c.Request.Context()
-		session := &Session{
-			connWrapper: connWrapper{
-				conn: conn,
-				ctx:  ctx,
-				bf:   buffer{},
-			}}
-		service.OnOpen(session)
-		defer func() {
-			close(msgQueue)
-			_ = conn.Close(websocket.StatusInternalError, "")
-			service.OnClose(session)
-		}()
-		go func() {
-			err2 := serve(service, msgQueue, session, ctx)
-			checkErr(service, session, err2)
-		}()
+		h := newHandler(conn, service, config, c)
+		defer h.close(websocket.StatusInternalError, "system error")
+		h.open()
+		go h.serve()
+		h.read()
+	}
+}
+
+type handler struct {
+	msgQueue    chan *msgWrapper
+	conn        *websocket.Conn
+	service     Service
+	ctx         context.Context
+	cancelFn    context.CancelFunc
+	session     *Session
+	closeOnce   sync.Once
+	maxBodySize int
+}
+
+func (h *handler) serve() {
+	_ = threadutil.RunSafe(func() {
 		for {
-			typ, r, err3 := conn.Reader(ctx)
-			if err3 != nil {
-				checkErr(service, session, err3)
+			select {
+			case msg, ok := <-h.msgQueue:
+				if !ok {
+					return
+				}
+				switch msg.typ {
+				case websocket.MessageBinary:
+					h.service.OnBinaryMessage(h.session, msg.msg)
+				case websocket.MessageText:
+					h.service.OnTextMessage(h.session, string(msg.msg))
+				}
+			case <-h.ctx.Done():
 				return
 			}
-			bf := session.bf.Get()
-			_, err = bf.ReadFrom(r)
-			bs := bf.Bytes()
-			if config.MaxBodySize > 0 && len(bs) > config.MaxBodySize {
-				_ = conn.Close(websocket.StatusMessageTooBig, "message too big")
+		}
+	})
+}
+
+func (h *handler) open() {
+	h.service.OnOpen(h.session)
+}
+
+func (h *handler) read() {
+	_ = threadutil.RunSafe(func() {
+		for {
+			if h.ctx.Err() != nil {
+				return
+			}
+			typ, reader, err := h.conn.Reader(h.ctx)
+			if err != nil {
+				return
+			}
+			buf := h.session.buf.Get()
+			_, err = buf.ReadFrom(reader)
+			if err != nil {
+				return
+			}
+			bs := buf.Bytes()
+			if h.maxBodySize > 0 && len(bs) > h.maxBodySize {
+				h.close(websocket.StatusMessageTooBig, "message too big")
 				return
 			}
 			msg := make([]byte, len(bs))
 			copy(msg, bs)
-			session.bf.Put(bf)
-			msgQueue <- &msgWrapper{
+			h.session.buf.Put(buf)
+			h.msgQueue <- &msgWrapper{
 				typ: typ,
 				msg: msg,
 			}
 		}
-	}
+	})
 }
 
-func checkErr(service Service, session *Session, err error) {
-	if errors.Is(err, context.Canceled) {
-		return
-	}
-	if websocket.CloseStatus(err) == websocket.StatusNormalClosure ||
-		websocket.CloseStatus(err) == websocket.StatusGoingAway {
-		return
-	}
-	service.OnError(session, err)
+func (h *handler) close(code websocket.StatusCode, reason string) {
+	h.closeOnce.Do(func() {
+		close(h.msgQueue)
+		h.cancelFn()
+		_ = h.conn.Close(code, reason)
+		h.service.OnClose(h.session)
+	})
 }
 
-func serve(service Service, msgQueue chan *msgWrapper, session *Session, ctx context.Context) error {
-	run := func(msg *msgWrapper) {
-		if msg.typ == websocket.MessageBinary {
-			service.OnBinaryMessage(session, msg.msg)
-		} else if msg.typ == websocket.MessageText {
-			service.OnTextMessage(session, string(msg.msg))
-		}
+func newHandler(conn *websocket.Conn, service Service, config Config, gctx *gin.Context) *handler {
+	ctx, cancelFn := context.WithCancel(context.Background())
+	session := &Session{
+		request: gctx.Request,
+		conn:    conn,
+		ctx:     ctx,
+		buf:     &bpool{},
 	}
-	for {
-		select {
-		case msg := <-msgQueue:
-			if msg != nil {
-				run(msg)
-			}
-			break
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	queueSize := config.MsgQueueSize
+	if queueSize <= 0 {
+		queueSize = 64
 	}
+	ret := &handler{
+		msgQueue:    make(chan *msgWrapper, queueSize),
+		conn:        conn,
+		service:     service,
+		ctx:         ctx,
+		cancelFn:    cancelFn,
+		session:     session,
+		closeOnce:   sync.Once{},
+		maxBodySize: config.MaxBodySize,
+	}
+	session.handler = ret
+	return ret
 }
