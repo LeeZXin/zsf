@@ -3,9 +3,7 @@ package common
 import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/util/idutil"
-	"github.com/google/uuid"
 	"net"
-	"strings"
 )
 
 var (
@@ -29,7 +27,7 @@ func init() {
 	//获取applicationName
 	applicationName = property.GetString("application.name")
 	if applicationName == "" {
-		applicationName = strings.ReplaceAll(uuid.NewString(), "-", "")
+		applicationName = idutil.RandomUuid()
 	}
 	//region
 	region = property.GetString("application.region")
