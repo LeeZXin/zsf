@@ -3,7 +3,9 @@ package common
 import (
 	"github.com/LeeZXin/zsf/property"
 	"github.com/LeeZXin/zsf/util/idutil"
+	"github.com/google/uuid"
 	"net"
+	"strings"
 )
 
 var (
@@ -27,21 +29,18 @@ func init() {
 	//获取applicationName
 	applicationName = property.GetString("application.name")
 	if applicationName == "" {
-		panic("nil applicationName")
+		applicationName = strings.ReplaceAll(uuid.NewString(), "-", "")
 	}
-
 	//region
 	region = property.GetString("application.region")
 	if region == "" {
 		region = "#"
 	}
-
 	//zone
 	zone = property.GetString("application.zone")
 	if zone == "" {
 		zone = "#"
 	}
-
 	//获取本地ip
 	localIP = getIp()
 	if localIP == "" {

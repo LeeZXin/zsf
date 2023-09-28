@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"os"
 )
 
 var (
@@ -23,13 +24,20 @@ func init() {
 		flag.Parse()
 	}
 	if verCmd == nil || *verCmd == "" {
-		version = DefaultVersion
+		version = os.Getenv("ZSF_VERSION")
+		if version == "" {
+			version = DefaultVersion
+		}
 	} else {
 		version = *verCmd
 	}
-	env = *envCmd
-	if env == "" {
-		env = DefaultEnv
+	if envCmd == nil || *envCmd == "" {
+		env = os.Getenv("ZSF_ENV")
+		if env == "" {
+			env = DefaultEnv
+		}
+	} else {
+		env = *envCmd
 	}
 }
 

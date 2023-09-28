@@ -16,9 +16,10 @@ var (
 type staticAddr struct {
 	ServiceName string `json:"serviceName"`
 	Targets     []struct {
-		Addr   string `json:"addr"`
-		Port   int    `json:"port"`
-		Weight int    `json:"weight"`
+		Addr    string `json:"addr"`
+		Port    int    `json:"port"`
+		Version string `json:"version"`
+		Weight  int    `json:"weight"`
 	} `json:"targets"`
 }
 
@@ -56,10 +57,14 @@ func init() {
 				if target.Addr == "" || target.Port == 0 {
 					continue
 				}
+				version := target.Version
+				if version == "" {
+					version = common.DefaultVersion
+				}
 				addr := ServiceAddr{
 					Addr:    target.Addr,
 					Port:    target.Port,
-					Version: common.DefaultVersion,
+					Version: target.Version,
 				}
 				if target.Weight > 0 {
 					addr.Weight = target.Weight
