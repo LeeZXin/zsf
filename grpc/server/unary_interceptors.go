@@ -3,12 +3,12 @@ package grpcserver
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/idutil"
+	"github.com/LeeZXin/zsf-utils/threadutil"
+	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
-	"github.com/LeeZXin/zsf/rpc"
 	"github.com/LeeZXin/zsf/skywalking"
-	"github.com/LeeZXin/zsf/util/idutil"
-	"github.com/LeeZXin/zsf/util/threadutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -24,19 +24,19 @@ import (
 func headerUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		clone := CopyIncomingContext(ctx)
-		ctx = rpc.SetHeaders(ctx, clone)
+		ctx = header.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		return handler(ctx, req)
 	}
 }
 
-func CopyIncomingContext(ctx context.Context) rpc.Header {
+func CopyIncomingContext(ctx context.Context) header.Header {
 	clone := make(map[string]string, 8)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key := range md {
 			key = strings.ToLower(key)
-			if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpc.Prefix) {
+			if acceptedHeaders.Contains(key) || strings.HasPrefix(key, header.Prefix) {
 				val := md.Get(key)
 				if val != nil && len(val) > 0 {
 					clone[key] = val[0]
@@ -44,9 +44,9 @@ func CopyIncomingContext(ctx context.Context) rpc.Header {
 			}
 		}
 	}
-	_, ok = clone[rpc.TraceId]
+	_, ok = clone[header.TraceId]
 	if !ok {
-		clone[rpc.TraceId] = idutil.RandomUuid()
+		clone[header.TraceId] = idutil.RandomUuid()
 	}
 	return clone
 }
@@ -74,7 +74,7 @@ func logErrorUnaryInterceptor() grpc.UnaryServerInterceptor {
 		})
 		if fatal != nil {
 			logger.Logger.WithContext(ctx).Error(fatal.Error())
-			err = status.Errorf(codes.Internal, "panic with %v\n", fatal)
+			err = status.Errorf(codes.Internal, "request panic")
 		}
 		return
 	}
@@ -88,7 +88,7 @@ func skywalkingUnaryInterceptor() grpc.UnaryServerInterceptor {
 		}
 		operationName := fmt.Sprintf("GRPC %s", info.FullMethod)
 		span, ctx, err := skywalking.Tracer.CreateEntrySpan(ctx, operationName, func(headerKey string) (string, error) {
-			return rpc.GetHeaders(ctx).Get(rpc.PrefixForSw + headerKey), nil
+			return header.GetHeaders(ctx).Get(header.PrefixForSw + headerKey), nil
 		})
 		if err != nil {
 			return handler(ctx, req)

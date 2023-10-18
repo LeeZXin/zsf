@@ -2,14 +2,14 @@ package grpcserver
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/hashset"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/grpc/debug"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
-	"github.com/LeeZXin/zsf/util/hashset"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"net"
@@ -28,7 +28,7 @@ var (
 )
 
 func init() {
-	h := property.GetString("grpc.server.acceptedHeaders")
+	h := static.GetString("grpc.server.acceptedHeaders")
 	if h != "" {
 		sp := strings.Split(h, ";")
 		for _, s := range sp {
@@ -48,7 +48,7 @@ type RegisterServiceFunc func(server *grpc.Server)
 // InitAndStartGrpcServer 开启grpc server
 func InitAndStartGrpcServer(config Config) {
 	// 端口信息
-	port := property.GetInt("grpc.port")
+	port := static.GetInt("grpc.port")
 	if port <= 0 {
 		port = DefaultServerPort
 	}
@@ -57,12 +57,12 @@ func InitAndStartGrpcServer(config Config) {
 		logger.Logger.Panic(err)
 	}
 	//开启grpc debug
-	if property.GetBool("grpc.debug") {
+	if static.GetBool("grpc.debug") {
 		debug.StartGrpcDebug()
 	}
 	// unary拦截器
 	var uints []grpc.UnaryServerInterceptor
-	if property.GetBool("application.disableMicro") {
+	if static.GetBool("application.disableMicro") {
 		uints = []grpc.UnaryServerInterceptor{
 			logErrorUnaryInterceptor(),
 		}
@@ -80,7 +80,7 @@ func InitAndStartGrpcServer(config Config) {
 	}
 	// stream拦截器
 	var sints []grpc.StreamServerInterceptor
-	if property.GetBool("application.disableMicro") {
+	if static.GetBool("application.disableMicro") {
 		sints = []grpc.StreamServerInterceptor{
 			logErrorStreamInterceptor(),
 		}
@@ -97,12 +97,12 @@ func InitAndStartGrpcServer(config Config) {
 		sints = append(sints, config.StreamServerInterceptors...)
 	}
 	// 连接空闲时间
-	maxConnectionIdleSec := property.GetInt("grpc.maxConnectionIdleSec")
+	maxConnectionIdleSec := static.GetInt("grpc.maxConnectionIdleSec")
 	if maxConnectionIdleSec == 0 {
 		maxConnectionIdleSec = 600
 	}
 	// 请求超时时间 默认一分钟超时
-	timeoutSec := property.GetInt("grpc.timeoutSec")
+	timeoutSec := static.GetInt("grpc.timeoutSec")
 	if timeoutSec == 0 {
 		timeoutSec = 60
 	}
@@ -116,15 +116,15 @@ func InitAndStartGrpcServer(config Config) {
 		grpc.ChainUnaryInterceptor(uints...),
 		grpc.ChainStreamInterceptor(sints...),
 	}
-	if property.GetInt("grpc.maxRecvMsgSize") > 0 {
-		opts = append(opts, grpc.MaxRecvMsgSize(property.GetInt("grpc.maxRecvMsgSize")))
+	if static.GetInt("grpc.maxRecvMsgSize") > 0 {
+		opts = append(opts, grpc.MaxRecvMsgSize(static.GetInt("grpc.maxRecvMsgSize")))
 	}
-	if property.GetInt("grpc.maxSendMsgSize") > 0 {
-		opts = append(opts, grpc.MaxRecvMsgSize(property.GetInt("grpc.maxSendMsgSize")))
+	if static.GetInt("grpc.maxSendMsgSize") > 0 {
+		opts = append(opts, grpc.MaxRecvMsgSize(static.GetInt("grpc.maxSendMsgSize")))
 	}
 	// 是否进行服务注册
-	if property.GetBool("grpc.registry.enabled") {
-		weight := property.GetInt("grpc.weight")
+	if static.GetBool("grpc.registry.enabled") {
+		weight := static.GetInt("grpc.weight")
 		if weight == 0 {
 			weight = 1
 		}

@@ -3,7 +3,7 @@ package discovery
 import (
 	"context"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/sa_registry/client"
 )
 
@@ -12,7 +12,7 @@ var (
 )
 
 func init() {
-	saClient = client.NewRegistryClient(property.GetString("saRegistry.host"), property.GetString("saRegistry.token"))
+	saClient = client.NewRegistryClient(static.GetString("saRegistry.host"), static.GetString("saRegistry.token"))
 }
 
 type SaDiscovery struct{}

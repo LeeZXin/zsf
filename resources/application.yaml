@@ -6,11 +6,11 @@ application:
 
 # grpc 配置
 grpc:
-  enabled: false
+  enabled: true
   lbPolicy: round_robin
   debug: false
-  weight: 1
   port: 8099
+  weight: 1
   maxConnectionIdleSec: 600
   registry:
     enabled: false
@@ -39,7 +39,7 @@ property:
 
 # 服务发现 type = consul or static
 discovery:
-  type: consul
+  type: static
 
 registry:
   type: consul

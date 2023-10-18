@@ -2,7 +2,6 @@ package header
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf/rpc"
 )
 
 const (
@@ -12,13 +11,13 @@ const (
 )
 
 func GetUserId(ctx context.Context) string {
-	return rpc.GetHeaders(ctx).Get(UserId)
+	return GetHeaders(ctx).Get(UserId)
 }
 
 func GetUserName(ctx context.Context) string {
-	return rpc.GetHeaders(ctx).Get(UserName)
+	return GetHeaders(ctx).Get(UserName)
 }
 
 func GetAppId(ctx context.Context) string {
-	return rpc.GetHeaders(ctx).Get(AppId)
+	return GetHeaders(ctx).Get(AppId)
 }

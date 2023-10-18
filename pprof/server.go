@@ -3,15 +3,15 @@ package pprof
 import (
 	"fmt"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"net/http"
 	_ "net/http/pprof"
 )
 
 func init() {
-	enabled := property.GetBool("pprof.enabled")
+	enabled := static.GetBool("pprof.enabled")
 	if enabled {
-		port := property.GetInt("pprof.port")
+		port := static.GetInt("pprof.port")
 		if port == 0 {
 			logger.Logger.Panic("pprof port is empty")
 		}

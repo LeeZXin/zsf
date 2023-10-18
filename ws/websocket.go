@@ -2,16 +2,12 @@ package ws
 
 import (
 	"context"
-	"errors"
-	"github.com/LeeZXin/zsf/util/threadutil"
+	"github.com/LeeZXin/zsf-utils/bpoolutil"
+	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"nhooyr.io/websocket"
 	"sync"
-)
-
-var (
-	msgTooBigErr = errors.New("message too big")
 )
 
 type msgWrapper struct {
@@ -23,7 +19,7 @@ type Session struct {
 	request   *http.Request
 	conn      *websocket.Conn
 	ctx       context.Context
-	buf       *bpool
+	buf       *bpoolutil.BPool
 	extraInfo sync.Map
 	handler   *handler
 }
@@ -88,7 +84,7 @@ func RegisterWebsocketService(newFunc NewServiceFunc, config Config) gin.Handler
 		}
 		h := newHandler(conn, service, config, c)
 		defer h.close(websocket.StatusNormalClosure, "")
-		h.open()
+		h.service.OnOpen(h.session)
 		go h.serve()
 		h.read()
 	}
@@ -126,39 +122,34 @@ func (h *handler) serve() {
 	})
 }
 
-func (h *handler) open() {
-	h.service.OnOpen(h.session)
-}
-
 func (h *handler) read() {
-	_ = threadutil.RunSafe(func() {
-		for {
-			if h.ctx.Err() != nil {
-				return
-			}
-			typ, reader, err := h.conn.Reader(h.ctx)
-			if err != nil {
-				return
-			}
-			buf := h.session.buf.Get()
-			_, err = buf.ReadFrom(reader)
-			if err != nil {
-				return
-			}
-			bs := buf.Bytes()
-			if h.maxBodySize > 0 && len(bs) > h.maxBodySize {
-				h.close(websocket.StatusMessageTooBig, "message too big")
-				return
-			}
-			msg := make([]byte, len(bs))
-			copy(msg, bs)
-			h.session.buf.Put(buf)
-			h.msgQueue <- &msgWrapper{
-				typ: typ,
-				msg: msg,
-			}
+	defer h.close(websocket.StatusNormalClosure, "")
+	for {
+		if h.ctx.Err() != nil {
+			return
 		}
-	})
+		typ, reader, err := h.conn.Reader(h.ctx)
+		if err != nil {
+			return
+		}
+		buf := h.session.buf.Get()
+		_, err = buf.ReadFrom(reader)
+		if err != nil {
+			return
+		}
+		bs := buf.Bytes()
+		if h.maxBodySize > 0 && len(bs) > h.maxBodySize {
+			h.close(websocket.StatusMessageTooBig, "message too big")
+			return
+		}
+		msg := make([]byte, len(bs))
+		copy(msg, bs)
+		h.session.buf.Put(buf)
+		h.msgQueue <- &msgWrapper{
+			typ: typ,
+			msg: msg,
+		}
+	}
 }
 
 func (h *handler) close(code websocket.StatusCode, reason string) {
@@ -176,7 +167,7 @@ func newHandler(conn *websocket.Conn, service Service, config Config, gctx *gin.
 		request: gctx.Request,
 		conn:    conn,
 		ctx:     ctx,
-		buf:     &bpool{},
+		buf:     &bpoolutil.BPool{},
 	}
 	queueSize := config.MsgQueueSize
 	if queueSize <= 0 {

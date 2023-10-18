@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/LeeZXin/zsf/util/httputil"
+	"github.com/LeeZXin/zsf-utils/httputil"
 	"io"
 	"net/http"
 	"strconv"

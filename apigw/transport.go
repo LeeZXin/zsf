@@ -1,7 +1,6 @@
 package apigw
 
 import (
-	"github.com/LeeZXin/zsf/selector"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
@@ -10,7 +9,7 @@ import (
 type Transport struct {
 	Extra           map[string]any
 	rewriteStrategy RewriteStrategy
-	targetSelector  selector.Selector[string]
+	targetSelector  Selector
 	rpcExecutor     RpcExecutor
 }
 
@@ -22,12 +21,11 @@ func (t *Transport) Transport(c *gin.Context) {
 		t.rewriteStrategy.Rewrite(&path, header)
 	}
 	if t.targetSelector != nil {
-		node, err := t.targetSelector.Select(c.Request.Context())
+		host, err := t.targetSelector.Select(c.Request.Context())
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
-		host := node.Data
 		if !strings.HasPrefix(host, "http") {
 			host = "http://" + host
 		}

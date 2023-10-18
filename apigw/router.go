@@ -2,9 +2,10 @@ package apigw
 
 import (
 	"errors"
+	"github.com/LeeZXin/zsf-utils/httputil"
+	"github.com/LeeZXin/zsf-utils/selector"
+	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
-	"github.com/LeeZXin/zsf/selector"
-	"github.com/LeeZXin/zsf/util/httputil"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -17,7 +18,6 @@ const (
 	PrefixMatchType = "prefixMatch"
 	// ExprMatchType 表达式匹配
 	ExprMatchType = "exprMatch"
-
 	// MockJsonType json格式
 	MockJsonType = "json"
 	// MockStringType string格式
@@ -153,7 +153,7 @@ type Routers struct {
 	//精确匹配
 	fullMatch map[string]*Transport
 	//前缀匹配
-	prefixMatch *Trie[*Transport]
+	prefixMatch *trieutil.Trie[*Transport]
 	//表达式匹配
 	exprMatch map[*hexpr.Expr]*Transport
 	//连接池
@@ -178,7 +178,7 @@ func (r *Routers) putFullMatchTransport(path string, trans *Transport) {
 
 func (r *Routers) putPrefixMatchTransport(path string, transport *Transport) {
 	if r.prefixMatch == nil {
-		r.prefixMatch = &Trie[*Transport]{}
+		r.prefixMatch = &trieutil.Trie[*Transport]{}
 	}
 	r.prefixMatch.Insert(path, transport)
 }
@@ -201,9 +201,9 @@ func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
 	}
 	if r.prefixMatch != nil {
 		//前缀匹配
-		node, ok := r.prefixMatch.PrefixSearch(path, LongestMatchType)
+		node, ok := r.prefixMatch.PrefixSearch(path, trieutil.LongestMatchType)
 		if ok {
-			return node.data, true
+			return node, true
 		}
 	}
 	if r.exprMatch != nil {

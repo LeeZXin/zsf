@@ -3,13 +3,13 @@ package registry
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
-	"github.com/LeeZXin/zsf/util/idutil"
 	"github.com/hashicorp/consul/api"
 	"time"
 )
@@ -22,7 +22,7 @@ var (
 )
 
 func init() {
-	consulClient = consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
+	consulClient = consul.NewConsulClient(static.GetString("consul.address"), static.GetString("consul.token"))
 }
 
 type consulImpl struct {

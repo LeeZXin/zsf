@@ -3,9 +3,9 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/executor"
 	"github.com/LeeZXin/zsf/cmd"
-	"github.com/LeeZXin/zsf/executor"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
@@ -57,10 +57,10 @@ func init() {
 	Logger.SetReportCaller(true)
 	Logger.SetFormatter(&logFormatter{})
 	Logger.SetLevel(logrus.InfoLevel)
-	if property.GetBool("logger.kafka.enabled") {
+	if static.GetBool("logger.kafka.enabled") {
 		Logger.AddHook(newKafkaHook())
 	}
-	if property.GetBool("logger.nsq.enabled") {
+	if static.GetBool("logger.nsq.enabled") {
 		Logger.AddHook(newNsqHook())
 	}
 	switch cmd.GetEnv() {
@@ -84,7 +84,7 @@ func (w *asyncWrapper) Write(p []byte) (int, error) {
 }
 
 func newLogWriter() io.Writer {
-	if property.GetBool("logger.async.enabled") {
+	if static.GetBool("logger.async.enabled") {
 		return newAsyncWrapper()
 	}
 	return newLumberjackLogger()
@@ -101,12 +101,12 @@ func newLumberjackLogger() *lumberjack.Logger {
 }
 
 func newAsyncWrapper() io.Writer {
-	queueSize := property.GetInt("logger.async.queueSize")
+	queueSize := static.GetInt("logger.async.queueSize")
 	if queueSize <= 0 {
 		queueSize = 5000
 	}
 	var rejectStrategy executor.RejectStrategy
-	discardPolicy := property.GetString("logger.async.discardPolicy")
+	discardPolicy := static.GetString("logger.async.discardPolicy")
 	switch discardPolicy {
 	case "abort":
 		rejectStrategy = executor.AbortStrategy
@@ -115,7 +115,7 @@ func newAsyncWrapper() io.Writer {
 		rejectStrategy = executor.CallerRunsStrategy
 		break
 	}
-	poolSize := property.GetInt("logger.async.executorNum")
+	poolSize := static.GetInt("logger.async.executorNum")
 	if poolSize <= 0 {
 		poolSize = 1
 	}

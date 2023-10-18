@@ -1,13 +1,9 @@
 package apigw
 
 import (
-	"compress/gzip"
 	"encoding/json"
-	"github.com/LeeZXin/zsf/logger"
 	"github.com/gin-gonic/gin"
-	"io"
 	"net/http"
-	"strings"
 )
 
 // RpcExecutor 请求转发执行器
@@ -57,7 +53,6 @@ func (t *httpExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 	if rawQuery != "" {
 		path = path + "?" + rawQuery
 	}
-	logger.Logger.Debug("rpc transport: ", path)
 	newReq, err := http.NewRequest(c.Request.Method, path, request.Body)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
@@ -74,28 +69,8 @@ func (t *httpExecutor) DoTransport(c *gin.Context, newHeader http.Header, select
 
 func (*httpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
 	defer resp.Body.Close()
-	for k, vs := range resp.Header {
-		item := strings.Builder{}
-		for i, v := range vs {
-			item.WriteString(v)
-			if i < len(vs)-1 {
-				item.WriteString(";")
-			}
-		}
-		c.Header(k, item.String())
+	for k := range resp.Header {
+		c.Header(k, resp.Header.Get(k))
 	}
-	if strings.Contains(c.GetHeader("Content-Encoding"), "gzip") {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			c.String(http.StatusInternalServerError, "error")
-		} else {
-			writer := gzip.NewWriter(c.Writer)
-			defer writer.Close()
-			if _, err = writer.Write(body); err != nil {
-				c.String(http.StatusInternalServerError, "error")
-			}
-		}
-	} else {
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header["Content-Type"][0], resp.Body, nil)
-	}
+	c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 }

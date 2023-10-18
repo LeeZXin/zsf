@@ -2,15 +2,15 @@ package httpserver
 
 import (
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/ginutil"
+	"github.com/LeeZXin/zsf-utils/hashset"
+	"github.com/LeeZXin/zsf-utils/idutil"
+	"github.com/LeeZXin/zsf-utils/threadutil"
+	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
-	"github.com/LeeZXin/zsf/property"
-	"github.com/LeeZXin/zsf/rpc"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/skywalking"
-	"github.com/LeeZXin/zsf/util/ginutil"
-	"github.com/LeeZXin/zsf/util/hashset"
-	"github.com/LeeZXin/zsf/util/idutil"
-	"github.com/LeeZXin/zsf/util/threadutil"
 	"github.com/SkyAPM/go2sky"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
@@ -28,11 +28,11 @@ import (
 
 var (
 	acceptedHeaders = make(hashset.HashSet[string])
-	actuatorEnabled = property.GetBool("actuator.enabled")
+	actuatorEnabled = static.GetBool("actuator.enabled")
 )
 
 func init() {
-	h := property.GetString("http.server.acceptedHeaders")
+	h := static.GetString("http.server.acceptedHeaders")
 	if h != "" {
 		sp := strings.Split(h, ";")
 		for _, s := range sp {
@@ -135,22 +135,22 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 // headerFilter 传递header
 func headerFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.Header.Get(rpc.TraceId) == "" {
-			c.Request.Header.Set(rpc.TraceId, idutil.RandomUuid())
+		if c.Request.Header.Get(header.TraceId) == "" {
+			c.Request.Header.Set(header.TraceId, idutil.RandomUuid())
 		}
 		clone := CopyRequestHeader(c)
-		ctx := rpc.SetHeaders(c.Request.Context(), clone)
+		ctx := header.SetHeaders(c.Request.Context(), clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
 
-func CopyRequestHeader(c *gin.Context) rpc.Header {
-	clone := make(rpc.Header, len(c.Request.Header))
+func CopyRequestHeader(c *gin.Context) header.Header {
+	clone := make(header.Header, len(c.Request.Header))
 	for key := range c.Request.Header {
 		key = strings.ToLower(key)
-		if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpc.Prefix) {
+		if acceptedHeaders.Contains(key) || strings.HasPrefix(key, header.Prefix) {
 			clone[key] = c.Request.Header.Get(key)
 		}
 	}
@@ -166,7 +166,7 @@ func skywalkingFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		operationName := fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL)
 		span, ctx, err := skywalking.Tracer.CreateEntrySpan(c.Request.Context(), operationName, func(headerKey string) (string, error) {
-			return c.Request.Header.Get(rpc.PrefixForSw + headerKey), nil
+			return c.Request.Header.Get(header.PrefixForSw + headerKey), nil
 		})
 		if err != nil {
 			logger.Logger.WithContext(c.Request.Context()).Error(err)

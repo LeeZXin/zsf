@@ -3,7 +3,7 @@ package mysqlstore
 import (
 	"context"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/xorm/mysqlutil"
 	_ "github.com/go-sql-driver/mysql"
 	"time"
@@ -17,12 +17,12 @@ var (
 func init() {
 	var err error
 	engine, err = mysqlutil.NewEngine(mysqlutil.Config{
-		DataSourceName:  property.GetString("xorm.dataSourceName"),
-		MaxIdleConns:    property.GetInt("xorm.maxIdleConns"),
-		ConnMaxLifetime: property.GetInt("xorm.connMaxLifetime"),
-		MaxOpenConns:    property.GetInt("xorm.maxOpenConns"),
-		ShowSql:         property.GetBool("xorm.showSql"),
-		SlowSqlDuration: time.Duration(property.GetInt("xorm.slowSqlDuration")) * time.Millisecond,
+		DataSourceName:  static.GetString("xorm.dataSourceName"),
+		MaxIdleConns:    static.GetInt("xorm.maxIdleConns"),
+		ConnMaxLifetime: static.GetInt("xorm.connMaxLifetime"),
+		MaxOpenConns:    static.GetInt("xorm.maxOpenConns"),
+		ShowSql:         static.GetBool("xorm.showSql"),
+		SlowSqlDuration: time.Duration(static.GetInt("xorm.slowSqlDuration")) * time.Millisecond,
 	})
 	if err != nil {
 		logger.Logger.Panic(err)

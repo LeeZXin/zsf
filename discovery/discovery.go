@@ -3,7 +3,7 @@ package discovery
 import (
 	"github.com/LeeZXin/zsf/common"
 	_ "github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"strings"
 	"sync"
 )
@@ -87,7 +87,7 @@ func GetServiceInfo(name string) ([]ServiceAddr, error) {
 // GetServiceInfoByDiscoveryType 读取consul中的服务信息
 func GetServiceInfoByDiscoveryType(name, discoveryType string) ([]ServiceAddr, error) {
 	if discoveryType == "" {
-		discoveryType = property.GetString("discovery.type")
+		discoveryType = static.GetString("discovery.type")
 	}
 	dis, ok := GetServiceDiscovery(discoveryType)
 	if !ok {

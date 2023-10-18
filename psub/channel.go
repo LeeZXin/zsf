@@ -2,7 +2,7 @@ package psub
 
 import (
 	"errors"
-	"github.com/LeeZXin/zsf/executor"
+	"github.com/LeeZXin/zsf-utils/executor"
 	"runtime"
 	"sync"
 	"time"

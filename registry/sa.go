@@ -5,7 +5,7 @@ import (
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/sa_registry/client"
 	"time"
@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	saClient = client.NewRegistryClient(property.GetString("saRegistry.host"), property.GetString("saRegistry.token"))
+	saClient = client.NewRegistryClient(static.GetString("saRegistry.host"), static.GetString("saRegistry.token"))
 }
 
 type saImpl struct {

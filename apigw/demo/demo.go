@@ -1,10 +1,11 @@
 package demo
 
 import (
+	"github.com/LeeZXin/zsf-utils/httputil"
+	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/apigw"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
-	"github.com/LeeZXin/zsf/selector"
-	"github.com/LeeZXin/zsf/util/httputil"
+
 	"github.com/gin-gonic/gin"
 )
 

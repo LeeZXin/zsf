@@ -3,11 +3,11 @@ package logger
 import (
 	"context"
 	"encoding/json"
+	"github.com/LeeZXin/zsf-utils/taskutil"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
-	"github.com/LeeZXin/zsf/util/taskutil"
 	"github.com/nsqio/go-nsq"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/plain"
@@ -36,11 +36,11 @@ type LogContent struct {
 }
 
 func newKafkaHook() logrus.Hook {
-	kafkaHosts := property.GetString("logger.kafka.hosts")
+	kafkaHosts := static.GetString("logger.kafka.hosts")
 	if kafkaHosts == "" {
 		panic("logger.kafka.hosts is empty")
 	}
-	topic := property.GetString("logger.kafka.topic")
+	topic := static.GetString("logger.kafka.topic")
 	if topic == "" {
 		panic("logger.kafka.topic is empty")
 	}
@@ -55,10 +55,10 @@ func newKafkaHook() logrus.Hook {
 		Balancer:     &kafka.Hash{},
 		RequiredAcks: kafka.RequireNone,
 	}
-	if property.GetBool("logger.kafka.sasl") {
+	if static.GetBool("logger.kafka.sasl") {
 		mechanism := plain.Mechanism{
-			Username: property.GetString("logger.kafka.username"),
-			Password: property.GetString("logger.kafka.password"),
+			Username: static.GetString("logger.kafka.username"),
+			Password: static.GetString("logger.kafka.password"),
 		}
 		kw.Transport = &kafka.Transport{
 			SASL: mechanism,
@@ -110,16 +110,16 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 }
 
 func newNsqHook() logrus.Hook {
-	host := property.GetString("logger.nsq.host")
+	host := static.GetString("logger.nsq.host")
 	if host == "" {
 		panic("empty nsq host")
 	}
-	topic := property.GetString("logger.nsq.topic")
+	topic := static.GetString("logger.nsq.topic")
 	if topic == "" {
 		panic("empty nsq topic")
 	}
 	cnf := nsq.NewConfig()
-	cnf.AuthSecret = property.GetString("logger.nsq.authSecret")
+	cnf.AuthSecret = static.GetString("logger.nsq.authSecret")
 	producer, err := nsq.NewProducer(host, cnf)
 	producer.SetLogger(&nsqLogger{}, nsq.LogLevelInfo)
 	if err != nil {

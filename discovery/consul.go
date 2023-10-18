@@ -3,7 +3,7 @@ package discovery
 import (
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/hashicorp/consul/api"
 )
 
@@ -13,7 +13,7 @@ type ConsulDiscovery struct {
 
 func NewConsulDiscovery(consulClient *api.Client) IDiscovery {
 	if consulClient == nil {
-		consulClient = consul.NewConsulClient(property.GetString("consul.address"), property.GetString("consul.token"))
+		consulClient = consul.NewConsulClient(static.GetString("consul.address"), static.GetString("consul.token"))
 	}
 	return &ConsulDiscovery{consulClient: consulClient}
 }

@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"sync"
 )
 
@@ -40,7 +40,7 @@ type ServiceInfo struct {
 }
 
 func RegisterSelf(info ServiceInfo) error {
-	registryType := property.GetString("registry.type")
+	registryType := static.GetString("registry.type")
 	if registryType == "" {
 		registryType = ConsulRegistryType
 	}

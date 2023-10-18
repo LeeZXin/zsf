@@ -2,8 +2,8 @@ package apigw
 
 import (
 	"errors"
-	"github.com/LeeZXin/zsf/http/client"
-	"github.com/LeeZXin/zsf/selector"
+	"github.com/LeeZXin/zsf-utils/selector"
+	"github.com/LeeZXin/zsf/http/httpclient"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,18 +16,18 @@ const (
 )
 
 var (
-	newTargetFuncMap = map[string]func(config RouterConfig, httpClient *http.Client) (selector.Selector[string], RpcExecutor, error){
-		MockTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector[string], RpcExecutor, error) {
+	newTargetFuncMap = map[string]func(config RouterConfig, httpClient *http.Client) (Selector, RpcExecutor, error){
+		MockTargetType: func(config RouterConfig, httpClient *http.Client) (Selector, RpcExecutor, error) {
 			return nil, &mockExecutor{
 				mockContent: config.MockContent,
 			}, nil
 		},
-		DiscoveryTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector[string], RpcExecutor, error) {
+		DiscoveryTargetType: func(config RouterConfig, httpClient *http.Client) (Selector, RpcExecutor, error) {
 			serviceName := config.ServiceName
 			if serviceName == "" {
 				return nil, nil, errors.New("empty serviceName")
 			}
-			return client.NewCachedHttpSelector(client.CachedHttpSelectorConfig{
+			return httpclient.NewCachedHttpSelector(httpclient.CachedHttpSelectorConfig{
 					LbPolicy:            config.TargetLbPolicy,
 					ServiceName:         serviceName,
 					CacheExpireDuration: 10 * time.Second,
@@ -35,7 +35,7 @@ var (
 					httpClient: httpClient,
 				}, nil
 		},
-		DomainTargetType: func(config RouterConfig, httpClient *http.Client) (selector.Selector[string], RpcExecutor, error) {
+		DomainTargetType: func(config RouterConfig, httpClient *http.Client) (Selector, RpcExecutor, error) {
 			targets := config.Targets
 			if len(targets) == 0 {
 				return nil, nil, errors.New("empty targets")
@@ -56,9 +56,11 @@ var (
 			if err != nil {
 				return nil, nil, err
 			}
-			return st, &httpExecutor{
-				httpClient: httpClient,
-			}, nil
+			return &SelectorWrapper{
+					Selector: st,
+				}, &httpExecutor{
+					httpClient: httpClient,
+				}, nil
 		},
 	}
 )

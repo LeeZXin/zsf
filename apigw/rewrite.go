@@ -1,7 +1,6 @@
 package apigw
 
 import (
-	"github.com/LeeZXin/zsf/common"
 	"net/http"
 	"strings"
 )
@@ -63,5 +62,4 @@ func (s *ReplaceAnyRewriteStrategy) Rewrite(path *string, header http.Header) {
 
 func labelHeader(header http.Header) {
 	header.Set("z-gw-type", "zgw")
-	header.Add("x-forwarded-for", common.GetLocalIp())
 }

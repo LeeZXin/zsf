@@ -6,7 +6,7 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
 	"github.com/gin-gonic/gin"
@@ -23,8 +23,8 @@ const (
 )
 
 type Config struct {
-	Register RegisterRouterFunc
-	Filters  []gin.HandlerFunc
+	RegisterFunc RegisterRouterFunc
+	Filters      []gin.HandlerFunc
 }
 
 type UpdateLogLevelRequest struct {
@@ -39,7 +39,7 @@ func http404(c *gin.Context) {
 
 // InitAndStartHttpServer 初始化http server
 func InitAndStartHttpServer(config Config) {
-	port := property.GetInt("http.port")
+	port := static.GetInt("http.port")
 	if port <= 0 {
 		port = DefaultServerPort
 	}
@@ -52,7 +52,7 @@ func InitAndStartHttpServer(config Config) {
 	//filter
 	var filters []gin.HandlerFunc
 	// 禁用filter
-	if property.GetBool("application.disableMicro") {
+	if static.GetBool("application.disableMicro") {
 		filters = []gin.HandlerFunc{
 			recoverFilter(),
 		}
@@ -65,17 +65,16 @@ func InitAndStartHttpServer(config Config) {
 			skywalkingFilter(),
 		}
 	}
-
 	if config.Filters != nil {
 		filters = append(filters, config.Filters...)
 	}
 	r.Use(filters...)
-	if config.Register != nil {
-		config.Register(r)
+	if config.RegisterFunc != nil {
+		config.RegisterFunc(r)
 	}
 	//是否开启http服务注册
-	if property.GetBool("http.registry.enabled") {
-		weight := property.GetInt("http.weight")
+	if static.GetBool("http.registry.enabled") {
+		weight := static.GetInt("http.weight")
 		if weight == 0 {
 			weight = 1
 		}
@@ -88,15 +87,15 @@ func InitAndStartHttpServer(config Config) {
 	}
 	//启动httpserver
 	go func() {
-		readTimeoutSec := property.GetInt("http.readTimeoutSec")
+		readTimeoutSec := static.GetInt("http.readTimeoutSec")
 		if readTimeoutSec == 0 {
 			readTimeoutSec = 20
 		}
-		writeTimeoutSec := property.GetInt("http.writeTimeoutSec")
+		writeTimeoutSec := static.GetInt("http.writeTimeoutSec")
 		if writeTimeoutSec == 0 {
 			writeTimeoutSec = 20
 		}
-		idleTimeoutSec := property.GetInt("http.idleTimeoutSec")
+		idleTimeoutSec := static.GetInt("http.idleTimeoutSec")
 		if idleTimeoutSec == 0 {
 			idleTimeoutSec = 60
 		}
