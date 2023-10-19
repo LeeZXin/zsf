@@ -13,8 +13,7 @@ const (
 
 // EtcdV2Discovery etcd服务发现
 type EtcdV2Discovery struct {
-	servicePrefix string
-	etcdClient    client.KeysAPI
+	etcdClient client.KeysAPI
 }
 
 func NewEtcdV2Discovery(endPoints []string, username, password string) IDiscovery {
@@ -30,8 +29,7 @@ func NewEtcdV2Discovery(endPoints []string, username, password string) IDiscover
 		}
 	}
 	return &EtcdV2Discovery{
-		servicePrefix: servicePrefix,
-		etcdClient:    client.NewKeysAPI(c),
+		etcdClient: client.NewKeysAPI(c),
 	}
 }
 
@@ -42,7 +40,7 @@ func (e *EtcdV2Discovery) GetDiscoveryType() string {
 func (e *EtcdV2Discovery) GetServiceInfo(target string) ([]ServiceAddr, error) {
 	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	res, err := e.etcdClient.Get(timeout, e.servicePrefix+target, &client.GetOptions{
+	res, err := e.etcdClient.Get(timeout, servicePrefix+target, &client.GetOptions{
 		Recursive: true,
 	})
 	if err != nil {

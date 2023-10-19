@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	client *memclient.RegistryClient
+	memClient *memclient.RegistryClient
 )
 
 func init() {
-	client = memclient.NewRegistryClient(static.GetString("memRegistry.host"), static.GetString("memRegistry.token"))
+	memClient = memclient.NewRegistryClient(static.GetString("memRegistry.host"), static.GetString("memRegistry.token"))
 }
 
 type SaDiscovery struct{}
@@ -22,7 +22,7 @@ func (*SaDiscovery) GetDiscoveryType() string {
 }
 
 func (s *SaDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
-	services, err := client.GetServiceInfoList(context.Background(), name)
+	services, err := memClient.GetServiceInfoList(context.Background(), name)
 	if err != nil {
 		logger.Logger.Error(err)
 		return nil, err
