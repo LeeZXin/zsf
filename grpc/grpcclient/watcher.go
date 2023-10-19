@@ -2,9 +2,9 @@ package grpcclient
 
 import (
 	"github.com/LeeZXin/zsf-utils/executor"
+	"github.com/LeeZXin/zsf-utils/psub"
 	"github.com/LeeZXin/zsf-utils/taskutil"
 	"github.com/LeeZXin/zsf/discovery"
-	"github.com/LeeZXin/zsf/psub"
 	"sync"
 	"time"
 )

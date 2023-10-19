@@ -1,19 +1,18 @@
 logger:
-  mode: file
   async:
     executorNum: 1
     enabled: true
     queueSize: 5000
     discardPolicy: abort
   kafka:
-    enabled: true
+    enabled: false
     sasl: true
     username: test
     password: test
     hosts: 127.0.0.1:8642,127.0.0.1:7653
     topic: test-topic
   nsq:
-    enabled: true
+    enabled: false
     host: 127.0.0.1:4105
     topic: log-wiwi-kalksj
     authSecret: xxx

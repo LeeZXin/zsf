@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -17,13 +17,13 @@ import (
 func headerStreamInterceptor() grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		//传递请求header
-		md := header.GetHeaders(ctx)
+		md := rpcheader.GetHeaders(ctx)
 		for k, v := range md {
 			if !strings.HasPrefix(k, ":") {
 				ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 			}
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, header.Source, common.GetApplicationName())
+		ctx = metadata.AppendToOutgoingContext(ctx, rpcheader.Source, common.GetApplicationName())
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
@@ -46,7 +46,7 @@ func skywalkingStreamInterceptor() grpc.StreamClientInterceptor {
 		}
 		operationName := fmt.Sprintf("GRPC %s", method)
 		span, err := skywalking.Tracer.CreateExitSpan(ctx, operationName, cc.Target(), func(key, value string) error {
-			ctx = metadata.AppendToOutgoingContext(ctx, header.PrefixForSw+key, value)
+			ctx = metadata.AppendToOutgoingContext(ctx, rpcheader.PrefixForSw+key, value)
 			return nil
 		})
 		if err != nil {

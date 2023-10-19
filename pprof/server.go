@@ -17,7 +17,6 @@ func init() {
 		}
 		//启动pprof server
 		go func() {
-			logger.Logger.Info("pprof server start: ", port)
 			//只允许本地访问
 			err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), nil)
 			if err != nil {

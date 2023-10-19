@@ -14,8 +14,8 @@ var (
 )
 
 const (
-	DefaultVersion = "default"
 	DefaultEnv     = "sit"
+	DefaultVersion = "default"
 )
 
 func init() {

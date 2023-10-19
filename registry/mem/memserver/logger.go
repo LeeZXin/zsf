@@ -1,4 +1,4 @@
-package server
+package memserver
 
 // Logger 日志打印
 type Logger interface {

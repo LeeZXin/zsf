@@ -16,13 +16,20 @@ var (
 const (
 	ConsulDiscoveryType = "consul"
 	StaticDiscoveryType = "static"
-	SaDiscoveryType     = "sa"
+	MemDiscoveryType    = "mem"
+	EtcdV2DiscoveryType = "etcdV2"
 )
 
 func init() {
-	NewServiceDiscovery(NewConsulDiscovery(nil))
-	NewServiceDiscovery(&StaticDiscovery{})
-	NewServiceDiscovery(&SaDiscovery{})
+	RegisterServiceDiscovery(NewConsulDiscovery(nil))
+	RegisterServiceDiscovery(&StaticDiscovery{})
+	RegisterServiceDiscovery(&SaDiscovery{})
+	endPoints := static.GetString("discovery.etcdV2.endPoints")
+	username := static.GetString("discovery.etcdV2.username")
+	password := static.GetString("discovery.etcdV2.password")
+	if endPoints != "" {
+		RegisterServiceDiscovery(NewEtcdV2Discovery(strings.Split(endPoints, ","), username, password))
+	}
 }
 
 type IDiscovery interface {
@@ -96,7 +103,7 @@ func GetServiceInfoByDiscoveryType(name, discoveryType string) ([]ServiceAddr, e
 	return dis.GetServiceInfo(name)
 }
 
-func NewServiceDiscovery(discovery IDiscovery) {
+func RegisterServiceDiscovery(discovery IDiscovery) {
 	if discovery == nil {
 		return
 	}

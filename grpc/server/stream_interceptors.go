@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/threadutil"
-	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -37,7 +37,7 @@ func headerStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 		clone := CopyIncomingContext(ctx)
-		ctx = header.SetHeaders(ctx, clone)
+		ctx = rpcheader.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		wrapped := WrapServerStream(ss)
 		wrapped.WrappedContext = ctx
@@ -81,7 +81,7 @@ func skywalkingStreamInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 		operationName := fmt.Sprintf("grpc %s", info.FullMethod)
 		span, ctx, err := skywalking.Tracer.CreateEntrySpan(ctx, operationName, func(headerKey string) (string, error) {
-			return header.GetHeaders(ctx).Get(header.PrefixForSw + headerKey), nil
+			return rpcheader.GetHeaders(ctx).Get(rpcheader.PrefixForSw + headerKey), nil
 		})
 		if err != nil {
 			return handler(srv, ss)

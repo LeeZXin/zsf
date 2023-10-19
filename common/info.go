@@ -58,7 +58,7 @@ func GetZone() string {
 	return zone
 }
 
-func GetLocalIp() string {
+func GetLocalIP() string {
 	return localIP
 }
 

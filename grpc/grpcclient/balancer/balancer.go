@@ -5,7 +5,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/header"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"strconv"
@@ -85,7 +85,7 @@ type picker struct {
 }
 
 func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err error) {
-	ver := header.GetHeaders(b.Ctx).Get(header.ApiVersion)
+	ver := rpcheader.GetHeaders(b.Ctx).Get(rpcheader.ApiVersion)
 	if ver == "" {
 		ver = cmd.GetVersion()
 	}

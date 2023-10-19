@@ -3,8 +3,8 @@ package httpclient
 import (
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/skywalking"
 	"github.com/SkyAPM/go2sky"
 	"net/http"
@@ -16,14 +16,14 @@ import (
 
 func headerInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
-		headers := header.GetHeaders(request.Context())
+		headers := rpcheader.GetHeaders(request.Context())
 		for k, v := range headers {
-			if strings.HasPrefix(k, header.Prefix) {
+			if strings.HasPrefix(k, rpcheader.Prefix) {
 				request.Header.Set(k, v)
 			}
 		}
 		// 塞source信息
-		request.Header.Set(header.Source, common.GetApplicationName())
+		request.Header.Set(rpcheader.Source, common.GetApplicationName())
 		return invoker(request)
 	}
 }
@@ -43,12 +43,12 @@ func skywalkingInterceptor() Interceptor {
 		}
 		operationName := fmt.Sprintf("%s %s", request.Method, request.URL)
 		ctx := request.Context()
-		target := request.Header.Get(header.Target)
+		target := request.Header.Get(rpcheader.Target)
 		if target == "" {
 			target = "#"
 		}
 		span, err := skywalking.Tracer.CreateExitSpan(ctx, operationName, target, func(key, value string) error {
-			request.Header.Set(header.PrefixForSw+key, value)
+			request.Header.Set(rpcheader.PrefixForSw+key, value)
 			return nil
 		})
 		if err != nil {

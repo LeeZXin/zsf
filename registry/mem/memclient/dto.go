@@ -1,25 +1,4 @@
-package server
-
-const (
-	SuccessCode = 0
-	// InvalidParamsCode 参数错误
-	InvalidParamsCode = 100001
-	// UnauthorizedCode 未授权
-	UnauthorizedCode = 100002
-	// ExecuteFailCode 执行错误
-	ExecuteFailCode = 100003
-)
-
-var (
-	DefaultSuccessResp = BaseResp{
-		Code:    SuccessCode,
-		Message: "success",
-	}
-	DefaultFailBindArgResp = BaseResp{
-		Code:    InvalidParamsCode,
-		Message: "args error",
-	}
-)
+package memclient
 
 type DeregisterServiceReqDTO struct {
 	ServiceName string `json:"serviceName"`

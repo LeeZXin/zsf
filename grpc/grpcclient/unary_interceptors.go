@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -18,13 +18,13 @@ import (
 func headerClientUnaryInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		//传递请求header
-		md := header.GetHeaders(ctx)
+		md := rpcheader.GetHeaders(ctx)
 		for k, v := range md {
 			if !strings.HasPrefix(k, ":") {
 				ctx = metadata.AppendToOutgoingContext(ctx, k, v)
 			}
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, header.Source, common.GetApplicationName())
+		ctx = metadata.AppendToOutgoingContext(ctx, rpcheader.Source, common.GetApplicationName())
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -49,7 +49,7 @@ func skywalkingUnaryInterceptor() grpc.UnaryClientInterceptor {
 		}
 		operationName := fmt.Sprintf("GRPC %s", method)
 		span, err := skywalking.Tracer.CreateExitSpan(ctx, operationName, cc.Target(), func(key, value string) error {
-			ctx = metadata.AppendToOutgoingContext(ctx, header.PrefixForSw+key, value)
+			ctx = metadata.AppendToOutgoingContext(ctx, rpcheader.PrefixForSw+key, value)
 			return nil
 		})
 		if err != nil {

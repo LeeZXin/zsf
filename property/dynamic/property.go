@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/executor"
+	"github.com/LeeZXin/zsf-utils/psub"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/psub"
 	"github.com/LeeZXin/zsf/quit"
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/api/watch"
@@ -45,7 +45,6 @@ type ChangeCallback func()
 
 func startWatchPropertyChange() {
 	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), static.GetString("application.name"))
-	logger.Logger.Info("listen property key:", propertyKey)
 	plan, err := watch.Parse(map[string]any{
 		"type": "key",
 		"key":  propertyKey,
@@ -65,7 +64,7 @@ func startWatchPropertyChange() {
 			logger.Logger.Error(err.Error())
 		}
 	}
-	plan.Handler = func(u uint64, i interface{}) {
+	plan.Handler = func(u uint64, i any) {
 		//防止触发两次
 		if u == firstModifyIndex {
 			return
@@ -86,7 +85,7 @@ func startWatchPropertyChange() {
 			//获取旧配置
 			oldProperties := getAllProperties(listenKeys)
 			//合并配置
-			err = static.MergeConfig(bytes.NewReader(kvPair.Value))
+			err = MergeConfig(bytes.NewReader(kvPair.Value))
 			if err != nil {
 				return
 			}

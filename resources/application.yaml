@@ -29,7 +29,7 @@ consul:
   address: 127.0.0.1:8500
   token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
 
-saRegistry:
+memRegistry:
   host: 127.0.0.1:9099
   token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
 

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/logger"
 	"os"
 )
 
+// 静态文件服务发现
 var (
 	cache = make(map[string][]ServiceAddr, 8)
 )
@@ -37,11 +37,9 @@ func init() {
 			return
 		}
 	}
-	logger.Logger.Info("load static discovery json path: ", path)
 	var config staticConfig
 	err = json.Unmarshal(content, &config)
 	if err != nil {
-		logger.Logger.Error("load static-discovery.json err:", err.Error())
 		return
 	}
 	static := config.Static

@@ -7,19 +7,19 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"
-	"github.com/LeeZXin/zsf/sa_registry/client"
+	"github.com/LeeZXin/zsf/registry/mem/memclient"
 	"time"
 )
 
 var (
-	saClient *client.RegistryClient
+	saClient *memclient.RegistryClient
 )
 
 func init() {
-	saClient = client.NewRegistryClient(static.GetString("saRegistry.host"), static.GetString("saRegistry.token"))
+	saClient = memclient.NewRegistryClient(static.GetString("saRegistry.host"), static.GetString("saRegistry.token"))
 }
 
-type saImpl struct {
+type memImpl struct {
 	instanceId  string
 	serviceName string
 
@@ -29,7 +29,7 @@ type saImpl struct {
 	info ServiceInfo
 }
 
-func (s *saImpl) StartRegisterSelf() error {
+func (s *memImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	s.instanceId = common.GetInstanceId()
@@ -38,7 +38,7 @@ func (s *saImpl) StartRegisterSelf() error {
 		//取消注册
 		s.cancelFunc()
 		//服务关闭时注销自己
-		err := saClient.DeregisterService(context.Background(), client.DeregisterServiceReqDTO{
+		err := saClient.DeregisterService(context.Background(), memclient.DeregisterServiceReqDTO{
 			ServiceName: s.serviceName,
 			InstanceId:  s.instanceId,
 		})
@@ -48,19 +48,8 @@ func (s *saImpl) StartRegisterSelf() error {
 		}
 	})
 
-	// 向consul注册自己
+	// 注册自己
 	go func() {
-		registerFunc := func() error {
-			return saClient.RegisterService(context.Background(), client.RegisterServiceReqDTO{
-				ServiceName:   s.serviceName,
-				Ip:            common.GetLocalIp(),
-				Port:          info.Port,
-				InstanceId:    s.instanceId,
-				Weight:        info.Weight,
-				Version:       cmd.GetVersion(),
-				LeaseDuration: 20,
-			})
-		}
 		for {
 			select {
 			case <-s.ctx.Done():
@@ -69,7 +58,15 @@ func (s *saImpl) StartRegisterSelf() error {
 				break
 			}
 			//重试注册
-			err2 := registerFunc()
+			err2 := saClient.RegisterService(context.Background(), memclient.RegisterServiceReqDTO{
+				ServiceName:   s.serviceName,
+				Ip:            common.GetLocalIP(),
+				Port:          info.Port,
+				InstanceId:    s.instanceId,
+				Weight:        info.Weight,
+				Version:       cmd.GetVersion(),
+				LeaseDuration: 20,
+			})
 			if err2 == nil {
 				ticker := time.NewTicker(8 * time.Second)
 				for {
@@ -81,7 +78,7 @@ func (s *saImpl) StartRegisterSelf() error {
 					case <-ticker.C:
 						break
 					}
-					err = saClient.PassTTL(context.Background(), client.PassTtlReqDTO{
+					err = saClient.PassTTL(context.Background(), memclient.PassTtlReqDTO{
 						ServiceName: s.serviceName,
 						InstanceId:  s.instanceId,
 					})
@@ -100,13 +97,13 @@ func (s *saImpl) StartRegisterSelf() error {
 	return nil
 }
 
-type SaRegistry struct{}
+type MemRegistry struct{}
 
-func (s *SaRegistry) GetRegistryType() string {
-	return SaRegistryType
+func (s *MemRegistry) GetRegistryType() string {
+	return MemRegistryType
 }
 
-func (s *SaRegistry) StartRegisterSelf(info ServiceInfo) error {
-	impl := saImpl{info: info}
+func (s *MemRegistry) StartRegisterSelf(info ServiceInfo) error {
+	impl := memImpl{info: info}
 	return impl.StartRegisterSelf()
 }

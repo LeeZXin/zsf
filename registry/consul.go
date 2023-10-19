@@ -3,7 +3,6 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
@@ -39,7 +38,7 @@ func (s *consulImpl) StartRegisterSelf() error {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	agent := consulClient.Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), idutil.RandomUuid())
+	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), common.GetInstanceId())
 	s.checkID = s.serviceId + "-checkID"
 
 	quit.AddShutdownHook(func() {
@@ -55,8 +54,15 @@ func (s *consulImpl) StartRegisterSelf() error {
 
 	// 向consul注册自己
 	go func() {
-		registerFunc := func() error {
-			return agent.ServiceRegister(&api.AgentServiceRegistration{
+		for {
+			select {
+			case <-s.ctx.Done():
+				return
+			default:
+				break
+			}
+			//重试注册
+			err2 := agent.ServiceRegister(&api.AgentServiceRegistration{
 				ID:   s.serviceId,
 				Name: common.GetApplicationName() + "-" + info.Scheme,
 				Tags: []string{
@@ -64,7 +70,7 @@ func (s *consulImpl) StartRegisterSelf() error {
 					common.VersionPrefix + cmd.GetVersion(),
 				},
 				Port:    info.Port,
-				Address: common.GetLocalIp(),
+				Address: common.GetLocalIP(),
 				Weights: &api.AgentWeights{
 					Passing: info.Weight,
 				},
@@ -77,16 +83,6 @@ func (s *consulImpl) StartRegisterSelf() error {
 				},
 				EnableTagOverride: true,
 			})
-		}
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			default:
-				break
-			}
-			//重试注册
-			err2 := registerFunc()
 			if err2 == nil {
 				ticker := time.NewTicker(8 * time.Second)
 				for {

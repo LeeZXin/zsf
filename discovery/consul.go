@@ -13,7 +13,10 @@ type ConsulDiscovery struct {
 
 func NewConsulDiscovery(consulClient *api.Client) IDiscovery {
 	if consulClient == nil {
-		consulClient = consul.NewConsulClient(static.GetString("consul.address"), static.GetString("consul.token"))
+		consulClient = consul.NewConsulClient(
+			static.GetString("discovery.consul.address"),
+			static.GetString("discovery.consul.token"),
+		)
 	}
 	return &ConsulDiscovery{consulClient: consulClient}
 }

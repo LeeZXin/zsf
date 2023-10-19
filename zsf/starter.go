@@ -1,8 +1,8 @@
 package zsf
 
 import (
-	grpcserver "github.com/LeeZXin/zsf/grpc/server"
-	httpserver "github.com/LeeZXin/zsf/http/server"
+	"github.com/LeeZXin/zsf/grpc/server"
+	"github.com/LeeZXin/zsf/http/server"
 	_ "github.com/LeeZXin/zsf/pprof"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/quit"

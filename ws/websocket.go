@@ -119,6 +119,8 @@ func (h *handler) serve() {
 				return
 			}
 		}
+	}, func() {
+		h.close(websocket.StatusNormalClosure, "")
 	})
 }
 

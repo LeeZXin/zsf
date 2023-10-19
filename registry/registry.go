@@ -2,11 +2,11 @@ package registry
 
 import (
 	"github.com/LeeZXin/zsf/property/static"
+	"strings"
 	"sync"
 )
 
 //服务发现
-//目前只实现consul
 
 var (
 	registryMap = make(map[string]IRegistry)
@@ -15,12 +15,19 @@ var (
 
 const (
 	ConsulRegistryType = "consul"
-	SaRegistryType     = "sa"
+	MemRegistryType    = "mem"
+	EtcdV2RegistryType = "etcdV2"
 )
 
 func init() {
-	NewServiceRegistry(&ConsulRegistry{})
-	NewServiceRegistry(&SaRegistry{})
+	RegisterServiceRegistry(&ConsulRegistry{})
+	RegisterServiceRegistry(&MemRegistry{})
+	endPoints := static.GetString("registry.etcdV2.endPoints")
+	username := static.GetString("registry.etcdV2.username")
+	password := static.GetString("registry.etcdV2.password")
+	if endPoints != "" {
+		RegisterServiceRegistry(NewEtcdV2Registry(strings.Split(endPoints, ","), username, password))
+	}
 }
 
 // IRegistry 插件式实现服务注册
@@ -52,7 +59,7 @@ func RegisterSelf(info ServiceInfo) error {
 	return r.StartRegisterSelf(info)
 }
 
-func NewServiceRegistry(registry IRegistry) {
+func RegisterServiceRegistry(registry IRegistry) {
 	if registry == nil {
 		return
 	}

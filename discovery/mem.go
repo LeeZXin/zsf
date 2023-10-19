@@ -4,25 +4,25 @@ import (
 	"context"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/sa_registry/client"
+	memclient "github.com/LeeZXin/zsf/registry/mem/memclient"
 )
 
 var (
-	saClient *client.RegistryClient
+	client *memclient.RegistryClient
 )
 
 func init() {
-	saClient = client.NewRegistryClient(static.GetString("saRegistry.host"), static.GetString("saRegistry.token"))
+	client = memclient.NewRegistryClient(static.GetString("memRegistry.host"), static.GetString("memRegistry.token"))
 }
 
 type SaDiscovery struct{}
 
 func (*SaDiscovery) GetDiscoveryType() string {
-	return SaDiscoveryType
+	return MemDiscoveryType
 }
 
 func (s *SaDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
-	services, err := saClient.GetServiceInfoList(context.Background(), name)
+	services, err := client.GetServiceInfoList(context.Background(), name)
 	if err != nil {
 		logger.Logger.Error(err)
 		return nil, err
@@ -36,7 +36,7 @@ func (s *SaDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 }
 
 // convert2ServiceAddr 转化为ServiceAddress
-func (*SaDiscovery) convert2ServiceAddr(service client.ServiceInfoDTO) ServiceAddr {
+func (*SaDiscovery) convert2ServiceAddr(service memclient.ServiceInfoDTO) ServiceAddr {
 	return ServiceAddr{
 		Addr:    service.Ip,
 		Port:    service.Port,

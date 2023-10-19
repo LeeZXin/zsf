@@ -8,7 +8,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/hashset"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/header"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"io"
 	"net"
 	"net/http"
@@ -160,7 +160,7 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		request.Header.Set("Content-Type", contentType)
 	}
 	// 塞target信息
-	request.Header.Set(header.Target, c.ServiceName)
+	request.Header.Set(rpcheader.Target, c.ServiceName)
 	invoker := func(request *http.Request) (*http.Response, error) {
 		return c.http.Do(request)
 	}

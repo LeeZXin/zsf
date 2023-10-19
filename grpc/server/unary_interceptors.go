@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf-utils/threadutil"
-	"github.com/LeeZXin/zsf/header"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/skywalking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,19 +24,19 @@ import (
 func headerUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		clone := CopyIncomingContext(ctx)
-		ctx = header.SetHeaders(ctx, clone)
+		ctx = rpcheader.SetHeaders(ctx, clone)
 		ctx = logger.AppendToMDC(ctx, clone)
 		return handler(ctx, req)
 	}
 }
 
-func CopyIncomingContext(ctx context.Context) header.Header {
+func CopyIncomingContext(ctx context.Context) rpcheader.Header {
 	clone := make(map[string]string, 8)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		for key := range md {
 			key = strings.ToLower(key)
-			if acceptedHeaders.Contains(key) || strings.HasPrefix(key, header.Prefix) {
+			if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpcheader.Prefix) {
 				val := md.Get(key)
 				if val != nil && len(val) > 0 {
 					clone[key] = val[0]
@@ -44,9 +44,9 @@ func CopyIncomingContext(ctx context.Context) header.Header {
 			}
 		}
 	}
-	_, ok = clone[header.TraceId]
+	_, ok = clone[rpcheader.TraceId]
 	if !ok {
-		clone[header.TraceId] = idutil.RandomUuid()
+		clone[rpcheader.TraceId] = idutil.RandomUuid()
 	}
 	return clone
 }
@@ -88,7 +88,7 @@ func skywalkingUnaryInterceptor() grpc.UnaryServerInterceptor {
 		}
 		operationName := fmt.Sprintf("GRPC %s", info.FullMethod)
 		span, ctx, err := skywalking.Tracer.CreateEntrySpan(ctx, operationName, func(headerKey string) (string, error) {
-			return header.GetHeaders(ctx).Get(header.PrefixForSw + headerKey), nil
+			return rpcheader.GetHeaders(ctx).Get(rpcheader.PrefixForSw + headerKey), nil
 		})
 		if err != nil {
 			return handler(ctx, req)
