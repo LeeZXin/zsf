@@ -148,6 +148,8 @@ completable.Call 同步执行任务
 completable.CallAsync 异步执行任务  
 completable.ThenApply 获取任务结果并同步执行函数  
 completable.ThenApplyAsync 获取任务结果并异步执行函数  
+completable.ThenCombine 同步合并两个任务结果 若其中一个任务抛异常，则返回异常  
+completable.ThenCombineAsync 异步合并两个任务结果 若其中一个任务抛异常，则返回异常  
 completable.ThenAllOf 等待所有任务执行成功，若其中一个抛异常，则返回异常  
 completable.ThenAllOfAsync 异步等待所有任务执行成功，若其中一个抛异常，则返回异常  
 completable.ThenAnyOf 等待其中一个任务执行成功，若抛异常第一时间被抛出，则返回异常  
