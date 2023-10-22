@@ -3,14 +3,15 @@ zsf
 > zsf是一套http、grpc的golang后端服务框架  
 > 意在提供服务治理和标准化代码模版  
 > 在gin、grpc、consul、skywalking、prometheus、pprof、xorm等基础上扩展了新功能  
-> 基础组件有协程池、广播组件、通用负载均衡组件等   
+> 基础组件有协程池、广播组件、通用负载均衡组件、异步任务调度引擎等   
 > 以consul作为服务发现、注册以及配置中心使用  
 > logrus异步化写日志支持和kafka、nsq hook  
-> kafka、nsq consumer封装  
-> 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等   
+> kafka、nsq consumer封装
+>
+实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等
 > rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  
 > xorm慢sql日志告警  
-> 支持自定义流程编排规则zengine  
+> 支持自定义流程编排规则zengine
 >
 1、通用负载均衡路由实现
 
@@ -136,4 +137,19 @@ mock请求返回结果, 支持任意http的statusCode，返回结果支持json�
 可通过配置，对流程节点进行编排，不用发版便可修改函数调用顺序
 支持自定义节点和脚本节点
 脚本节点使用gopher-lua
+```
+
+15、异步任务调度引擎
+
+```
+参考java completablefuture思想 做的异步任务调度引擎 completable包下  
+支持  
+completable.Call 同步执行任务  
+completable.CallAsync 异步执行任务  
+completable.ThenApply 获取任务结果并同步执行函数  
+completable.ThenApplyAsync 获取任务结果并异步执行函数  
+completable.ThenAllOf 等待所有任务执行成功，若其中一个抛异常，则返回异常  
+completable.ThenAllOfAsync 异步等待所有任务执行成功，若其中一个抛异常，则返回异常  
+completable.ThenAnyOf 等待其中一个任务执行成功，若抛异常第一时间被抛出，则返回异常  
+completable.ThenAnyOfAsync 异步等待其中一个任务执行成功，若抛异常第一时间被抛出，则返回异常  
 ```

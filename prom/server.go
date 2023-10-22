@@ -1,7 +1,9 @@
 package prom
 
 import (
+	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/gin-gonic/gin"
@@ -35,9 +37,12 @@ func init() {
 			}
 			logger.Logger.Info("prometheus server start: ", port)
 			err := server.ListenAndServe()
-			if err != nil {
-				logger.Logger.Error(err)
+			if err != nil && err != http.ErrServerClosed {
+				logger.Logger.Panic(err)
 			}
+			quit.AddShutdownHook(func() {
+				_ = server.Shutdown(context.Background())
+			})
 		}()
 	}
 }

@@ -1,9 +1,9 @@
 package httpclient
 
 import (
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"net/http"
 	"sync"
 )

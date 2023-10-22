@@ -3,11 +3,11 @@ package httpserver
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
 	"github.com/gin-gonic/gin"
 	"net/http"

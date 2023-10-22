@@ -1,11 +1,11 @@
 package skywalking
 
 import (
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/dynamic"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"github.com/SkyAPM/go2sky"
 	"github.com/SkyAPM/go2sky/reporter"
 )

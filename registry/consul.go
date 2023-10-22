@@ -3,12 +3,12 @@ package registry
 import (
 	"context"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"github.com/hashicorp/consul/api"
 	"time"
 )

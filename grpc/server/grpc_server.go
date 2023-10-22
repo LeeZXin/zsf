@@ -3,12 +3,11 @@ package grpcserver
 import (
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/hashset"
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/grpc/debug"
 	"github.com/LeeZXin/zsf/logger"
-	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"github.com/LeeZXin/zsf/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"

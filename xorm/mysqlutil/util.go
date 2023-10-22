@@ -3,7 +3,7 @@ package mysqlutil
 import (
 	"context"
 	"errors"
-	"github.com/LeeZXin/zsf/quit"
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/xorm/xormlog"
 	_ "github.com/go-sql-driver/mysql"
 	"time"

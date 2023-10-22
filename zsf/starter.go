@@ -1,11 +1,11 @@
 package zsf
 
 import (
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/grpc/server"
 	"github.com/LeeZXin/zsf/http/server"
 	_ "github.com/LeeZXin/zsf/pprof"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/quit"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
 	"sync"
