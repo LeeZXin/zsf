@@ -3,7 +3,7 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.4
+	github.com/LeeZXin/zsf-utils v1.0.5
 	github.com/SkyAPM/go2sky v1.5.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
