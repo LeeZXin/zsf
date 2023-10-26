@@ -6,12 +6,21 @@
         {
           "addr": "127.0.0.1",
           "port": 8080,
-          "weight": 1
+          "weight": 1,
+          "version": "default"
         },
         {
           "addr": "127.0.0.1",
           "port": 8099,
-          "weight": 1
+          "weight": 1,
+          "version": "gray"
+        }
+      ,
+        {
+          "addr": "127.0.0.1",
+          "port": 8022,
+          "weight": 1,
+          "version": "gray"
         }
       ]
     },
@@ -20,12 +29,7 @@
       "targets": [
         {
           "addr": "127.0.0.1",
-          "port": 15003,
-          "weight": 1
-        },
-        {
-          "addr": "127.0.0.1",
-          "port": 8092,
+          "port": 8091,
           "weight": 1
         }
       ]

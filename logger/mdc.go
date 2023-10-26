@@ -1,6 +1,9 @@
 package logger
 
-import "context"
+import (
+	"context"
+	"github.com/LeeZXin/zsf-utils/idutil"
+)
 
 //日志关键信息打印
 //从context获取
@@ -11,6 +14,10 @@ type MDC map[string]string
 
 func (h MDC) Get(key string) string {
 	return h[key]
+}
+
+func (h MDC) Set(key, val string) {
+	h[key] = val
 }
 
 const (
@@ -26,8 +33,26 @@ func GetMDC(ctx context.Context) MDC {
 }
 
 func AppendToMDC(ctx context.Context, content map[string]string) context.Context {
-	if ctx != nil {
-		return context.WithValue(ctx, MDCKey{}, MDC(content))
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return context.Background()
+	mdc := GetMDC(ctx)
+	n := make(MDC, len(mdc)+len(content))
+	for k, v := range mdc {
+		n.Set(k, v)
+	}
+	for k, v := range content {
+		n.Set(k, v)
+	}
+	return context.WithValue(ctx, MDCKey{}, n)
+}
+
+func GenTraceId(ctx context.Context) (context.Context, string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	uuid := idutil.RandomUuid()
+	return AppendToMDC(ctx, map[string]string{
+		TraceId: uuid,
+	}), uuid
 }

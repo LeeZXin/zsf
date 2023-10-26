@@ -1,7 +1,6 @@
 package apigw
 
 import (
-	"net/http"
 	"strings"
 )
 
@@ -15,51 +14,42 @@ const (
 	ReplaceAnyRewriteType = "replaceAny"
 )
 
-var (
-	rewriteStrategyFuncMap = map[string]NewRewriteStrategyFunc{
-		CopyFullPathRewriteType: func(config RouterConfig) RewriteStrategy {
-			return &CopyFullPathRewriteStrategy{}
-		},
-		StripPrefixRewriteType: func(config RouterConfig) RewriteStrategy {
-			return &StripPrefixRewriteStrategy{prefix: config.Path}
-		},
-		ReplaceAnyRewriteType: func(config RouterConfig) RewriteStrategy {
-			return &ReplaceAnyRewriteStrategy{anyPath: config.ReplacePath}
-		},
-	}
-)
-
 type RewriteStrategy interface {
-	Rewrite(*string, http.Header)
+	Rewrite(string) string
 }
 
 type NewRewriteStrategyFunc func(RouterConfig) RewriteStrategy
 
 type CopyFullPathRewriteStrategy struct{}
 
-func (*CopyFullPathRewriteStrategy) Rewrite(path *string, header http.Header) {
-	labelHeader(header)
+func (*CopyFullPathRewriteStrategy) Rewrite(path string) string {
+	return path
 }
 
 type StripPrefixRewriteStrategy struct {
 	prefix string
 }
 
-func (s *StripPrefixRewriteStrategy) Rewrite(path *string, header http.Header) {
-	p := strings.TrimPrefix(*path, s.prefix)
-	labelHeader(header)
-	*path = p
+func (s *StripPrefixRewriteStrategy) Rewrite(path string) string {
+	return strings.TrimPrefix(path, s.prefix)
 }
 
 type ReplaceAnyRewriteStrategy struct {
 	anyPath string
 }
 
-func (s *ReplaceAnyRewriteStrategy) Rewrite(path *string, header http.Header) {
-	*path = s.anyPath
-	labelHeader(header)
+func (s *ReplaceAnyRewriteStrategy) Rewrite(path string) string {
+	return s.anyPath
 }
 
-func labelHeader(header http.Header) {
-	header.Set("z-gw-type", "zgw")
+func copyFullPathStrategy(config RouterConfig) RewriteStrategy {
+	return &CopyFullPathRewriteStrategy{}
+}
+
+func stripPrefixStrategy(config RouterConfig) RewriteStrategy {
+	return &StripPrefixRewriteStrategy{prefix: config.Path}
+}
+
+func replaceAnyStrategy(config RouterConfig) RewriteStrategy {
+	return &ReplaceAnyRewriteStrategy{anyPath: config.ReplacePath}
 }

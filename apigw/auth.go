@@ -1,0 +1,190 @@
+package apigw
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"github.com/LeeZXin/zsf-utils/httputil"
+	"github.com/LeeZXin/zsf/discovery"
+	"github.com/spf13/cast"
+	"net/http"
+	"strings"
+	"time"
+)
+
+const (
+	JsonContentType = "application/json;charset=utf-8"
+	ContentTypeTag  = "Content-Type"
+)
+
+const (
+	HttpUriType      = "http"
+	DiscoveryUriType = "discovery"
+)
+
+const (
+	QueryLocation  = "query"
+	HeaderLocation = "header"
+)
+
+var (
+	httpClient = httputil.NewRetryableHttpClient()
+)
+
+type AuthUri struct {
+	Address         string `json:"address"`
+	DiscoveryTarget string `json:"discoveryTarget"`
+	Path            string `json:"path"`
+	Timeout         int    `json:"timeout"`
+}
+
+type AuthParameter struct {
+	TargetName     string `json:"targetName"`
+	TargetLocation string `json:"targetLocation"`
+	SourceName     string `json:"sourceName"`
+	SourceLocation string `json:"sourceLocation"`
+}
+
+type AuthConfig struct {
+	Id                    string          `json:"id"`
+	UriType               string          `json:"uriType"`
+	Uri                   AuthUri         `json:"uri"`
+	Parameters            []AuthParameter `json:"parameters"`
+	ErrorMessage          string          `json:"errorMessage"`
+	ErrorStatusCode       int             `json:"errorStatusCode"`
+	PassThroughHeaderList []string        `json:"passThroughHeaderList"`
+}
+
+func (c *AuthConfig) Validate() error {
+	switch c.UriType {
+	case HttpUriType:
+		if c.Uri.Address == "" {
+			return errors.New("empty uri address")
+		}
+	case DiscoveryUriType:
+		if c.Uri.DiscoveryTarget == "" {
+			return errors.New("empty discovery type")
+		}
+	default:
+		return errors.New("wrong uri type")
+	}
+	return nil
+}
+
+func auth(c *apiContext) bool {
+	config := c.config.AuthConfig
+	path := config.Uri.Path
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	authReqJson, authReqHeader := getAuthRequestBody(c)
+	var url string
+	switch config.UriType {
+	case HttpUriType:
+		url = config.Uri.Address + path
+	case DiscoveryUriType:
+		host, err := discovery.SelectOneIpPort(c.Request.Context(), config.Uri.DiscoveryTarget)
+		if err != nil {
+			c.String(config.ErrorStatusCode, config.ErrorMessage)
+			return false
+		}
+		url = "http://" + host + path
+	}
+	reqBody, _ := json.Marshal(authReqJson)
+	var (
+		authReq *http.Request
+		err     error
+	)
+	if config.Uri.Timeout > 0 {
+		timeout, cancelFunc := context.WithTimeout(c.Request.Context(), time.Duration(config.Uri.Timeout)*time.Second)
+		defer cancelFunc()
+		authReq, err = http.NewRequestWithContext(timeout, http.MethodPost, url, bytes.NewReader(reqBody))
+	} else {
+		authReq, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, url, bytes.NewReader(reqBody))
+	}
+	if err != nil {
+		c.String(config.ErrorStatusCode, config.ErrorMessage)
+		return false
+	}
+	for k := range c.Request.Header {
+		authReq.Header.Set(k, c.Request.Header.Get(k))
+	}
+	for k, v := range authReqHeader {
+		authReq.Header.Set(k, v)
+	}
+	authReq.Header.Set(ContentTypeTag, JsonContentType)
+	resp, err := httpClient.Do(authReq)
+	if err != nil {
+		c.String(config.ErrorStatusCode, config.ErrorMessage)
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		c.String(config.ErrorStatusCode, config.ErrorMessage)
+		return false
+	}
+	for _, k := range config.PassThroughHeaderList {
+		v := resp.Header.Get(k)
+		if v != "" {
+			c.header.Set(k, v)
+		}
+	}
+	return true
+}
+
+func parseRequestBody2Map(c *apiContext) map[string]any {
+	body := c.reqBody
+	if strings.Contains(c.Request.Header.Get(ContentTypeTag), "application/json") {
+		if body == nil {
+			return map[string]any{}
+		}
+		ret := make(map[string]any)
+		err := json.Unmarshal(body, &ret)
+		if err != nil {
+			return map[string]any{}
+		}
+		return ret
+	} else {
+		query := make(map[string]string)
+		err := c.ShouldBindQuery(&query)
+		if err != nil {
+			return map[string]any{}
+		}
+		ret := make(map[string]any, len(query))
+		for k, v := range query {
+			ret[k] = v
+		}
+		return ret
+	}
+}
+
+func getAuthRequestBody(c *apiContext) (map[string]any, map[string]string) {
+	arr := c.config.AuthConfig.Parameters
+	requestJson := parseRequestBody2Map(c)
+	req := make(map[string]any)
+	header := make(map[string]string)
+	for _, p := range arr {
+		switch p.SourceLocation {
+		case HeaderLocation:
+			switch p.TargetLocation {
+			case QueryLocation:
+				req[p.TargetName] = c.Request.Header.Get(p.SourceName)
+			case HeaderLocation:
+				header[p.TargetName] = c.Request.Header.Get(p.SourceName)
+			}
+		case QueryLocation:
+			t, b := requestJson[p.SourceName]
+			if !b {
+				break
+			}
+			switch p.TargetLocation {
+			case QueryLocation:
+				req[p.TargetName] = t
+			case HeaderLocation:
+				header[p.TargetName] = cast.ToString(t)
+			}
+		}
+	}
+	return req, header
+}

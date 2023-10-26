@@ -8,13 +8,13 @@ import (
 	"github.com/LeeZXin/zsf-utils/hashset"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/selector"
+	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // client封装
@@ -69,11 +69,10 @@ type Client interface {
 }
 
 type clientImpl struct {
-	ServiceName   string
-	LbPolicy      string
-	routeSelector *CachedHttpSelector
-	http          *http.Client
-	Interceptors  []Interceptor
+	ServiceName  string
+	LbPolicy     string
+	http         *http.Client
+	Interceptors []Interceptor
 }
 
 func (c *clientImpl) init() {
@@ -85,11 +84,6 @@ func (c *clientImpl) init() {
 			c.LbPolicy = selector.RoundRobinPolicy
 		}
 	}
-	c.routeSelector = NewCachedHttpSelector(CachedHttpSelectorConfig{
-		LbPolicy:            c.LbPolicy,
-		ServiceName:         c.ServiceName,
-		CacheExpireDuration: 10 * time.Second,
-	})
 	c.http = httputil.NewRetryableHttpClient()
 }
 
@@ -97,10 +91,6 @@ func (c *clientImpl) Close() {
 	if c.http != nil {
 		c.http.CloseIdleConnections()
 	}
-}
-
-func (c *clientImpl) Select(ctx context.Context) (string, error) {
-	return c.routeSelector.Select(ctx)
 }
 
 func (c *clientImpl) Get(ctx context.Context, path string, resp any, opts ...Option) error {
@@ -118,7 +108,7 @@ func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opt
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	// 获取服务ip
-	node, err := c.routeSelector.Select(ctx)
+	node, err := discovery.SelectOneIpPort(ctx, c.ServiceName)
 	if err != nil {
 		return err
 	}

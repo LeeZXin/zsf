@@ -1,21 +1,21 @@
 package apigw
 
 import (
+	"bytes"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
-// RpcExecutor 请求转发执行器
-type RpcExecutor interface {
-	DoTransport(c *gin.Context, newHeader http.Header, target, path string)
+// rpcExecutor 请求转发执行器
+type rpcExecutor interface {
+	DoTransport(*apiContext, string)
 }
 
 type mockExecutor struct {
 	mockContent MockContent
 }
 
-func (t *mockExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
+func (t *mockExecutor) DoTransport(c *apiContext, _ string) {
 	headersStr := t.mockContent.Headers
 	if headersStr != "" {
 		var h map[string]string
@@ -46,28 +46,25 @@ type httpExecutor struct {
 	httpClient *http.Client
 }
 
-func (t *httpExecutor) DoTransport(c *gin.Context, newHeader http.Header, selectHost, path string) {
+func (t *httpExecutor) DoTransport(c *apiContext, url string) {
+	if c.config.NeedAuth && !auth(c) {
+		return
+	}
 	request := c.Request
 	rawQuery := request.URL.RawQuery
-	path = selectHost + path
 	if rawQuery != "" {
-		path = path + "?" + rawQuery
+		url = url + "?" + rawQuery
 	}
-	newReq, err := http.NewRequest(c.Request.Method, path, request.Body)
+	newReq, err := http.NewRequest(c.Request.Method, url, bytes.NewReader(c.reqBody))
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	newReq.Header = newHeader
 	resp, err := t.httpClient.Do(newReq)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	t.handleHttpResp(resp, c)
-}
-
-func (*httpExecutor) handleHttpResp(resp *http.Response, c *gin.Context) {
 	defer resp.Body.Close()
 	for k := range resp.Header {
 		c.Header(k, resp.Header.Get(k))

@@ -2,7 +2,6 @@ package hexpr
 
 import (
 	"errors"
-	"github.com/LeeZXin/zsf/logger"
 	"github.com/gin-gonic/gin"
 	"strings"
 )
@@ -99,16 +98,8 @@ type Expr struct {
 	Tree ENode
 }
 
-func (e *Expr) Execute(c *gin.Context) (result bool) {
-	defer func() {
-		err := recover()
-		if err != nil {
-			logger.Logger.WithContext(c.Request.Context()).Error(err)
-			result = false
-		}
-	}()
-	result = executeNode(e.Tree, c)
-	return result
+func (e *Expr) Execute(c *gin.Context) bool {
+	return executeNode(e.Tree, c)
 }
 
 func executeNode(node ENode, c *gin.Context) bool {

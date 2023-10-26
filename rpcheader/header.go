@@ -2,22 +2,75 @@ package rpcheader
 
 import (
 	"context"
+	"github.com/LeeZXin/zsf-utils/idutil"
+	"github.com/LeeZXin/zsf/logger"
 )
 
 const (
-	UserId   = "z-user-id"
-	UserName = "z-user-name"
-	AppId    = "z-app-id"
+	TraceId    = "z-trace-id"
+	Shadow     = "z-shadow"
+	ApiVersion = "z-api-version"
+	Prefix     = "z-"
+	Source     = "z-source"
+	Target     = "z-target"
+
+	// PrefixForSw 为了skywalking传递header用的
+	PrefixForSw = "z-sw-"
 )
 
-func GetUserId(ctx context.Context) string {
-	return GetHeaders(ctx).Get(UserId)
+type headerKey struct{}
+
+type Header map[string]string
+
+func (h Header) Get(key string) string {
+	return h[key]
 }
 
-func GetUserName(ctx context.Context) string {
-	return GetHeaders(ctx).Get(UserName)
+func (h Header) Set(key, val string) {
+	h[key] = val
 }
 
-func GetAppId(ctx context.Context) string {
-	return GetHeaders(ctx).Get(AppId)
+func GetHeaders(ctx context.Context) Header {
+	value := ctx.Value(headerKey{})
+	if value != nil {
+		return value.(Header)
+	}
+	return make(Header)
+}
+
+func AppendToHeaders(ctx context.Context, headers map[string]string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	h := GetHeaders(ctx)
+	ret := make(Header, len(headers)+len(h))
+	for k, v := range h {
+		ret.Set(k, v)
+	}
+	for k, v := range headers {
+		ret.Set(k, v)
+	}
+	return context.WithValue(ctx, headerKey{}, ret)
+}
+
+func SetHeaders(ctx context.Context, headers map[string]string) context.Context {
+	return AppendToHeaders(ctx, headers)
+}
+
+func GenTraceId(ctx context.Context) (context.Context, string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	uuid := idutil.RandomUuid()
+	return AppendToHeaders(ctx, map[string]string{
+		TraceId: uuid,
+	}), uuid
+}
+
+func AppendTraceId(ctx context.Context) (context.Context, string) {
+	ctx, id := GenTraceId(ctx)
+	ctx = logger.AppendToMDC(ctx, map[string]string{
+		logger.TraceId: id,
+	})
+	return ctx, id
 }

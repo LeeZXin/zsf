@@ -3,6 +3,7 @@ package apigw
 import (
 	"errors"
 	"github.com/LeeZXin/zsf-utils/httputil"
+	"github.com/LeeZXin/zsf-utils/listutil"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
@@ -24,33 +25,6 @@ const (
 	MockStringType = "string"
 )
 
-var (
-	putTransportFuncMap = map[string]PutTransportFunc{
-		FullMatchType: func(routers *Routers, config RouterConfig, transport *Transport) error {
-			if config.Path == "" {
-				return errors.New("empty path")
-			}
-			routers.putFullMatchTransport(config.Path, transport)
-			return nil
-		},
-		PrefixMatchType: func(routers *Routers, config RouterConfig, transport *Transport) error {
-			if config.Path == "" {
-				return errors.New("empty path")
-			}
-			routers.putPrefixMatchTransport(config.Path, transport)
-			return nil
-		},
-		ExprMatchType: func(routers *Routers, config RouterConfig, transport *Transport) error {
-			expr, err := hexpr.BuildExpr(config.Expr)
-			if err != nil {
-				return err
-			}
-			routers.putExprMatchTransport(&expr, transport)
-			return nil
-		},
-	}
-)
-
 type Target struct {
 	Weight int    `json:"weight"`
 	Target string `json:"target"`
@@ -67,6 +41,7 @@ type MockContent struct {
 
 // RouterConfig 路由配置信息
 type RouterConfig struct {
+	Id string `json:"id"`
 	// MatchType 匹配模式
 	MatchType string `json:"matchType"`
 	// Path url path
@@ -89,6 +64,10 @@ type RouterConfig struct {
 	MockContent MockContent `json:"mockContent"`
 	// Extra 附加信息
 	Extra map[string]any
+	// AuthConfig 鉴权配置
+	AuthConfig AuthConfig `json:"authConfig"`
+	// 是否需要鉴权
+	NeedAuth bool
 }
 
 func (r *RouterConfig) FillDefaultVal() {
@@ -102,11 +81,11 @@ func (r *RouterConfig) FillDefaultVal() {
 func (r *RouterConfig) Validate() error {
 	if r.MatchType == "" {
 		return errors.New("empty match type")
-	} else {
-		_, ok := putTransportFuncMap[r.MatchType]
-		if !ok {
-			return errors.New("wrong matchType")
-		}
+	}
+	if ok := listutil.Contains(r.MatchType, []string{
+		FullMatchType, PrefixMatchType, ExprMatchType,
+	}); !ok {
+		return errors.New("wrong matchType")
 	}
 	if r.MatchType == ExprMatchType {
 		if err := r.Expr.Validate(); err != nil {
@@ -117,34 +96,30 @@ func (r *RouterConfig) Validate() error {
 			return errors.New("empty path")
 		}
 	}
-	if r.TargetType == "" {
-		return errors.New("empty target type")
-	} else {
-		_, ok := newTargetFuncMap[r.TargetType]
-		if !ok {
-			return errors.New("wrong target type")
-		}
-		if r.TargetType == DomainTargetType {
-			if r.Targets == nil || len(r.Targets) == 0 {
-				return errors.New("empty target")
-			}
-		}
-		if r.TargetType != MockTargetType {
-			_, ok = selector.FindNewSelectorFunc[any](r.TargetLbPolicy)
-			if !ok {
-				return errors.New("wrong lb policy")
-			}
+	if ok := listutil.Contains(r.TargetType, []string{
+		DiscoveryTargetType, DomainTargetType, MockTargetType,
+	}); !ok {
+		return errors.New("wrong target type")
+	}
+	if r.TargetType == DomainTargetType {
+		if r.Targets == nil || len(r.Targets) == 0 {
+			return errors.New("empty target")
 		}
 	}
 	if r.TargetType != MockTargetType {
-		if r.RewriteType == "" {
-			return errors.New("empty RewriteType")
-		} else {
-			_, ok := rewriteStrategyFuncMap[r.RewriteType]
-			if !ok {
-				return errors.New("wrong RewriteType")
-			}
+		if ok := listutil.Contains(r.TargetLbPolicy, []string{
+			selector.RoundRobinPolicy, selector.WeightedRoundRobinPolicy,
+		}); !ok {
+			return errors.New("wrong lb policy")
 		}
+		if ok := listutil.Contains(r.RewriteType, []string{
+			CopyFullPathRewriteType, StripPrefixRewriteType, ReplaceAnyRewriteType,
+		}); !ok {
+			return errors.New("wrong RewriteType")
+		}
+	}
+	if r.NeedAuth {
+		return r.AuthConfig.Validate()
 	}
 	return nil
 }
@@ -227,19 +202,26 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	}
 	var rewrite RewriteStrategy
 	if config.TargetType != MockTargetType {
-		strategyFunc, ok := rewriteStrategyFuncMap[config.RewriteType]
-		if !ok {
-			return errors.New("wrong rewrite type")
+		switch config.RewriteType {
+		case CopyFullPathRewriteType:
+			rewrite = copyFullPathStrategy(config)
+		case ReplaceAnyRewriteType:
+			rewrite = replaceAnyStrategy(config)
+		case StripPrefixRewriteType:
+			rewrite = stripPrefixStrategy(config)
 		}
-		rewrite = strategyFunc(config)
 	}
-	targetFunc, ok := newTargetFuncMap[config.TargetType]
-	if !ok {
-		return errors.New("wrong target type")
-	}
-	st, rpc, err := targetFunc(config, r.httpClient)
-	if err != nil {
-		return err
+	var (
+		hs  hostSelector
+		rpc rpcExecutor
+	)
+	switch config.TargetType {
+	case MockTargetType:
+		hs, rpc = mockTarget(config, r.httpClient)
+	case DomainTargetType:
+		hs, rpc = domainTarget(config, r.httpClient)
+	case DiscoveryTargetType:
+		hs, rpc = discoveryTarget(config, r.httpClient)
 	}
 	extra := config.Extra
 	if extra == nil {
@@ -248,16 +230,17 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	trans := &Transport{
 		Extra:           extra,
 		rewriteStrategy: rewrite,
-		targetSelector:  st,
-		rpcExecutor:     rpc,
+		targetSelector:  hs,
+		rpc:             rpc,
+		config:          config,
 	}
-	transportFunc, ok := putTransportFuncMap[config.MatchType]
-	if !ok {
-		return errors.New("path match type")
+	switch config.MatchType {
+	case FullMatchType:
+		err = fullMatchTransport(r, config, trans)
+	case PrefixMatchType:
+		err = prefixMatchTransport(r, config, trans)
+	case ExprMatchType:
+		err = exprMatchTransport(r, config, trans)
 	}
-	err = transportFunc(r, config, trans)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

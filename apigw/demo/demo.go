@@ -24,6 +24,44 @@ func init() {
 		TargetLbPolicy: selector.RoundRobinPolicy,
 		RewriteType:    apigw.ReplaceAnyRewriteType,
 		ReplacePath:    "/header",
+		NeedAuth:       true,
+		AuthConfig: apigw.AuthConfig{
+			Id:      "1",
+			UriType: apigw.DiscoveryUriType,
+			Uri: apigw.AuthUri{
+				DiscoveryTarget: "my-runner-grpc",
+				Path:            "/auth",
+				Timeout:         10,
+			},
+			Parameters: []apigw.AuthParameter{
+				{
+					TargetName:     "u",
+					TargetLocation: apigw.QueryLocation,
+					SourceName:     "c",
+					SourceLocation: apigw.QueryLocation,
+				}, {
+					TargetName:     "uu",
+					TargetLocation: apigw.QueryLocation,
+					SourceName:     "uu",
+					SourceLocation: apigw.QueryLocation,
+				}, {
+					TargetName:     "uuu",
+					TargetLocation: apigw.HeaderLocation,
+					SourceName:     "ccc",
+					SourceLocation: apigw.QueryLocation,
+				}, {
+					TargetName:     "uuuu",
+					TargetLocation: apigw.HeaderLocation,
+					SourceName:     "Cookie",
+					SourceLocation: apigw.HeaderLocation,
+				},
+			},
+			ErrorMessage:    "fucku",
+			ErrorStatusCode: 401,
+			PassThroughHeaderList: []string{
+				"z-token",
+			},
+		},
 	})
 	if err != nil {
 		panic(err)

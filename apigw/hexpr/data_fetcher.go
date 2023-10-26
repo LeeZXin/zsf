@@ -51,7 +51,7 @@ func init() {
 		},
 	}
 	// hash取模到100
-	for i := 2; i < 100; i++ {
+	for i := 3; i < 100; i++ {
 		d := fmt.Sprintf("crcMod%dHeader", i)
 		k := i
 		m[d] = func(ctx *gin.Context, key string) string {
@@ -59,7 +59,7 @@ func init() {
 		}
 	}
 	for k, fetcher := range m {
-		fetcherMap.Store(k, fetcher)
+		RegisterFetcher(k, fetcher)
 	}
 }
 

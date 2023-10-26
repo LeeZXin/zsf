@@ -23,14 +23,16 @@ import (
 // headerUnaryInterceptor 请求头传递
 func headerUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		clone := CopyIncomingContext(ctx)
+		clone := copyIncomingContext(ctx)
 		ctx = rpcheader.SetHeaders(ctx, clone)
-		ctx = logger.AppendToMDC(ctx, clone)
+		ctx = logger.AppendToMDC(ctx, map[string]string{
+			logger.TraceId: clone.Get(rpcheader.TraceId),
+		})
 		return handler(ctx, req)
 	}
 }
 
-func CopyIncomingContext(ctx context.Context) rpcheader.Header {
+func copyIncomingContext(ctx context.Context) rpcheader.Header {
 	clone := make(map[string]string, 8)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {

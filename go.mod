@@ -3,7 +3,7 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.7
+	github.com/LeeZXin/zsf-utils v1.0.9
 	github.com/SkyAPM/go2sky v1.5.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
@@ -15,6 +15,7 @@ require (
 	github.com/prometheus/client_golang v1.9.0
 	github.com/segmentio/kafka-go v0.4.42
 	github.com/sirupsen/logrus v1.9.0
+	github.com/spf13/cast v1.5.1
 	github.com/spf13/viper v1.15.0
 	go.etcd.io/etcd/client/v2 v2.305.6
 	google.golang.org/grpc v1.54.0
@@ -72,7 +73,6 @@ require (
 	github.com/prometheus/procfs v0.2.0 // indirect
 	github.com/shirou/gopsutil/v3 v3.21.6 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
-	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect

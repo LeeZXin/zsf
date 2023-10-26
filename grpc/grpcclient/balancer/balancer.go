@@ -67,10 +67,7 @@ func (p *pickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
 		if !b {
 			return base.NewErrPicker(errors.New("unknown lbPolicy"))
 		}
-		st, err := slr(nodes)
-		if err != nil {
-			return base.NewErrPicker(err)
-		}
+		st := slr(nodes)
 		selectorMap[version] = st
 	}
 	return &picker{
