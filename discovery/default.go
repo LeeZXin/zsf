@@ -16,18 +16,18 @@ import (
 )
 
 var (
-	defaultDiscovery = newIpPortDiscovery()
+	defaultDiscovery = newDefaultDiscovery()
 )
 
-type ipPortDiscovery struct {
+type DefaultDiscovery struct {
 	lbPolicy string
 	//多版本路由
 	targetCache   localcache.ExpireCache[map[string]selector.Selector[string]]
 	discoveryType string
 }
 
-func newIpPortDiscovery() *ipPortDiscovery {
-	ret := &ipPortDiscovery{
+func newDefaultDiscovery() *DefaultDiscovery {
+	ret := &DefaultDiscovery{
 		lbPolicy: static.GetString("discovery.default.lbPolicy"),
 	}
 	expireDuration := static.GetInt64("discovery.default.expireDuration")
@@ -46,7 +46,7 @@ func newIpPortDiscovery() *ipPortDiscovery {
 	return ret
 }
 
-func (c *ipPortDiscovery) SelectOne(ctx context.Context, serviceName string) (string, error) {
+func (c *DefaultDiscovery) SelectOne(ctx context.Context, serviceName string) (string, error) {
 	nodesMap, err := c.targetCache.LoadData(ctx, serviceName)
 	if err != nil {
 		return "", err
@@ -58,7 +58,7 @@ func (c *ipPortDiscovery) SelectOne(ctx context.Context, serviceName string) (st
 	return ret.Data, nil
 }
 
-func (c *ipPortDiscovery) SelectMulti(ctx context.Context, serviceName string) ([]string, error) {
+func (c *DefaultDiscovery) SelectMulti(ctx context.Context, serviceName string) ([]string, error) {
 	nodesMap, err := c.targetCache.LoadData(ctx, serviceName)
 	if err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/spf13/viper"
 	"io"
+	"reflect"
 )
 
 // 获取配置信息
@@ -73,4 +74,35 @@ func Exists(key string) bool {
 
 func GetInt64(key string) int64 {
 	return v.GetInt64(key)
+}
+
+func AllSettings() map[string]any {
+	return v.AllSettings()
+}
+
+func GetMapSlice(key string) []map[string]any {
+	ret := Get(key)
+	if ret == nil {
+		return []map[string]any{}
+	}
+	r := reflect.ValueOf(ret)
+	switch r.Kind() {
+	case reflect.Slice, reflect.Array:
+	default:
+		return []map[string]any{}
+	}
+	obj := make([]map[string]any, 0, r.Len())
+	for i := 0; i < r.Len(); i++ {
+		item := r.Index(i).Interface()
+		ir := reflect.ValueOf(item)
+		if ir.Kind() == reflect.Map && ir.Type().Key().Kind() == reflect.String {
+			m := make(map[string]any)
+			keys := ir.MapKeys()
+			for _, k := range keys {
+				m[k.String()] = ir.MapIndex(k).Interface()
+			}
+			obj = append(obj, m)
+		}
+	}
+	return obj
 }

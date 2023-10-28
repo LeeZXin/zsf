@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
@@ -9,8 +10,9 @@ import (
 )
 
 var (
-	discoveryMap = make(map[string]IDiscovery)
-	discoveryMu  = sync.RWMutex{}
+	discoveryMap = sync.Map{}
+	watcher      = NewAddrWatcher()
+	watcherOnce  = sync.Once{}
 )
 
 const (
@@ -23,13 +25,7 @@ const (
 func init() {
 	RegisterServiceDiscovery(NewConsulDiscovery(nil))
 	RegisterServiceDiscovery(&StaticDiscovery{})
-	RegisterServiceDiscovery(&SaDiscovery{})
-	endPoints := static.GetString("discovery.etcdV2.endPoints")
-	username := static.GetString("discovery.etcdV2.username")
-	password := static.GetString("discovery.etcdV2.password")
-	if endPoints != "" {
-		RegisterServiceDiscovery(NewEtcdV2Discovery(strings.Split(endPoints, ","), username, password))
-	}
+	RegisterServiceDiscovery(&MemDiscovery{})
 }
 
 type IDiscovery interface {
@@ -45,7 +41,15 @@ type ServiceAddr struct {
 	Version string `json:"version"`
 }
 
-func DiffServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
+func (s *ServiceAddr) IsSameAs(s2 *ServiceAddr) bool {
+	if s2 == nil {
+		return false
+	}
+	return s.Addr == s2.Addr && s.Port == s2.Port &&
+		s.Weight == s2.Weight && s.Version == s2.Version
+}
+
+func CompareServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
 	if oldAddr == nil && newAddr == nil {
 		return true
 	}
@@ -61,8 +65,7 @@ func DiffServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
 	for i := 0; i < addrLen; i++ {
 		find := false
 		for k := 0; k < addrLen; k++ {
-			if oldAddr[i].Addr == newAddr[k].Addr && oldAddr[i].Port == newAddr[k].Port &&
-				oldAddr[i].Weight == newAddr[k].Weight && oldAddr[i].Version == newAddr[k].Version {
+			if oldAddr[i].IsSameAs(&newAddr[k]) {
 				find = true
 				break
 			}
@@ -107,18 +110,23 @@ func RegisterServiceDiscovery(discovery IDiscovery) {
 	if discovery == nil {
 		return
 	}
-	discoveryType := discovery.GetDiscoveryType()
-	if discoveryType == "" {
-		return
-	}
-	discoveryMu.Lock()
-	defer discoveryMu.Unlock()
-	discoveryMap[discoveryType] = discovery
+	discoveryMap.Store(discovery.GetDiscoveryType(), discovery)
 }
 
 func GetServiceDiscovery(discoveryType string) (IDiscovery, bool) {
-	discoveryMu.RLock()
-	defer discoveryMu.RUnlock()
-	value, ok := discoveryMap[discoveryType]
-	return value, ok
+	value, ok := discoveryMap.Load(discoveryType)
+	if ok {
+		return value.(IDiscovery), ok
+	}
+	return nil, ok
+}
+
+func OnAddrChange(serviceName string, callback AddrUpdateCallback) {
+	watcherOnce.Do(func() {
+		watcher.Start()
+		quit.AddShutdownHook(func() {
+			watcher.Shutdown()
+		})
+	})
+	watcher.OnChange(serviceName, callback)
 }

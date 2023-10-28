@@ -15,13 +15,13 @@ func init() {
 	memClient = memclient.NewRegistryClient(static.GetString("memRegistry.host"), static.GetString("memRegistry.token"))
 }
 
-type SaDiscovery struct{}
+type MemDiscovery struct{}
 
-func (*SaDiscovery) GetDiscoveryType() string {
+func (*MemDiscovery) GetDiscoveryType() string {
 	return MemDiscoveryType
 }
 
-func (s *SaDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
+func (s *MemDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 	services, err := memClient.GetServiceInfoList(context.Background(), name)
 	if err != nil {
 		logger.Logger.Error(err)
@@ -36,7 +36,7 @@ func (s *SaDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
 }
 
 // convert2ServiceAddr 转化为ServiceAddress
-func (*SaDiscovery) convert2ServiceAddr(service memclient.ServiceInfoDTO) ServiceAddr {
+func (*MemDiscovery) convert2ServiceAddr(service memclient.ServiceInfoDTO) ServiceAddr {
 	return ServiceAddr{
 		Addr:    service.Ip,
 		Port:    service.Port,

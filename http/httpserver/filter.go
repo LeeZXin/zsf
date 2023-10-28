@@ -27,7 +27,7 @@ import (
 //常见filter封装
 
 var (
-	acceptedHeaders = make(hashset.HashSet[string])
+	acceptedHeaders = hashset.NewHashSet[string](nil)
 	actuatorEnabled = static.GetBool("actuator.enabled")
 )
 

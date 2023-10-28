@@ -1,129 +1,44 @@
 package dynamic
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"fmt"
-	"github.com/LeeZXin/zsf-utils/executor"
-	"github.com/LeeZXin/zsf-utils/psub"
-	"github.com/LeeZXin/zsf-utils/quit"
-	"github.com/LeeZXin/zsf/cmd"
-	"github.com/LeeZXin/zsf/consul"
-	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf-utils/atomicutil"
+	"github.com/LeeZXin/zsf-utils/maputil"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/hashicorp/consul/api"
-	"github.com/hashicorp/consul/api/watch"
-	"github.com/hashicorp/go-hclog"
+	"github.com/LeeZXin/zsf/zsf"
 	"github.com/spf13/viper"
 	"io"
-	"sync"
-	"time"
+	"reflect"
 )
 
 var (
-	v             *viper.Viper
-	registerMu    = sync.Mutex{}
-	watchKeys     = make(map[string]bool)
-	notifyChannel *psub.Channel[any]
-
-	ctx      context.Context
-	cancelFn context.CancelFunc
+	v              *viper.Viper
+	chosenProperty = atomicutil.NewValue[Property]()
+	propertyMap    = maputil.NewImmutableMap(map[string]Property{
+		defaultImpl.GetPropertyType(): defaultImpl,
+		consulImpl.GetPropertyType():  consulImpl,
+	})
 )
 
+type Property interface {
+	GetPropertyType() string
+	OnKeyChange(string, KeyChangeCallback)
+	zsf.LifeCycle
+}
+
 func init() {
-	ctx, cancelFn = context.WithCancel(context.Background())
 	v = viper.New()
 	v.SetConfigType("yaml")
-	channelExecutor, _ := executor.NewExecutor(2, 8, time.Minute, executor.CallerRunsStrategy)
-	notifyChannel, _ = psub.NewChannel[any](channelExecutor)
-	//启动consul配置监听
-	startWatchPropertyChange()
+	SetProperty(propertyMap.GetOrDefault(static.GetString("property.dynamic.type"), defaultImpl))
 }
 
-type ChangeCallback func()
-
-func startWatchPropertyChange() {
-	propertyKey := fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), static.GetString("application.name"))
-	plan, err := watch.Parse(map[string]any{
-		"type": "key",
-		"key":  propertyKey,
-	})
-	if err != nil {
-		panic(err)
-	}
-	consulClient := consul.NewConsulClient(static.GetString("property.consul.address"), static.GetString("property.consul.token"))
-	var firstModifyIndex uint64
-	//首次需要加载远程配置
-	kv, _, err := consulClient.KV().Get(propertyKey, nil)
-	if err == nil {
-		err = v.MergeConfig(bytes.NewReader(kv.Value))
-		if err == nil {
-			firstModifyIndex = kv.ModifyIndex
-		} else {
-			logger.Logger.Error(err.Error())
-		}
-	}
-	plan.Handler = func(u uint64, i any) {
-		//防止触发两次
-		if u == firstModifyIndex {
-			return
-		}
-		if i == nil {
-			return
-		}
-		kvPair := i.(*api.KVPair)
-		if kvPair.Value != nil {
-			listenKeys := make([]string, 0)
-			registerMu.Lock()
-			if len(watchKeys) > 0 {
-				for watchKey := range watchKeys {
-					listenKeys = append(listenKeys, watchKey)
-				}
-			}
-			registerMu.Unlock()
-			//获取旧配置
-			oldProperties := getAllProperties(listenKeys)
-			//合并配置
-			err = MergeConfig(bytes.NewReader(kvPair.Value))
-			if err != nil {
-				return
-			}
-			//获取新配置
-			newProperties := getAllProperties(listenKeys)
-			//检查不同
-			for _, key := range listenKeys {
-				if oldProperties[key] != newProperties[key] {
-					//发送广播
-					_ = notifyChannel.Publish(key, "")
-				}
-			}
-		}
-	}
-	go func() {
-		quit.AddShutdownHook(func() {
-			cancelFn()
-			plan.Stop()
-		})
-		//持续监听
-		for {
-			if ctx.Err() != nil {
-				return
-			}
-			listenErr := plan.RunWithClientAndHclog(consulClient, hclog.NewNullLogger())
-			if listenErr != nil {
-				logger.Logger.Error(listenErr)
-			}
-			time.Sleep(10 * time.Second)
-		}
-	}()
-}
+type KeyChangeCallback func()
 
 // getAllProperties 获取配置
 func getAllProperties(listenKeys []string) map[string]string {
 	properties := make(map[string]string, len(listenKeys))
 	for _, key := range listenKeys {
-		oldProperty := static.Get(key)
+		oldProperty := Get(key)
 		if oldProperty == nil {
 			properties[key] = ""
 		} else {
@@ -139,16 +54,12 @@ func getAllProperties(listenKeys []string) map[string]string {
 }
 
 // OnKeyChange 监听某个key的变化来触发回调
-func OnKeyChange(key string, callback ChangeCallback) {
+func OnKeyChange(key string, callback KeyChangeCallback) {
 	if key == "" || callback == nil {
 		return
 	}
-	registerMu.Lock()
-	defer registerMu.Unlock()
-	watchKeys[key] = true
-	_ = notifyChannel.Subscribe(key, func(data any) {
-		callback()
-	})
+	p := propertyMap.GetOrDefault(static.GetString("property.dynamic.type"), defaultImpl)
+	p.OnKeyChange(key, callback)
 }
 
 func GetString(key string) string {
@@ -189,4 +100,47 @@ func Exists(key string) bool {
 
 func GetInt64(key string) int64 {
 	return v.GetInt64(key)
+}
+
+func AllSettings() map[string]any {
+	return v.AllSettings()
+}
+
+func GetMapSlice(key string) []map[string]any {
+	ret := Get(key)
+	if ret == nil {
+		return []map[string]any{}
+	}
+	r := reflect.ValueOf(ret)
+	switch r.Kind() {
+	case reflect.Slice, reflect.Array:
+	default:
+		return []map[string]any{}
+	}
+	obj := make([]map[string]any, 0, r.Len())
+	for i := 0; i < r.Len(); i++ {
+		item := r.Index(i).Interface()
+		ir := reflect.ValueOf(item)
+		if ir.Kind() == reflect.Map && ir.Type().Key().Kind() == reflect.String {
+			m := make(map[string]any)
+			keys := ir.MapKeys()
+			for _, k := range keys {
+				m[k.String()] = ir.MapIndex(k).Interface()
+			}
+			obj = append(obj, m)
+		}
+	}
+	return obj
+}
+
+func SetProperty(property Property) {
+	if property == nil {
+		return
+	}
+	zsf.RegisterApplicationLifeCycle(property)
+	has, b := chosenProperty.Load()
+	if b {
+		has.OnApplicationShutdown()
+	}
+	chosenProperty.Store(property)
 }

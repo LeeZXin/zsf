@@ -60,7 +60,6 @@ func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, strin
 }
 
 type Client interface {
-	Select(ctx context.Context) (string, error)
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error

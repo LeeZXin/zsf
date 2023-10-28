@@ -12,6 +12,8 @@ var (
 type LifeCycle interface {
 	// OnApplicationStart 服务启动
 	OnApplicationStart()
+	// AfterInitialize 启动后
+	AfterInitialize()
 	// OnApplicationShutdown 服务关闭
 	OnApplicationShutdown()
 }
@@ -43,5 +45,17 @@ func onApplicationShutdown() {
 	}
 	for _, listener := range listeners {
 		listener.OnApplicationShutdown()
+	}
+}
+
+func afterInitialize() {
+	mu.Lock()
+	listeners := lifeCycles[:]
+	mu.Unlock()
+	if len(listeners) == 0 {
+		return
+	}
+	for _, listener := range listeners {
+		listener.AfterInitialize()
 	}
 }
