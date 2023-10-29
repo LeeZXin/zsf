@@ -2,7 +2,6 @@ package zsf
 
 import (
 	"github.com/LeeZXin/zsf-utils/quit"
-	_ "github.com/LeeZXin/zsf/pprof"
 	"sync"
 )
 
