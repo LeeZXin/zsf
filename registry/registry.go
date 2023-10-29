@@ -2,7 +2,6 @@ package registry
 
 import (
 	"github.com/LeeZXin/zsf/property/static"
-	"strings"
 	"sync"
 )
 
@@ -16,18 +15,11 @@ var (
 const (
 	ConsulRegistryType = "consul"
 	MemRegistryType    = "mem"
-	EtcdV2RegistryType = "etcdV2"
 )
 
 func init() {
 	RegisterServiceRegistry(&ConsulRegistry{})
 	RegisterServiceRegistry(&MemRegistry{})
-	endPoints := static.GetString("registry.etcdV2.endPoints")
-	username := static.GetString("registry.etcdV2.username")
-	password := static.GetString("registry.etcdV2.password")
-	if endPoints != "" {
-		RegisterServiceRegistry(NewEtcdV2Registry(strings.Split(endPoints, ","), username, password))
-	}
 }
 
 // IRegistry 插件式实现服务注册
