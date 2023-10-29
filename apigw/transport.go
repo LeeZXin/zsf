@@ -14,27 +14,24 @@ const (
 	mb10 = 1024 * 1024 * 10
 )
 
-type Transport struct {
-	Extra           map[string]any
+type Transport interface {
+	Handle(*gin.Context)
+}
+
+type transportImpl struct {
 	rewriteStrategy RewriteStrategy
 	targetSelector  hostSelector
 	rpc             rpcExecutor
 	config          RouterConfig
 }
 
-func (t *Transport) Transport(c *gin.Context) {
+func (t *transportImpl) Handle(c *gin.Context) {
 	request := c.Request
 	path := request.URL.Path
 	body, b := readRequestBody(c)
 	if !b {
 		c.String(http.StatusBadRequest, "request body error")
 		return
-	}
-	ctx := &apiContext{
-		Context: c,
-		reqBody: body,
-		config:  t.config,
-		header:  make(http.Header),
 	}
 	if t.rewriteStrategy != nil {
 		path = t.rewriteStrategy.Rewrite(path)
@@ -44,17 +41,22 @@ func (t *Transport) Transport(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	if host == "" {
-		t.rpc.DoTransport(ctx, "")
-	} else {
+	ctx := &apiContext{
+		Context: c,
+		reqBody: body,
+		config:  t.config,
+		header:  make(http.Header),
+	}
+	if host != "" {
 		if !strings.HasPrefix(host, "http://") {
 			host = "http://" + host
 		}
 		if !strings.HasPrefix(path, "/") {
 			path = "/" + path
 		}
-		t.rpc.DoTransport(ctx, host+path)
+		ctx.url = host + path
 	}
+	t.rpc.Handle(ctx)
 }
 
 func readRequestBody(ctx *gin.Context) ([]byte, bool) {
@@ -77,27 +79,27 @@ func readRequestBody(ctx *gin.Context) ([]byte, bool) {
 	}
 }
 
-func fullMatchTransport(routers *Routers, config RouterConfig, transport *Transport) error {
-	if config.Path == "" {
+func fullMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+	if c.Path == "" {
 		return errors.New("empty path")
 	}
-	routers.putFullMatchTransport(config.Path, transport)
+	r.putFullMatchTransport(c.Path, t)
 	return nil
 }
 
-func prefixMatchTransport(routers *Routers, config RouterConfig, transport *Transport) error {
-	if config.Path == "" {
+func prefixMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+	if c.Path == "" {
 		return errors.New("empty path")
 	}
-	routers.putPrefixMatchTransport(config.Path, transport)
+	r.putPrefixMatchTransport(c.Path, t)
 	return nil
 }
 
-func exprMatchTransport(routers *Routers, config RouterConfig, transport *Transport) error {
-	expr, err := hexpr.BuildExpr(config.Expr)
+func exprMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+	expr, err := hexpr.BuildExpr(c.Expr)
 	if err != nil {
 		return err
 	}
-	routers.putExprMatchTransport(&expr, transport)
+	r.putExprMatchTransport(&expr, t)
 	return nil
 }

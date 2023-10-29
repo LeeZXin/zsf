@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/spf13/cast"
@@ -79,6 +80,7 @@ func auth(c *apiContext) bool {
 		path = "/" + path
 	}
 	authReqJson, authReqHeader := getAuthRequestBody(c)
+	fmt.Println(authReqJson, authReqHeader)
 	var url string
 	switch config.UriType {
 	case HttpUriType:
@@ -135,6 +137,7 @@ func auth(c *apiContext) bool {
 
 func parseRequestBody2Map(c *apiContext) map[string]any {
 	body := c.reqBody
+	fmt.Println(c.Request.Header.Get(ContentTypeTag))
 	if strings.Contains(c.Request.Header.Get(ContentTypeTag), "application/json") {
 		if body == nil {
 			return map[string]any{}

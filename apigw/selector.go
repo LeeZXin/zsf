@@ -10,11 +10,11 @@ type hostSelector interface {
 	Select(context.Context) (string, error)
 }
 
-type httpSelector struct {
+type ipPortSelector struct {
 	serviceName string
 }
 
-func (s *httpSelector) Select(ctx context.Context) (string, error) {
+func (s *ipPortSelector) Select(ctx context.Context) (string, error) {
 	return discovery.SelectOneIpPort(ctx, s.serviceName)
 }
 

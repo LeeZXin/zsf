@@ -30,7 +30,7 @@ type Target struct {
 	Target string `json:"target"`
 }
 
-type PutTransportFunc func(*Routers, RouterConfig, *Transport) error
+type PutTransportFunc func(*Routers, RouterConfig, *transportImpl) error
 
 type MockContent struct {
 	Headers     string `json:"headers"`
@@ -126,11 +126,11 @@ func (r *RouterConfig) Validate() error {
 
 type Routers struct {
 	//精确匹配
-	fullMatch map[string]*Transport
+	fullMatch map[string]Transport
 	//前缀匹配
-	prefixMatch *trieutil.Trie[*Transport]
+	prefixMatch *trieutil.Trie[Transport]
 	//表达式匹配
-	exprMatch map[*hexpr.Expr]*Transport
+	exprMatch map[*hexpr.Expr]Transport
 	//连接池
 	httpClient *http.Client
 }
@@ -144,28 +144,28 @@ func NewRouters(httpClient *http.Client) *Routers {
 	}
 }
 
-func (r *Routers) putFullMatchTransport(path string, trans *Transport) {
+func (r *Routers) putFullMatchTransport(path string, trans Transport) {
 	if r.fullMatch == nil {
-		r.fullMatch = make(map[string]*Transport, 8)
+		r.fullMatch = make(map[string]Transport, 8)
 	}
 	r.fullMatch[path] = trans
 }
 
-func (r *Routers) putPrefixMatchTransport(path string, transport *Transport) {
+func (r *Routers) putPrefixMatchTransport(path string, transport Transport) {
 	if r.prefixMatch == nil {
-		r.prefixMatch = &trieutil.Trie[*Transport]{}
+		r.prefixMatch = &trieutil.Trie[Transport]{}
 	}
 	r.prefixMatch.Insert(path, transport)
 }
 
-func (r *Routers) putExprMatchTransport(expr *hexpr.Expr, trans *Transport) {
+func (r *Routers) putExprMatchTransport(expr *hexpr.Expr, trans Transport) {
 	if r.exprMatch == nil {
-		r.exprMatch = make(map[*hexpr.Expr]*Transport, 8)
+		r.exprMatch = make(map[*hexpr.Expr]Transport, 8)
 	}
 	r.exprMatch[expr] = trans
 }
 
-func (r *Routers) FindTransport(c *gin.Context) (*Transport, bool) {
+func (r *Routers) FindTransport(c *gin.Context) (Transport, bool) {
 	path := c.Request.URL.Path
 	if r.fullMatch != nil {
 		//精确匹配
@@ -227,8 +227,7 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	if extra == nil {
 		extra = make(map[string]any)
 	}
-	trans := &Transport{
-		Extra:           extra,
+	trans := &transportImpl{
 		rewriteStrategy: rewrite,
 		targetSelector:  hs,
 		rpc:             rpc,

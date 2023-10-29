@@ -8,14 +8,14 @@ import (
 
 // rpcExecutor 请求转发执行器
 type rpcExecutor interface {
-	DoTransport(*apiContext, string)
+	Handle(*apiContext)
 }
 
 type mockExecutor struct {
 	mockContent MockContent
 }
 
-func (t *mockExecutor) DoTransport(c *apiContext, _ string) {
+func (t *mockExecutor) Handle(c *apiContext) {
 	headersStr := t.mockContent.Headers
 	if headersStr != "" {
 		var h map[string]string
@@ -46,10 +46,11 @@ type httpExecutor struct {
 	httpClient *http.Client
 }
 
-func (t *httpExecutor) DoTransport(c *apiContext, url string) {
+func (t *httpExecutor) Handle(c *apiContext) {
 	if c.config.NeedAuth && !auth(c) {
 		return
 	}
+	url := c.url
 	request := c.Request
 	rawQuery := request.URL.RawQuery
 	if rawQuery != "" {
@@ -57,17 +58,20 @@ func (t *httpExecutor) DoTransport(c *apiContext, url string) {
 	}
 	newReq, err := http.NewRequest(c.Request.Method, url, bytes.NewReader(c.reqBody))
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		c.String(http.StatusInternalServerError, "")
 		return
+	}
+	for k := range c.header {
+		newReq.Header.Set(k, c.header.Get(k))
 	}
 	resp, err := t.httpClient.Do(newReq)
 	if err != nil {
-		c.String(http.StatusInternalServerError, err.Error())
+		c.String(http.StatusInternalServerError, "")
 		return
 	}
 	defer resp.Body.Close()
 	for k := range resp.Header {
 		c.Header(k, resp.Header.Get(k))
 	}
-	c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
+	c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get(ContentTypeTag), resp.Body, nil)
 }

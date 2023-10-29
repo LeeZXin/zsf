@@ -1,9 +1,9 @@
 package apigw
 
 import (
+	"github.com/LeeZXin/zsf-utils/listutil"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"net/http"
-	"strconv"
 )
 
 const (
@@ -19,7 +19,7 @@ func mockTarget(config RouterConfig, _ *http.Client) (hostSelector, rpcExecutor)
 }
 
 func discoveryTarget(config RouterConfig, httpClient *http.Client) (hostSelector, rpcExecutor) {
-	return &httpSelector{
+	return &ipPortSelector{
 			serviceName: config.ServiceName,
 		}, &httpExecutor{
 			httpClient: httpClient,
@@ -28,14 +28,12 @@ func discoveryTarget(config RouterConfig, httpClient *http.Client) (hostSelector
 
 func domainTarget(config RouterConfig, httpClient *http.Client) (hostSelector, rpcExecutor) {
 	targets := config.Targets
-	nodes := make([]selector.Node[string], len(targets))
-	for i, target := range targets {
-		nodes[i] = selector.Node[string]{
-			Id:     strconv.Itoa(i),
-			Data:   target.Target,
-			Weight: target.Weight,
-		}
-	}
+	nodes, _ := listutil.Map(targets, func(t Target) (selector.Node[string], error) {
+		return selector.Node[string]{
+			Data:   t.Target,
+			Weight: t.Weight,
+		}, nil
+	})
 	selectorFunc, _ := selector.FindNewSelectorFunc[string](config.TargetLbPolicy)
 	return &selectorWrapper{
 			Selector: selectorFunc(nodes),

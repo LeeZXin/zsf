@@ -10,4 +10,5 @@ type apiContext struct {
 	reqBody []byte
 	config  RouterConfig
 	header  http.Header
+	url     string
 }

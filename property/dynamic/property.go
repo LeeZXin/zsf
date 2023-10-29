@@ -58,7 +58,7 @@ func OnKeyChange(key string, callback KeyChangeCallback) {
 	if key == "" || callback == nil {
 		return
 	}
-	p := propertyMap.GetOrDefault(static.GetString("property.dynamic.type"), defaultImpl)
+	p, _ := chosenProperty.Load()
 	p.OnKeyChange(key, callback)
 }
 

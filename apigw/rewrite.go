@@ -42,7 +42,7 @@ func (s *ReplaceAnyRewriteStrategy) Rewrite(path string) string {
 	return s.anyPath
 }
 
-func copyFullPathStrategy(config RouterConfig) RewriteStrategy {
+func copyFullPathStrategy(_ RouterConfig) RewriteStrategy {
 	return &CopyFullPathRewriteStrategy{}
 }
 
