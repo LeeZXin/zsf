@@ -124,7 +124,7 @@ func Proxy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		transport, ok := routers.FindTransport(c)
 		if ok {
-			transport.Transport(c)
+			transport.Handle(c)
 			c.Abort()
 		} else {
 			c.Next()
