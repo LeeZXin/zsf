@@ -150,6 +150,8 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	}
 	// 塞target信息
 	request.Header.Set(rpcheader.Target, c.ServiceName)
+	// 去除默认User-Agent
+	request.Header.Set("User-Agent", "")
 	invoker := func(request *http.Request) (*http.Response, error) {
 		return c.http.Do(request)
 	}

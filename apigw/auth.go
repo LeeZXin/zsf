@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/spf13/cast"
@@ -28,6 +27,8 @@ const (
 	QueryLocation  = "query"
 	HeaderLocation = "header"
 )
+
+type AuthFunc func(*ApiContext) bool
 
 var (
 	httpClient = httputil.NewRetryableHttpClient()
@@ -73,14 +74,17 @@ func (c *AuthConfig) Validate() error {
 	return nil
 }
 
-func auth(c *apiContext) bool {
-	config := c.config.AuthConfig
+func defaultAuth(c *ApiContext) bool {
+	config, b := c.config.AuthConfig.(AuthConfig)
+	if !b {
+		c.String(http.StatusInternalServerError, "")
+		return false
+	}
 	path := config.Uri.Path
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	authReqJson, authReqHeader := getAuthRequestBody(c)
-	fmt.Println(authReqJson, authReqHeader)
+	authReqJson, authReqHeader := getAuthRequestBody(c, config)
 	var url string
 	switch config.UriType {
 	case HttpUriType:
@@ -135,18 +139,14 @@ func auth(c *apiContext) bool {
 	return true
 }
 
-func parseRequestBody2Map(c *apiContext) map[string]any {
-	body := c.reqBody
-	fmt.Println(c.Request.Header.Get(ContentTypeTag))
+func parseRequestBody2Map(c *ApiContext) map[string]any {
 	if strings.Contains(c.Request.Header.Get(ContentTypeTag), "application/json") {
+		body := c.reqBody
 		if body == nil {
 			return map[string]any{}
 		}
 		ret := make(map[string]any)
-		err := json.Unmarshal(body, &ret)
-		if err != nil {
-			return map[string]any{}
-		}
+		json.Unmarshal(body, &ret)
 		return ret
 	} else {
 		query := make(map[string]string)
@@ -162,8 +162,8 @@ func parseRequestBody2Map(c *apiContext) map[string]any {
 	}
 }
 
-func getAuthRequestBody(c *apiContext) (map[string]any, map[string]string) {
-	arr := c.config.AuthConfig.Parameters
+func getAuthRequestBody(c *ApiContext, config AuthConfig) (map[string]any, map[string]string) {
+	arr := config.Parameters
 	requestJson := parseRequestBody2Map(c)
 	req := make(map[string]any)
 	header := make(map[string]string)

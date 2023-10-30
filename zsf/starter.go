@@ -21,6 +21,7 @@ func Run() {
   ██            ░██░██      
  ████████ ████████ ░██      
 ░░░░░░░░ ░░░░░░░░  ░░   
+:: zsf :: 
 `)
 		onApplicationStart()
 		quit.AddShutdownHook(func() {

@@ -11,6 +11,10 @@ import (
 	"net/http"
 )
 
+var (
+	DefaultRoutersImpl Routers = new(defaultImpl)
+)
+
 // 路由策略
 const (
 	// FullMatchType 全匹配
@@ -30,7 +34,7 @@ type Target struct {
 	Target string `json:"target"`
 }
 
-type PutTransportFunc func(*Routers, RouterConfig, *transportImpl) error
+type PutTransportFunc func(*routersImpl, RouterConfig, *transportImpl) error
 
 type MockContent struct {
 	Headers     string `json:"headers"`
@@ -65,9 +69,11 @@ type RouterConfig struct {
 	// Extra 附加信息
 	Extra map[string]any
 	// AuthConfig 鉴权配置
-	AuthConfig AuthConfig `json:"authConfig"`
+	AuthConfig any `json:"authConfig"`
 	// 是否需要鉴权
 	NeedAuth bool
+	// 自定义鉴权函数
+	AuthFunc AuthFunc
 }
 
 func (r *RouterConfig) FillDefaultVal() {
@@ -118,13 +124,18 @@ func (r *RouterConfig) Validate() error {
 			return errors.New("wrong RewriteType")
 		}
 	}
-	if r.NeedAuth {
-		return r.AuthConfig.Validate()
-	}
 	return nil
 }
 
-type Routers struct {
+type Routers interface {
+	putFullMatchTransport(string, Transport)
+	putPrefixMatchTransport(string, Transport)
+	putExprMatchTransport(*hexpr.Expr, Transport)
+	FindTransport(c *gin.Context) (Transport, bool)
+	AddRouter(config RouterConfig) error
+}
+
+type routersImpl struct {
 	//精确匹配
 	fullMatch map[string]Transport
 	//前缀匹配
@@ -135,37 +146,37 @@ type Routers struct {
 	httpClient *http.Client
 }
 
-func NewRouters(httpClient *http.Client) *Routers {
+func NewRouters(httpClient *http.Client) Routers {
 	if httpClient == nil {
 		httpClient = httputil.NewRetryableHttpClient()
 	}
-	return &Routers{
+	return &routersImpl{
 		httpClient: httpClient,
 	}
 }
 
-func (r *Routers) putFullMatchTransport(path string, trans Transport) {
+func (r *routersImpl) putFullMatchTransport(path string, transport Transport) {
 	if r.fullMatch == nil {
 		r.fullMatch = make(map[string]Transport, 8)
 	}
-	r.fullMatch[path] = trans
+	r.fullMatch[path] = transport
 }
 
-func (r *Routers) putPrefixMatchTransport(path string, transport Transport) {
+func (r *routersImpl) putPrefixMatchTransport(path string, transport Transport) {
 	if r.prefixMatch == nil {
 		r.prefixMatch = &trieutil.Trie[Transport]{}
 	}
 	r.prefixMatch.Insert(path, transport)
 }
 
-func (r *Routers) putExprMatchTransport(expr *hexpr.Expr, trans Transport) {
+func (r *routersImpl) putExprMatchTransport(expr *hexpr.Expr, transport Transport) {
 	if r.exprMatch == nil {
 		r.exprMatch = make(map[*hexpr.Expr]Transport, 8)
 	}
-	r.exprMatch[expr] = trans
+	r.exprMatch[expr] = transport
 }
 
-func (r *Routers) FindTransport(c *gin.Context) (Transport, bool) {
+func (r *routersImpl) FindTransport(c *gin.Context) (Transport, bool) {
 	path := c.Request.URL.Path
 	if r.fullMatch != nil {
 		//精确匹配
@@ -195,7 +206,7 @@ func (r *Routers) FindTransport(c *gin.Context) (Transport, bool) {
 }
 
 // AddRouter 添加路由转发
-func (r *Routers) AddRouter(config RouterConfig) error {
+func (r *routersImpl) AddRouter(config RouterConfig) error {
 	err := config.Validate()
 	if err != nil {
 		return err
@@ -227,7 +238,7 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	if extra == nil {
 		extra = make(map[string]any)
 	}
-	trans := &transportImpl{
+	transport := &transportImpl{
 		rewriteStrategy: rewrite,
 		targetSelector:  hs,
 		rpc:             rpc,
@@ -235,11 +246,30 @@ func (r *Routers) AddRouter(config RouterConfig) error {
 	}
 	switch config.MatchType {
 	case FullMatchType:
-		err = fullMatchTransport(r, config, trans)
+		err = fullMatchTransport(r, config, transport)
 	case PrefixMatchType:
-		err = prefixMatchTransport(r, config, trans)
+		err = prefixMatchTransport(r, config, transport)
 	case ExprMatchType:
-		err = exprMatchTransport(r, config, trans)
+		err = exprMatchTransport(r, config, transport)
 	}
 	return err
+}
+
+type defaultImpl struct{}
+
+func (*defaultImpl) putFullMatchTransport(string, Transport) {
+}
+
+func (*defaultImpl) putPrefixMatchTransport(string, Transport) {
+}
+
+func (*defaultImpl) putExprMatchTransport(*hexpr.Expr, Transport) {
+}
+
+func (*defaultImpl) FindTransport(*gin.Context) (Transport, bool) {
+	return nil, false
+}
+
+func (*defaultImpl) AddRouter(RouterConfig) error {
+	return nil
 }

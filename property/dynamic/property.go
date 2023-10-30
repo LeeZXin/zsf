@@ -29,7 +29,7 @@ type Property interface {
 func init() {
 	v = viper.New()
 	v.SetConfigType("yaml")
-	SetProperty(propertyMap.GetOrDefault(static.GetString("property.dynamic.type"), defaultImpl))
+	setProperty(propertyMap.GetOrDefault(static.GetString("property.dynamic.type"), defaultImpl))
 }
 
 type KeyChangeCallback func()
@@ -133,14 +133,10 @@ func GetMapSlice(key string) []map[string]any {
 	return obj
 }
 
-func SetProperty(property Property) {
+func setProperty(property Property) {
 	if property == nil {
 		return
 	}
 	zsf.RegisterApplicationLifeCycle(property)
-	has, b := chosenProperty.Load()
-	if b {
-		has.OnApplicationShutdown()
-	}
 	chosenProperty.Store(property)
 }

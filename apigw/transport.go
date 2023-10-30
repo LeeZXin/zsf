@@ -41,7 +41,7 @@ func (t *transportImpl) Handle(c *gin.Context) {
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
-	ctx := &apiContext{
+	ctx := &ApiContext{
 		Context: c,
 		reqBody: body,
 		config:  t.config,
@@ -65,21 +65,23 @@ func readRequestBody(ctx *gin.Context) ([]byte, bool) {
 	body := ctx.Request.Body
 	defer body.Close()
 	for {
-		_, err := body.Read(b)
+		n, err := body.Read(b)
+		if n > 0 {
+			ret.Write(b[:n])
+		}
 		if err == io.EOF {
 			return ret.Bytes(), true
 		}
 		if err != nil {
 			return nil, false
 		}
-		ret.Write(b)
 		if ret.Len() > mb10 {
 			return nil, false
 		}
 	}
 }
 
-func fullMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+func fullMatchTransport(r Routers, c RouterConfig, t Transport) error {
 	if c.Path == "" {
 		return errors.New("empty path")
 	}
@@ -87,7 +89,7 @@ func fullMatchTransport(r *Routers, c RouterConfig, t Transport) error {
 	return nil
 }
 
-func prefixMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+func prefixMatchTransport(r Routers, c RouterConfig, t Transport) error {
 	if c.Path == "" {
 		return errors.New("empty path")
 	}
@@ -95,7 +97,7 @@ func prefixMatchTransport(r *Routers, c RouterConfig, t Transport) error {
 	return nil
 }
 
-func exprMatchTransport(r *Routers, c RouterConfig, t Transport) error {
+func exprMatchTransport(r Routers, c RouterConfig, t Transport) error {
 	expr, err := hexpr.BuildExpr(c.Expr)
 	if err != nil {
 		return err
