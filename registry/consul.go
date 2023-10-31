@@ -55,11 +55,8 @@ func (s *consulImpl) StartRegisterSelf() error {
 	// 向consul注册自己
 	go func() {
 		for {
-			select {
-			case <-s.ctx.Done():
+			if s.ctx.Err() != nil {
 				return
-			default:
-				break
 			}
 			//重试注册
 			err2 := agent.ServiceRegister(&api.AgentServiceRegistration{
