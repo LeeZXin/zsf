@@ -3,13 +3,14 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.16
+	github.com/LeeZXin/zsf-utils v1.0.17
 	github.com/SkyAPM/go2sky v1.5.0
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/hashicorp/consul/api v1.20.0
+	github.com/hashicorp/go-hclog v1.2.0
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/prometheus/client_golang v1.9.0
 	github.com/segmentio/kafka-go v0.4.42
@@ -42,7 +43,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
