@@ -34,8 +34,6 @@ type Target struct {
 	Target string `json:"target"`
 }
 
-type PutTransportFunc func(*routersImpl, RouterConfig, *transportImpl) error
-
 type MockContent struct {
 	Headers     string `json:"headers"`
 	ContentType string `json:"contentType"`
@@ -131,8 +129,8 @@ type Routers interface {
 	putFullMatchTransport(string, Transport)
 	putPrefixMatchTransport(string, Transport)
 	putExprMatchTransport(*hexpr.Expr, Transport)
-	FindTransport(c *gin.Context) (Transport, bool)
-	AddRouter(config RouterConfig) error
+	FindTransport(*gin.Context) (Transport, bool)
+	AddRouter(RouterConfig) error
 }
 
 type routersImpl struct {
