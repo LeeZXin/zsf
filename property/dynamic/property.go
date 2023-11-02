@@ -2,7 +2,7 @@ package dynamic
 
 import (
 	"encoding/json"
-	"github.com/LeeZXin/zsf-utils/atomicutil"
+	"github.com/LeeZXin/zsf-utils/concurrentutil"
 	"github.com/LeeZXin/zsf-utils/maputil"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/zsf"
@@ -13,7 +13,7 @@ import (
 
 var (
 	v              *viper.Viper
-	chosenProperty = atomicutil.NewValue[Property]()
+	chosenProperty = concurrentutil.NewValue[Property]()
 	propertyMap    = maputil.NewImmutableMap(map[string]Property{
 		defaultImpl.GetPropertyType(): defaultImpl,
 		consulImpl.GetPropertyType():  consulImpl,
@@ -58,8 +58,10 @@ func OnKeyChange(key string, callback KeyChangeCallback) {
 	if key == "" || callback == nil {
 		return
 	}
-	p, _ := chosenProperty.Load()
-	p.OnKeyChange(key, callback)
+	p := chosenProperty.Load()
+	if p != nil {
+		p.OnKeyChange(key, callback)
+	}
 }
 
 func GetString(key string) string {

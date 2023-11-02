@@ -44,7 +44,6 @@ func (s *server) OnApplicationStart() {
 	}
 	//启动pprof server
 	go func() {
-		logger.Logger.Info("prometheus server start: ", port)
 		err := s.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Panic(err)
