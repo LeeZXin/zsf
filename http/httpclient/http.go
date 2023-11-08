@@ -1,7 +1,7 @@
 package httpclient
 
 import (
-	"github.com/LeeZXin/zsf-utils/maputil"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/property/static"
@@ -12,7 +12,7 @@ import (
 // 首次会加载服务ip数据，每10秒会尝试更新服务ip
 
 var (
-	clientCache = maputil.NewConcurrentMap[string, Client](nil)
+	clientCache = hashmap.NewConcurrentHashMap[string, Client]()
 )
 
 type Invoker func(*http.Request) (*http.Response, error)
@@ -37,7 +37,7 @@ func init() {
 
 // Dial 获取服务的client
 func Dial(serviceName string) Client {
-	ret, _ := clientCache.LoadOrStoreWithLoader(serviceName, func() (Client, error) {
+	ret, _, _ := clientCache.GetOrPutWithLoader(serviceName, func() (Client, error) {
 		return initClient(serviceName), nil
 	})
 	return ret

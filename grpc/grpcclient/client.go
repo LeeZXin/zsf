@@ -3,7 +3,7 @@ package grpcclient
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/maputil"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/discovery"
@@ -35,7 +35,7 @@ var (
 			"loadBalancingPolicy": "weighted_round_robin"
 		}`,
 	}
-	connCache   = maputil.NewConcurrentMap[string, *grpc.ClientConn](nil)
+	connCache   = hashmap.NewConcurrentHashMap[string, *grpc.ClientConn]()
 	ipRegexp, _ = regexp.Compile("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d+$")
 	initOnce    = sync.Once{}
 )
@@ -131,7 +131,7 @@ func init() {
 // Dial 构建channel
 // 优先从缓存里取
 func Dial(serviceName string) (*grpc.ClientConn, error) {
-	return connCache.LoadOrStoreWithLoader(serviceName, func() (*grpc.ClientConn, error) {
+	ret, _, err := connCache.GetOrPutWithLoader(serviceName, func() (*grpc.ClientConn, error) {
 		initOnce.Do(func() {
 			initGrpc()
 		})
@@ -160,4 +160,5 @@ func Dial(serviceName string) (*grpc.ClientConn, error) {
 		}
 		return conn, nil
 	})
+	return ret, err
 }

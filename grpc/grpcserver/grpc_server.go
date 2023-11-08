@@ -2,7 +2,7 @@ package grpcserver
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/hashset"
+	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"

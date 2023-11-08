@@ -3,8 +3,8 @@ package dynamic
 import (
 	"bytes"
 	"fmt"
+	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"github.com/LeeZXin/zsf-utils/executor"
-	"github.com/LeeZXin/zsf-utils/hashset"
 	"github.com/LeeZXin/zsf-utils/psub"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
@@ -39,7 +39,7 @@ func newConsulProperty() *consulProperty {
 	notifyChannel, _ := psub.NewChannel[any](channelExecutor)
 	ret := &consulProperty{
 		notifyChannel: notifyChannel,
-		watchKeys:     hashset.NewConcurrentHashSet[string](nil),
+		watchKeys:     hashset.NewConcurrentHashSet[string](),
 		propertyKey:   fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), common.GetApplicationName()),
 		client:        consul.NewConsulClient(static.GetString("property.consul.address"), static.GetString("property.consul.token")),
 	}

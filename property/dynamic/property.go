@@ -2,8 +2,8 @@ package dynamic
 
 import (
 	"encoding/json"
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/concurrentutil"
-	"github.com/LeeZXin/zsf-utils/maputil"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/zsf"
 	"github.com/spf13/viper"
@@ -14,7 +14,7 @@ import (
 var (
 	v              *viper.Viper
 	chosenProperty = concurrentutil.NewValue[Property]()
-	propertyMap    = maputil.NewImmutableMap(map[string]Property{
+	propertyMap    = hashmap.NewImmutableMap(map[string]Property{
 		defaultImpl.GetPropertyType(): defaultImpl,
 		consulImpl.GetPropertyType():  consulImpl,
 	})

@@ -19,7 +19,6 @@ const (
 	ConsulDiscoveryType = "consul"
 	StaticDiscoveryType = "static"
 	MemDiscoveryType    = "mem"
-	EtcdV2DiscoveryType = "etcdV2"
 )
 
 func init() {
