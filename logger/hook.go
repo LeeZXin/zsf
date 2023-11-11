@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/LeeZXin/zsf-utils/quit"
+	"github.com/LeeZXin/zsf-utils/randutil"
 	"github.com/LeeZXin/zsf-utils/taskutil"
+	"github.com/LeeZXin/zsf/bleve/index"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/property/static"
+	_ "github.com/blevesearch/bleve/index/store/goleveldb"
+	"github.com/bwmarrin/snowflake"
 	"github.com/nsqio/go-nsq"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/plain"
@@ -21,18 +25,16 @@ const (
 )
 
 type LogContent struct {
-	Timestamp int64  `json:"@timestamp"`
-	Version   string `json:"@version"`
+	Timestamp int64  `json:"timestamp"`
+	Version   string `json:"version"`
 	Level     string `json:"level"`
 	Env       string `json:"env"`
 
 	SourceIp string `json:"sourceIp"`
 	Type     string `json:"type"`
-	FileName string `json:"fileName"`
 
-	Application string   `json:"application"`
-	Content     string   `json:"content"`
-	Tags        []string `json:"tags"`
+	Application string `json:"application"`
+	Content     string `json:"content"`
 }
 
 func newKafkaHook() logrus.Hook {
@@ -69,7 +71,7 @@ func newKafkaHook() logrus.Hook {
 	})
 	ret := &kafkaHook{
 		writer:    kw,
-		formatter: &logFormatter{},
+		formatter: defaultFormatter,
 	}
 	return ret
 }
@@ -99,7 +101,6 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 		Type:        "kafka",
 		Application: common.GetApplicationName(),
 		Content:     string(content),
-		Tags:        []string{},
 	}
 	value, _ := json.Marshal(v)
 	_ = k.writer.WriteMessages(context.Background(), kafka.Message{
@@ -143,7 +144,7 @@ func newNsqHook() logrus.Hook {
 	ret := &nsqHook{
 		topic:     topic,
 		task:      task,
-		formatter: &logFormatter{},
+		formatter: defaultFormatter,
 	}
 	return ret
 }
@@ -173,7 +174,6 @@ func (k *nsqHook) Fire(entry *logrus.Entry) error {
 		Type:        "nsq",
 		Application: common.GetApplicationName(),
 		Content:     string(content),
-		Tags:        []string{},
 	}
 	value, _ := json.Marshal(v)
 	k.task.Execute(value, len(value))
@@ -184,5 +184,60 @@ type nsqLogger struct {
 }
 
 func (l *nsqLogger) Output(int, string) error {
+	return nil
+}
+
+type bleveHook struct {
+	formatter logrus.Formatter
+	idn       *snowflake.Node
+	chunkTask *taskutil.ChunkTask[LogContent]
+}
+
+func newBleveHook() logrus.Hook {
+	idn, err := snowflake.NewNode(randutil.Int63n(1024))
+	if err != nil {
+		panic(err)
+	}
+	h := &bleveHook{
+		formatter: defaultFormatter,
+		idn:       idn,
+	}
+	chunkTask, _ := taskutil.NewChunkTask[LogContent](1024, func(data []taskutil.Chunk[LogContent]) {
+		batch := index.BleveIndex.NewBatch()
+		for _, log := range data {
+			batch.Index(h.idn.Generate().String(), log.Data)
+		}
+		index.BleveIndex.Batch(batch)
+	}, 3*time.Second)
+	chunkTask.Start()
+	quit.AddShutdownHook(func() {
+		chunkTask.Stop()
+	})
+	h.chunkTask = chunkTask
+	return h
+}
+
+func (*bleveHook) Levels() []logrus.Level {
+	return logrus.AllLevels
+}
+
+func (k *bleveHook) Fire(entry *logrus.Entry) error {
+	if index.BleveIndex == nil {
+		return nil
+	}
+	content, err := k.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+	k.chunkTask.Execute(LogContent{
+		Timestamp:   time.Now().UnixMilli(),
+		Version:     LogVersion,
+		Level:       entry.Level.String(),
+		Env:         cmd.GetEnv(),
+		SourceIp:    common.GetLocalIP(),
+		Type:        "bleve",
+		Application: common.GetApplicationName(),
+		Content:     string(content),
+	}, 1)
 	return nil
 }

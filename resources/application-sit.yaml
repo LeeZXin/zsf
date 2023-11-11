@@ -16,3 +16,10 @@ logger:
     host: 127.0.0.1:4105
     topic: log-wiwi-kalksj
     authSecret: xxx
+  bleve:
+    enabled: true
+    http:
+      enabled: true
+      token: fuck
+    clean:
+      enabled: true

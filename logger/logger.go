@@ -27,6 +27,10 @@ func (*vLogger) V(l int) bool {
 
 var (
 	Logger *vLogger
+
+	defaultFormatter = &logFormatter{}
+
+	defaultTimeFormat = "2006-01-02 15:04:05.000"
 )
 
 type logFormatter struct {
@@ -46,7 +50,7 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 			traceId = t
 		}
 	}
-	ts := entry.Time.Format("2006-01-02 15:04:05.000")
+	ts := entry.Time.Format(defaultTimeFormat)
 	logStr := fmt.Sprintf("%s [%s] [%s:%d] [%s] %s\n", ts, entry.Level, path.Base(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
 	buffer.WriteString(logStr)
 	return buffer.Bytes(), nil
@@ -55,13 +59,16 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 func init() {
 	Logger = &vLogger{Logger: logrus.New()}
 	Logger.SetReportCaller(true)
-	Logger.SetFormatter(&logFormatter{})
+	Logger.SetFormatter(defaultFormatter)
 	Logger.SetLevel(logrus.InfoLevel)
 	if static.GetBool("logger.kafka.enabled") {
 		Logger.AddHook(newKafkaHook())
 	}
 	if static.GetBool("logger.nsq.enabled") {
 		Logger.AddHook(newNsqHook())
+	}
+	if static.GetBool("logger.bleve.enabled") {
+		Logger.AddHook(newBleveHook())
 	}
 	switch cmd.GetEnv() {
 	case "prd":
@@ -84,6 +91,9 @@ func (w *asyncWrapper) Write(p []byte) (int, error) {
 }
 
 func newLogWriter() io.Writer {
+	if static.GetBool("logger.bleve.enabled") {
+		return io.Discard
+	}
 	if static.GetBool("logger.async.enabled") {
 		return newAsyncWrapper()
 	}
