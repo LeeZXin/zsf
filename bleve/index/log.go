@@ -100,7 +100,7 @@ func CleanBleveLog(req CleanBleveLogReq) {
 		beginTime = &i
 	}
 	if req.EndTime > 0 {
-		i := float64(req.BeginTime)
+		i := float64(req.EndTime)
 		endTime = &i
 	}
 	if beginTime == nil && endTime == nil {
