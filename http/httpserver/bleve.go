@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	bleveToken = static.GetString("logger.bleve.http.token")
+	bleveToken  = static.GetString("logger.bleve.http.token")
+	tokenHeader = "bleve-token"
 )
 
 func init() {
@@ -23,7 +24,7 @@ func registerBleveLogHttpFunc() {
 	AppendRegisterRouterFunc(func(e *gin.Engine) {
 		e.POST("/log/bleve/v1/search", func(c *gin.Context) {
 			req := index.SearchBleveLogReq{}
-			if CheckToken(c) && ginutil.ShouldBind(&req, c) {
+			if checkToken(c) && ginutil.ShouldBind(&req, c) {
 				logs, _, err := index.SearchBleveLog(req)
 				if err != nil {
 					c.String(http.StatusInternalServerError, "")
@@ -34,18 +35,24 @@ func registerBleveLogHttpFunc() {
 		})
 		e.POST("/log/bleve/v1/clean", func(c *gin.Context) {
 			req := index.CleanBleveLogReq{}
-			if CheckToken(c) && ginutil.ShouldBind(&req, c) {
+			if checkToken(c) && ginutil.ShouldBind(&req, c) {
 				go func() {
 					index.CleanBleveLog(req)
 				}()
 				c.String(http.StatusOK, "ok")
 			}
 		})
+		e.POST("/log/bleve/v1/authenticate", func(c *gin.Context) {
+			if checkToken(c) {
+				c.String(http.StatusOK, "ok")
+			}
+		})
 	})
 }
 
-func CheckToken(c *gin.Context) bool {
-	if bleveToken == "" || c.Request.Header.Get("bleve-token") != bleveToken {
+func checkToken(c *gin.Context) bool {
+	// 必须带个token
+	if bleveToken == "" || c.Request.Header.Get(tokenHeader) != bleveToken {
 		c.String(http.StatusForbidden, "invalid token")
 		return false
 	}

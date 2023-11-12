@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	DefaultPath = "logs/bleve"
+	LogDefaultPath = "logs/bleve"
 )
 
 var (
-	BleveIndex bleve.Index
+	LogIndex bleve.Index
 )
 
 func init() {
@@ -24,18 +24,18 @@ func init() {
 		m := bleve.NewIndexMapping()
 		m.DefaultMapping = newBleveMapping()
 		var err error
-		BleveIndex, err = bleve.NewUsing(DefaultPath, m, "upside_down", "goleveldb", map[string]any{
+		LogIndex, err = bleve.NewUsing(LogDefaultPath, m, "upside_down", "goleveldb", map[string]any{
 			"create_if_missing": true,
 			"error_if_exists":   true,
 		})
 		if err != nil {
-			BleveIndex, err = bleve.Open(DefaultPath)
+			LogIndex, err = bleve.Open(LogDefaultPath)
 			if err != nil {
 				panic(err)
 			}
 		}
 		quit.AddShutdownHook(func() {
-			BleveIndex.Close()
+			LogIndex.Close()
 		})
 		// 开启定时任务清除n天前的日志
 		if static.GetBool("logger.bleve.clean.enabled") {
@@ -76,13 +76,13 @@ func newBleveMapping() *mapping.DocumentMapping {
 }
 
 type SearchBleveLogReq struct {
-	Level       string  `json:"level"`
-	BeginTime   float64 `json:"beginTime"`
-	EndTime     float64 `json:"endTime"`
-	Content     string  `json:"content"`
-	Application string  `json:"application"`
-	From        int     `json:"from"`
-	Size        int     `json:"size"`
+	Level       string `json:"level"`
+	BeginTime   int64  `json:"beginTime"`
+	EndTime     int64  `json:"endTime"`
+	Content     string `json:"content"`
+	Application string `json:"application"`
+	From        int    `json:"from"`
+	Size        int    `json:"size"`
 }
 
 type CleanBleveLogReq struct {
@@ -91,7 +91,7 @@ type CleanBleveLogReq struct {
 }
 
 func CleanBleveLog(req CleanBleveLogReq) {
-	if BleveIndex == nil {
+	if LogIndex == nil {
 		return
 	}
 	var beginTime, endTime *float64
@@ -111,18 +111,18 @@ func CleanBleveLog(req CleanBleveLogReq) {
 	searchRequest := bleve.NewSearchRequest(numeric)
 	searchRequest.Size = 1
 	for {
-		searchResult, err := BleveIndex.Search(searchRequest)
+		searchResult, err := LogIndex.Search(searchRequest)
 		if err != nil {
 			return
 		}
 		if len(searchResult.Hits) == 0 {
 			return
 		}
-		batch := BleveIndex.NewBatch()
+		batch := LogIndex.NewBatch()
 		for _, hit := range searchResult.Hits {
 			batch.Delete(hit.ID)
 		}
-		err = BleveIndex.Batch(batch)
+		err = LogIndex.Batch(batch)
 		if err != nil {
 			return
 		}
@@ -130,7 +130,7 @@ func CleanBleveLog(req CleanBleveLogReq) {
 }
 
 func SearchBleveLog(reqDTO SearchBleveLogReq) ([]map[string]any, time.Duration, error) {
-	if BleveIndex == nil {
+	if LogIndex == nil {
 		return []map[string]any{}, 0, nil
 	}
 	queries := make([]query.Query, 0)
@@ -150,15 +150,18 @@ func SearchBleveLog(reqDTO SearchBleveLogReq) ([]map[string]any, time.Duration, 
 		queries = append(queries, application)
 	}
 	if reqDTO.BeginTime > 0 && reqDTO.EndTime > 0 {
-		numeric := bleve.NewNumericRangeQuery(&reqDTO.BeginTime, &reqDTO.EndTime)
+		b, e := float64(reqDTO.BeginTime), float64(reqDTO.EndTime)
+		numeric := bleve.NewNumericRangeQuery(&b, &e)
 		numeric.SetField("timestamp")
 		queries = append(queries, numeric)
 	} else if reqDTO.BeginTime > 0 {
-		numeric := bleve.NewNumericRangeQuery(&reqDTO.BeginTime, nil)
+		b := float64(reqDTO.BeginTime)
+		numeric := bleve.NewNumericRangeQuery(&b, nil)
 		numeric.SetField("timestamp")
 		queries = append(queries, numeric)
 	} else if reqDTO.EndTime > 0 {
-		numeric := bleve.NewNumericRangeQuery(nil, &reqDTO.EndTime)
+		e := float64(reqDTO.EndTime)
+		numeric := bleve.NewNumericRangeQuery(nil, &e)
 		numeric.SetField("timestamp")
 		queries = append(queries, numeric)
 	}
@@ -169,7 +172,7 @@ func SearchBleveLog(reqDTO SearchBleveLogReq) ([]map[string]any, time.Duration, 
 	}
 	searchRequest.Size = reqDTO.Size
 	searchRequest.Fields = []string{"*"}
-	searchResult, err := BleveIndex.Search(searchRequest)
+	searchResult, err := LogIndex.Search(searchRequest)
 	if err != nil {
 		return nil, 0, err
 	}

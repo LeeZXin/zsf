@@ -203,11 +203,11 @@ func newBleveHook() logrus.Hook {
 		idn:       idn,
 	}
 	chunkTask, _ := taskutil.NewChunkTask[LogContent](1024, func(data []taskutil.Chunk[LogContent]) {
-		batch := index.BleveIndex.NewBatch()
+		batch := index.LogIndex.NewBatch()
 		for _, log := range data {
 			batch.Index(h.idn.Generate().String(), log.Data)
 		}
-		index.BleveIndex.Batch(batch)
+		index.LogIndex.Batch(batch)
 	}, 3*time.Second)
 	chunkTask.Start()
 	quit.AddShutdownHook(func() {
@@ -222,7 +222,7 @@ func (*bleveHook) Levels() []logrus.Level {
 }
 
 func (k *bleveHook) Fire(entry *logrus.Entry) error {
-	if index.BleveIndex == nil {
+	if index.LogIndex == nil {
 		return nil
 	}
 	content, err := k.formatter.Format(entry)

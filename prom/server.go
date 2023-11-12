@@ -27,6 +27,9 @@ type server struct {
 }
 
 func (s *server) OnApplicationStart() {
+	if !static.GetBool("prometheus.enabled") {
+		return
+	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Any("/metrics", gin.WrapH(promhttp.Handler()))
@@ -44,6 +47,7 @@ func (s *server) OnApplicationStart() {
 	}
 	//启动pprof server
 	go func() {
+		logger.Logger.Infof("prometheus server start port: %d", port)
 		err := s.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Panic(err)
@@ -53,6 +57,7 @@ func (s *server) OnApplicationStart() {
 
 func (s *server) OnApplicationShutdown() {
 	if s.Server != nil {
+		logger.Logger.Info("prometheus server shutdown")
 		_ = s.Shutdown(context.Background())
 	}
 }

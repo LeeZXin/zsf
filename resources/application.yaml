@@ -46,7 +46,7 @@ registry:
 
 # prometheus server
 prometheus:
-  enabled: false
+  enabled: true
   port: 16005
 
 # skywalking接入
