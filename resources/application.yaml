@@ -59,11 +59,14 @@ pprof:
   port: 18899
 
 xorm:
-  dataSourceName: "root:root@tcp(127.0.0.1:3306)/xxx?charset=utf8"
+  dataSourceName: root:root@tcp(127.0.0.1:3306)/xxx?charset=utf8
   showSql: true
 
 actuator:
   enabled: true
+
+httptask:
+  token: 123
 
 
 # consul agent -server -ui -bootstrap-expect=1 -data-dir=./consuldata -node=agent-1 -client=0.0.0.0 -datacenter=dc1 -bind=127.0.0.1 -rejoin -config-dir=./consuldata
