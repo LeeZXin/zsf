@@ -1,15 +1,14 @@
 package registry
 
 import (
+	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf/property/static"
-	"sync"
 )
 
 //服务发现
 
 var (
-	registryMap = make(map[string]IRegistry)
-	registryMu  = sync.RWMutex{}
+	registryMap = hashmap.NewConcurrentHashMap[string, IRegistry]()
 )
 
 const (
@@ -25,7 +24,11 @@ func init() {
 // IRegistry 插件式实现服务注册
 type IRegistry interface {
 	GetRegistryType() string
-	StartRegisterSelf(ServiceInfo) error
+	StartRegisterSelf(ServiceInfo) IDeregister
+}
+
+type IDeregister interface {
+	DeregisterSelf()
 }
 
 // ServiceInfo 注册所需的信息
@@ -38,35 +41,17 @@ type ServiceInfo struct {
 	Weight int
 }
 
-func RegisterSelf(info ServiceInfo) error {
-	registryType := static.GetString("registry.type")
-	if registryType == "" {
-		registryType = ConsulRegistryType
-	}
-	r, ok := GetServiceRegistry(registryType)
-	if ok {
-		return r.StartRegisterSelf(info)
-	}
-	r, _ = GetServiceRegistry(ConsulRegistryType)
-	return r.StartRegisterSelf(info)
-}
-
 func RegisterServiceRegistry(registry IRegistry) {
 	if registry == nil {
 		return
 	}
-	registryType := registry.GetRegistryType()
-	if registryType == "" {
-		return
-	}
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	registryMap[registryType] = registry
+	registryMap.Put(registry.GetRegistryType(), registry)
 }
 
-func GetServiceRegistry(registryType string) (IRegistry, bool) {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
-	value, ok := registryMap[registryType]
-	return value, ok
+func GetServiceRegistry() (IRegistry, bool) {
+	registryType := static.GetString("registry.type")
+	if registryType == "" {
+		registryType = ConsulRegistryType
+	}
+	return registryMap.Get(registryType)
 }

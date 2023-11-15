@@ -15,7 +15,7 @@ type ipPortSelector struct {
 }
 
 func (s *ipPortSelector) Select(ctx context.Context) (string, error) {
-	return discovery.SelectOneIpPort(ctx, s.serviceName)
+	return discovery.SelectOne(ctx, s.serviceName)
 }
 
 type emptySelector struct {

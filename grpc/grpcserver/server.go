@@ -48,6 +48,7 @@ type server struct {
 	enabled bool
 	port    int
 	*grpc.Server
+	deregister registry.IDeregister
 }
 
 func (s *server) OnApplicationStart() {
@@ -108,19 +109,24 @@ func (s *server) AfterInitialize() {
 		if weight == 0 {
 			weight = 1
 		}
-		registry.RegisterSelf(
-			registry.ServiceInfo{
-				Port:   s.port,
-				Scheme: common.GrpcProtocol,
-				Weight: weight,
-			},
-		)
+		r, b := registry.GetServiceRegistry()
+		if !b {
+			logger.Logger.Panic("unknown registry")
+		}
+		s.deregister = r.StartRegisterSelf(registry.ServiceInfo{
+			Port:   s.port,
+			Scheme: common.GrpcProtocol,
+			Weight: weight,
+		})
 	}
 }
 
 func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
+	}
+	if s.deregister != nil {
+		s.deregister.DeregisterSelf()
 	}
 	if s.Server != nil {
 		logger.Logger.Info("grpc server shutdown")

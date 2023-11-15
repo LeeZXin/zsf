@@ -3,7 +3,7 @@ package registry
 import (
 	"context"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/quit"
+	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
@@ -34,24 +34,12 @@ type consulImpl struct {
 	info ServiceInfo
 }
 
-func (s *consulImpl) StartRegisterSelf() error {
+func (s *consulImpl) StartRegisterSelf() {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	agent := consulClient.Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), common.GetInstanceId())
+	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), idutil.RandomUuid())
 	s.checkID = s.serviceId + "-checkID"
-
-	quit.AddShutdownHook(func() {
-		//取消注册
-		s.cancelFunc()
-		//服务关闭时注销自己
-		err := agent.ServiceDeregister(s.serviceId)
-		logger.Logger.Info("deregister serviceId:", s.serviceId)
-		if err != nil {
-			logger.Logger.Error(err)
-		}
-	})
-
 	// 向consul注册自己
 	go func() {
 		for {
@@ -104,7 +92,17 @@ func (s *consulImpl) StartRegisterSelf() error {
 			time.Sleep(10 * time.Second)
 		}
 	}()
-	return nil
+}
+
+func (s *consulImpl) DeregisterSelf() {
+	//取消注册
+	s.cancelFunc()
+	//服务关闭时注销自己
+	err := consulClient.Agent().ServiceDeregister(s.serviceId)
+	logger.Logger.Info("deregister serviceId:", s.serviceId)
+	if err != nil {
+		logger.Logger.Error(err)
+	}
 }
 
 type ConsulRegistry struct{}
@@ -113,7 +111,8 @@ func (s *ConsulRegistry) GetRegistryType() string {
 	return ConsulRegistryType
 }
 
-func (s *ConsulRegistry) StartRegisterSelf(info ServiceInfo) error {
-	impl := consulImpl{info: info}
-	return impl.StartRegisterSelf()
+func (s *ConsulRegistry) StartRegisterSelf(info ServiceInfo) IDeregister {
+	impl := &consulImpl{info: info}
+	impl.StartRegisterSelf()
+	return impl
 }

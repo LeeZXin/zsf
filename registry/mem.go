@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
@@ -29,25 +28,11 @@ type memImpl struct {
 	info ServiceInfo
 }
 
-func (s *memImpl) StartRegisterSelf() error {
+func (s *memImpl) StartRegisterSelf() {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	info := s.info
 	s.instanceId = common.GetInstanceId()
 	s.serviceName = common.GetApplicationName() + "-" + info.Scheme
-	quit.AddShutdownHook(func() {
-		//取消注册
-		s.cancelFunc()
-		//服务关闭时注销自己
-		err := saClient.DeregisterService(context.Background(), memclient.DeregisterServiceReqDTO{
-			ServiceName: s.serviceName,
-			InstanceId:  s.instanceId,
-		})
-		logger.Logger.Info("deregister serviceId:", s.serviceName)
-		if err != nil {
-			logger.Logger.Error(err)
-		}
-	})
-
 	// 注册自己
 	go func() {
 		for {
@@ -94,7 +79,20 @@ func (s *memImpl) StartRegisterSelf() error {
 			time.Sleep(10 * time.Second)
 		}
 	}()
-	return nil
+}
+
+func (s *memImpl) DeregisterSelf() {
+	//取消注册
+	s.cancelFunc()
+	//服务关闭时注销自己
+	err := saClient.DeregisterService(context.Background(), memclient.DeregisterServiceReqDTO{
+		ServiceName: s.serviceName,
+		InstanceId:  s.instanceId,
+	})
+	logger.Logger.Info("deregister serviceId:", s.serviceName)
+	if err != nil {
+		logger.Logger.Error(err)
+	}
 }
 
 type MemRegistry struct{}
@@ -103,7 +101,8 @@ func (s *MemRegistry) GetRegistryType() string {
 	return MemRegistryType
 }
 
-func (s *MemRegistry) StartRegisterSelf(info ServiceInfo) error {
-	impl := memImpl{info: info}
-	return impl.StartRegisterSelf()
+func (s *MemRegistry) StartRegisterSelf(info ServiceInfo) IDeregister {
+	impl := &memImpl{info: info}
+	impl.StartRegisterSelf()
+	return impl
 }

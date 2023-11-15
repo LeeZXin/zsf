@@ -90,7 +90,7 @@ func defaultAuth(c *ApiContext) bool {
 	case HttpUriType:
 		url = config.Uri.Address + path
 	case DiscoveryUriType:
-		host, err := discovery.SelectOneIpPort(c.Request.Context(), config.Uri.DiscoveryTarget)
+		host, err := discovery.SelectOne(c.Request.Context(), config.Uri.DiscoveryTarget)
 		if err != nil {
 			c.String(config.ErrorStatusCode, config.ErrorMessage)
 			return false

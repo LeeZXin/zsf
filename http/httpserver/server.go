@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
-	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/registry"
 	"github.com/LeeZXin/zsf/zsf"
@@ -26,6 +25,7 @@ type server struct {
 	enabled bool
 	port    int
 	*http.Server
+	deregister registry.IDeregister
 }
 
 func (s *server) OnApplicationStart() {
@@ -83,7 +83,11 @@ func (s *server) AfterInitialize() {
 			weight = 1
 		}
 		//服务注册
-		registry.RegisterSelf(registry.ServiceInfo{
+		r, b := registry.GetServiceRegistry()
+		if !b {
+			logger.Logger.Panic("unknown registry type")
+		}
+		s.deregister = r.StartRegisterSelf(registry.ServiceInfo{
 			Port:   s.port,
 			Scheme: common.HttpProtocol,
 			Weight: weight,
@@ -94,6 +98,9 @@ func (s *server) AfterInitialize() {
 func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
+	}
+	if s.deregister != nil {
+		s.deregister.DeregisterSelf()
 	}
 	if s.Server != nil {
 		logger.Logger.Info("http server shutdown")

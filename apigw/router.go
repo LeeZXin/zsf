@@ -3,7 +3,6 @@ package apigw
 import (
 	"errors"
 	"github.com/LeeZXin/zsf-utils/httputil"
-	"github.com/LeeZXin/zsf-utils/listutil"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
@@ -86,9 +85,9 @@ func (r *RouterConfig) Validate() error {
 	if r.MatchType == "" {
 		return errors.New("empty match type")
 	}
-	if ok := listutil.Contains(r.MatchType, []string{
-		FullMatchType, PrefixMatchType, ExprMatchType,
-	}); !ok {
+	switch r.MatchType {
+	case FullMatchType, PrefixMatchType, ExprMatchType:
+	default:
 		return errors.New("wrong matchType")
 	}
 	if r.MatchType == ExprMatchType {
@@ -100,25 +99,25 @@ func (r *RouterConfig) Validate() error {
 			return errors.New("empty path")
 		}
 	}
-	if ok := listutil.Contains(r.TargetType, []string{
-		DiscoveryTargetType, DomainTargetType, MockTargetType,
-	}); !ok {
+	switch r.TargetType {
+	case DiscoveryTargetType, DomainTargetType, MockTargetType:
+	default:
 		return errors.New("wrong target type")
 	}
 	if r.TargetType == DomainTargetType {
-		if r.Targets == nil || len(r.Targets) == 0 {
+		if len(r.Targets) == 0 {
 			return errors.New("empty target")
 		}
 	}
 	if r.TargetType != MockTargetType {
-		if ok := listutil.Contains(r.TargetLbPolicy, []string{
-			selector.RoundRobinPolicy, selector.WeightedRoundRobinPolicy,
-		}); !ok {
+		switch r.TargetLbPolicy {
+		case selector.RoundRobinPolicy, selector.WeightedRoundRobinPolicy:
+		default:
 			return errors.New("wrong lb policy")
 		}
-		if ok := listutil.Contains(r.RewriteType, []string{
-			CopyFullPathRewriteType, StripPrefixRewriteType, ReplaceAnyRewriteType,
-		}); !ok {
+		switch r.RewriteType {
+		case CopyFullPathRewriteType, StripPrefixRewriteType, ReplaceAnyRewriteType:
+		default:
 			return errors.New("wrong RewriteType")
 		}
 	}

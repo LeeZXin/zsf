@@ -25,7 +25,6 @@ func init() {
 	} else {
 		AppendFilters(
 			recoverFilter(),
-			actuatorFilter(),
 			headerFilter(),
 			promFilter(),
 			skywalkingFilter(),

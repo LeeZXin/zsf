@@ -1,6 +1,7 @@
 package httptask
 
 import (
+	"context"
 	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/LeeZXin/zsf/http/httpserver"
@@ -11,7 +12,7 @@ import (
 	"net/url"
 )
 
-type HttpTask func(map[string]any, url.Values)
+type HttpTask func(context.Context, map[string]any, url.Values)
 
 var (
 	taskMap = hashmap.NewConcurrentHashMap[string, HttpTask]()
@@ -41,7 +42,7 @@ func init() {
 				c.ShouldBind(&body)
 				go func() {
 					if err := threadutil.RunSafe(func() {
-						task(body, c.Request.URL.Query())
+						task(c.Request.Context(), body, c.Request.URL.Query())
 					}); err != nil {
 						logger.Logger.Errorf("httptask: %s err: %s", taskName, err)
 					}

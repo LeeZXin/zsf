@@ -107,7 +107,7 @@ func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opt
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	// 获取服务ip
-	node, err := discovery.SelectOneIpPort(ctx, c.ServiceName)
+	node, err := discovery.SelectOne(ctx, c.ServiceName)
 	if err != nil {
 		return err
 	}

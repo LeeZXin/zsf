@@ -51,14 +51,22 @@ func (c *DefaultDiscovery) SelectOne(ctx context.Context, serviceName string) (s
 	if err != nil {
 		return "", err
 	}
-	ret, err := getFromCache(ctx, nodesMap)
+	ret, err := getSelector(ctx, nodesMap).Select()
 	if err != nil {
 		return "", err
 	}
 	return ret.Data, nil
 }
 
-func (c *DefaultDiscovery) SelectMulti(ctx context.Context, serviceName string) ([]string, error) {
+func (c *DefaultDiscovery) GetSelector(ctx context.Context, serviceName string) (selector.Selector[string], error) {
+	nodesMap, err := c.targetCache.LoadData(ctx, serviceName)
+	if err != nil {
+		return nil, err
+	}
+	return getSelector(ctx, nodesMap), nil
+}
+
+func (c *DefaultDiscovery) GetAllAddrs(ctx context.Context, serviceName string) ([]string, error) {
 	nodesMap, err := c.targetCache.LoadData(ctx, serviceName)
 	if err != nil {
 		return nil, err
@@ -67,10 +75,6 @@ func (c *DefaultDiscovery) SelectMulti(ctx context.Context, serviceName string) 
 	return listutil.Map(s.GetNodes(), func(t selector.Node[string]) (string, error) {
 		return t.Data, nil
 	})
-}
-
-func getFromCache(ctx context.Context, selectorMap map[string]selector.Selector[string]) (selector.Node[string], error) {
-	return getSelector(ctx, selectorMap).Select()
 }
 
 func getSelector(ctx context.Context, selectorMap map[string]selector.Selector[string]) selector.Selector[string] {
@@ -130,10 +134,14 @@ func serviceMultiVersionNodes(serviceName string) (map[string][]selector.Node[st
 	return res, nil
 }
 
-func SelectOneIpPort(ctx context.Context, serviceName string) (string, error) {
+func SelectOne(ctx context.Context, serviceName string) (string, error) {
 	return defaultDiscovery.SelectOne(ctx, serviceName)
 }
 
-func SelectMultiIpPorts(ctx context.Context, serviceName string) ([]string, error) {
-	return defaultDiscovery.SelectMulti(ctx, serviceName)
+func GetAllAddrs(ctx context.Context, serviceName string) ([]string, error) {
+	return defaultDiscovery.GetAllAddrs(ctx, serviceName)
+}
+
+func GetSelector(ctx context.Context, serviceName string) (selector.Selector[string], error) {
+	return defaultDiscovery.GetSelector(ctx, serviceName)
 }

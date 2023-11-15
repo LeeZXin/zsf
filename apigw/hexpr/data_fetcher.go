@@ -40,10 +40,10 @@ func init() {
 			}
 			return cookie
 		},
-		HostSource: func(ctx *gin.Context, key string) string {
-			return ctx.GetHeader("origin")
+		HostSource: func(ctx *gin.Context, _ string) string {
+			return ctx.Request.Host
 		},
-		PathSource: func(ctx *gin.Context, key string) string {
+		PathSource: func(ctx *gin.Context, _ string) string {
 			return ctx.Request.URL.Path
 		},
 		CrcMod2HeaderSource: func(ctx *gin.Context, key string) string {
