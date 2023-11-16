@@ -30,7 +30,7 @@ func init() {
 		}
 	}
 	zsf.RegisterApplicationLifeCycle(&server{
-		enabled: !static.Exists("grpc.enabled") || static.GetBool("grpc.enabled"),
+		enabled: static.GetBool("grpc.enabled"),
 	})
 }
 
