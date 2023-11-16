@@ -10,6 +10,7 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/hashicorp/consul/api"
+	"sync"
 	"time"
 )
 
@@ -25,23 +26,32 @@ func init() {
 }
 
 type consulImpl struct {
-	serviceId string
-	checkID   string
-
-	cancelFunc context.CancelFunc
-	ctx        context.Context
-
-	info ServiceInfo
+	serviceId      string
+	checkID        string
+	cancelFunc     context.CancelFunc
+	ctx            context.Context
+	info           ServiceInfo
+	rpcName        string
+	deregisterOnce sync.Once
 }
 
-func (s *consulImpl) StartRegisterSelf() {
-	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
-	info := s.info
-	agent := consulClient.Agent()
-	s.serviceId = fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), idutil.RandomUuid())
-	s.checkID = s.serviceId + "-checkID"
+func newConsulImpl(info ServiceInfo) *consulImpl {
+	serviceId := fmt.Sprintf("service-%s.%s-%s", common.GetRegion(), common.GetZone(), idutil.RandomUuid())
+	checkID := serviceId + "-checkID"
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	return &consulImpl{
+		info:       info,
+		ctx:        ctx,
+		cancelFunc: cancelFunc,
+		serviceId:  serviceId,
+		checkID:    checkID,
+	}
+}
+
+func (s *consulImpl) RegisterSelf() {
 	// 向consul注册自己
 	go func() {
+		agent := consulClient.Agent()
 		for {
 			if s.ctx.Err() != nil {
 				return
@@ -49,15 +59,15 @@ func (s *consulImpl) StartRegisterSelf() {
 			//重试注册
 			err2 := agent.ServiceRegister(&api.AgentServiceRegistration{
 				ID:   s.serviceId,
-				Name: common.GetApplicationName() + "-" + info.Scheme,
+				Name: s.info.GetRpcName(),
 				Tags: []string{
-					info.Scheme,
+					common.ProtocolPrefix + s.info.Scheme,
 					common.VersionPrefix + cmd.GetVersion(),
 				},
-				Port:    info.Port,
+				Port:    s.info.Port,
 				Address: common.GetLocalIP(),
 				Weights: &api.AgentWeights{
-					Passing: info.Weight,
+					Passing: s.info.Weight,
 				},
 				Check: &api.AgentServiceCheck{
 					CheckID:                        s.checkID,
@@ -95,24 +105,27 @@ func (s *consulImpl) StartRegisterSelf() {
 }
 
 func (s *consulImpl) DeregisterSelf() {
-	//取消注册
-	s.cancelFunc()
-	//服务关闭时注销自己
-	err := consulClient.Agent().ServiceDeregister(s.serviceId)
-	logger.Logger.Info("deregister serviceId:", s.serviceId)
-	if err != nil {
-		logger.Logger.Error(err)
-	}
+	s.deregisterOnce.Do(func() {
+		//取消注册
+		s.cancelFunc()
+		//服务关闭时注销自己
+		err := consulClient.Agent().ServiceDeregister(s.serviceId)
+		logger.Logger.Info("deregister serviceId:", s.serviceId)
+		if err != nil {
+			logger.Logger.Error(err)
+		}
+	})
 }
 
-type ConsulRegistry struct{}
+type consulRegistry struct {
+}
 
-func (s *ConsulRegistry) GetRegistryType() string {
+func (s *consulRegistry) GetRegistryType() string {
 	return ConsulRegistryType
 }
 
-func (s *ConsulRegistry) StartRegisterSelf(info ServiceInfo) IDeregister {
-	impl := &consulImpl{info: info}
-	impl.StartRegisterSelf()
+func (s *consulRegistry) RegisterSelf(info ServiceInfo) DeregisterAction {
+	impl := newConsulImpl(info)
+	impl.RegisterSelf()
 	return impl
 }

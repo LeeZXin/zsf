@@ -8,7 +8,6 @@ import (
 
 const (
 	TraceId    = "z-trace-id"
-	Shadow     = "z-shadow"
 	ApiVersion = "z-api-version"
 	Prefix     = "z-"
 	Source     = "z-source"

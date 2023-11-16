@@ -9,6 +9,6 @@ import (
 	"github.com/LeeZXin/zsf/zsf"
 )
 
-func Run() {
-	zsf.Run()
+func Run(options ...zsf.Option) {
+	zsf.Run(options...)
 }

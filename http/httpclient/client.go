@@ -5,13 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"io"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,37 +24,20 @@ const (
 	JsonContentType = "application/json;charset=utf-8"
 )
 
-var (
-	supportedLbPolicy = hashset.NewHashSet([]string{
-		selector.RoundRobinPolicy,
-		selector.WeightedRoundRobinPolicy,
-	})
-)
-
 type dialOption struct {
 	header map[string]string
 }
 
-type Option interface {
-	apply(*dialOption)
-}
+type Option func(*dialOption)
 
 type headerOption struct {
 	header map[string]string
 }
 
-func (o *headerOption) apply(option *dialOption) {
-	option.header = o.header
-}
-
 func WithHeader(header map[string]string) Option {
-	return &headerOption{
-		header: header,
+	return func(o *dialOption) {
+		o.header = header
 	}
-}
-
-func defaultTransportDialContext(dialer *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
-	return dialer.DialContext
 }
 
 type Client interface {
@@ -120,10 +101,10 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		}
 	}
 	// 加载选项
-	var apply dialOption
+	apply := &dialOption{}
 	if opts != nil {
 		for _, opt := range opts {
-			opt.apply(&apply)
+			opt(apply)
 		}
 	}
 	// 拼接host

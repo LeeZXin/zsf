@@ -19,20 +19,24 @@ func init() {
 }
 
 type memImpl struct {
-	instanceId  string
-	serviceName string
-
+	instanceId string
+	rpcName    string
 	cancelFunc context.CancelFunc
 	ctx        context.Context
+	info       ServiceInfo
+}
 
-	info ServiceInfo
+func newMemImpl(info ServiceInfo) *memImpl {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	return &memImpl{
+		info:       info,
+		ctx:        ctx,
+		cancelFunc: cancelFunc,
+		instanceId: common.GetInstanceId(),
+	}
 }
 
 func (s *memImpl) StartRegisterSelf() {
-	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
-	info := s.info
-	s.instanceId = common.GetInstanceId()
-	s.serviceName = common.GetApplicationName() + "-" + info.Scheme
 	// 注册自己
 	go func() {
 		for {
@@ -44,11 +48,11 @@ func (s *memImpl) StartRegisterSelf() {
 			}
 			//重试注册
 			err2 := saClient.RegisterService(context.Background(), memclient.RegisterServiceReqDTO{
-				ServiceName:   s.serviceName,
+				ServiceName:   s.rpcName,
 				Ip:            common.GetLocalIP(),
-				Port:          info.Port,
+				Port:          s.info.Port,
 				InstanceId:    s.instanceId,
-				Weight:        info.Weight,
+				Weight:        s.info.Weight,
 				Version:       cmd.GetVersion(),
 				LeaseDuration: 20,
 			})
@@ -64,7 +68,7 @@ func (s *memImpl) StartRegisterSelf() {
 						break
 					}
 					err = saClient.PassTTL(context.Background(), memclient.PassTtlReqDTO{
-						ServiceName: s.serviceName,
+						ServiceName: s.rpcName,
 						InstanceId:  s.instanceId,
 					})
 					if err != nil {
@@ -86,22 +90,22 @@ func (s *memImpl) DeregisterSelf() {
 	s.cancelFunc()
 	//服务关闭时注销自己
 	err := saClient.DeregisterService(context.Background(), memclient.DeregisterServiceReqDTO{
-		ServiceName: s.serviceName,
+		ServiceName: s.rpcName,
 		InstanceId:  s.instanceId,
 	})
-	logger.Logger.Info("deregister serviceId:", s.serviceName)
+	logger.Logger.Info("deregister serviceId:", s.rpcName)
 	if err != nil {
 		logger.Logger.Error(err)
 	}
 }
 
-type MemRegistry struct{}
+type memRegistry struct{}
 
-func (s *MemRegistry) GetRegistryType() string {
+func (s *memRegistry) GetRegistryType() string {
 	return MemRegistryType
 }
 
-func (s *MemRegistry) StartRegisterSelf(info ServiceInfo) IDeregister {
+func (s *memRegistry) RegisterSelf(info ServiceInfo) DeregisterAction {
 	impl := &memImpl{info: info}
 	impl.StartRegisterSelf()
 	return impl

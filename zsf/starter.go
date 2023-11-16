@@ -22,9 +22,16 @@ func GetStartTime() time.Time {
 	return startTime
 }
 
-func Run() {
+func Run(options ...Option) {
 	startOnce.Do(func() {
-		fmt.Print(`
+		o := new(option)
+		for _, opt := range options {
+			opt(o)
+		}
+		if o.Banner != "" {
+			fmt.Println(o.Banner)
+		} else {
+			fmt.Print(`
  ████████  ████████ ████████
 ░░░░░░██  ██░░░░░░ ░██░░░░░ 
      ██  ░██       ░██      
@@ -35,6 +42,7 @@ func Run() {
 ░░░░░░░░ ░░░░░░░░  ░░   
 :: zsf :: 
 `)
+		}
 		onApplicationStart()
 		quit.AddShutdownHook(func() {
 			onApplicationShutdown()
@@ -42,4 +50,16 @@ func Run() {
 		afterInitialize()
 		quit.Wait()
 	})
+}
+
+type option struct {
+	Banner string
+}
+
+type Option func(*option)
+
+func WithBanner(banner string) Option {
+	return func(o *option) {
+		o.Banner = banner
+	}
 }

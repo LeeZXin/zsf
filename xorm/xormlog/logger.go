@@ -3,7 +3,7 @@ package xormlog
 import (
 	"github.com/LeeZXin/zsf/logger"
 	"time"
-	log "xorm.io/xorm/log"
+	"xorm.io/xorm/log"
 )
 
 // XLogger 实现xorm sql的日志告警

@@ -1,4 +1,4 @@
-package mq
+package nsqmq
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 type nsqLogger struct {
 }
 
-func (l *nsqLogger) Output(calldepth int, s string) error {
+func (l *nsqLogger) Output(_ int, s string) error {
 	logger.Logger.Info(s)
 	return nil
 }

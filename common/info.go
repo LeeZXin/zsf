@@ -21,6 +21,10 @@ const (
 	HttpProtocol   = "http"
 	GrpcProtocol   = "grpc"
 	VersionPrefix  = "version="
+	ProtocolPrefix = "protocol="
+
+	DefaultHttpServerPort = 15003
+	DefaultGrpcServerPort = 15004
 )
 
 func init() {

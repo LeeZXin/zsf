@@ -4,7 +4,6 @@ import (
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	_ "github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property/static"
 	"strings"
 	"sync"
 )
@@ -51,10 +50,7 @@ func (s *ServiceAddr) IsSameAs(s2 *ServiceAddr) bool {
 func CompareServiceAddr(oldAddr, newAddr []ServiceAddr) bool {
 	if oldAddr == nil && newAddr == nil {
 		return true
-	}
-	if oldAddr == nil {
-		return false
-	} else if newAddr == nil {
+	} else if oldAddr == nil || newAddr == nil {
 		return false
 	}
 	if len(oldAddr) != len(newAddr) {
@@ -95,9 +91,6 @@ func GetServiceInfo(name string) ([]ServiceAddr, error) {
 
 // GetServiceInfoByDiscoveryType 读取consul中的服务信息
 func GetServiceInfoByDiscoveryType(name, discoveryType string) ([]ServiceAddr, error) {
-	if discoveryType == "" {
-		discoveryType = static.GetString("discovery.type")
-	}
 	dis, ok := GetServiceDiscovery(discoveryType)
 	if !ok {
 		dis, _ = GetServiceDiscovery(StaticDiscoveryType)

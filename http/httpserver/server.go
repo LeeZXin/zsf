@@ -17,15 +17,9 @@ import (
 // 常见异常处理、header处理等
 // 服务注册
 
-const (
-	DefaultServerPort = 15003
-)
-
 type server struct {
 	enabled bool
-	port    int
 	*http.Server
-	deregister registry.IDeregister
 }
 
 func (s *server) OnApplicationStart() {
@@ -57,13 +51,13 @@ func (s *server) OnApplicationStart() {
 		idleTimeoutSec = 60
 	}
 	s.Server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.port),
+		Addr:         fmt.Sprintf(":%d", common.DefaultHttpServerPort),
 		ReadTimeout:  time.Duration(readTimeoutSec) * time.Second,
 		WriteTimeout: time.Duration(writeTimeoutSec) * time.Second,
 		IdleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
 		Handler:      e,
 	}
-	logger.Logger.Info("http server start:", s.port)
+	logger.Logger.Info("http server start:", common.DefaultHttpServerPort)
 	go func() {
 		err := s.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
@@ -78,20 +72,7 @@ func (s *server) AfterInitialize() {
 	}
 	//是否开启http服务注册
 	if static.GetBool("http.registry.enabled") {
-		weight := static.GetInt("http.weight")
-		if weight == 0 {
-			weight = 1
-		}
-		//服务注册
-		r, b := registry.GetServiceRegistry()
-		if !b {
-			logger.Logger.Panic("unknown registry type")
-		}
-		s.deregister = r.StartRegisterSelf(registry.ServiceInfo{
-			Port:   s.port,
-			Scheme: common.HttpProtocol,
-			Weight: weight,
-		})
+		registry.RegisterHttpServer()
 	}
 }
 
@@ -99,8 +80,8 @@ func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
 	}
-	if s.deregister != nil {
-		s.deregister.DeregisterSelf()
+	if static.GetBool("http.registry.enabled") {
+		registry.DeregisterHttpServer()
 	}
 	if s.Server != nil {
 		logger.Logger.Info("http server shutdown")
@@ -113,12 +94,7 @@ func http404(c *gin.Context) {
 }
 
 func init() {
-	port := static.GetInt("http.port")
-	if port <= 0 {
-		port = DefaultServerPort
-	}
 	zsf.RegisterApplicationLifeCycle(&server{
 		enabled: !static.Exists("http.enabled") || static.GetBool("http.enabled"),
-		port:    port,
 	})
 }

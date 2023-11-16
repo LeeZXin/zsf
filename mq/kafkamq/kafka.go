@@ -1,4 +1,4 @@
-package mq
+package kafkamq
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type KafkaConfig struct {
+type Config struct {
 	Brokers                []string `json:"brokers"`
 	Topic                  string   `json:"topic"`
 	GroupId                string   `json:"groupId"`
@@ -24,7 +24,7 @@ type KafkaConfig struct {
 	SaslMechanism          string   `json:"saslMechanism"`
 }
 
-func (c *KafkaConfig) Validate() error {
+func (c *Config) Validate() error {
 	if c.Brokers == nil || len(c.Brokers) == 0 {
 		return errors.New("empty broker config")
 	}
@@ -37,8 +37,8 @@ func (c *KafkaConfig) Validate() error {
 	return nil
 }
 
-type KafkaConsumer struct {
-	config     KafkaConfig
+type Consumer struct {
+	config     Config
 	reader     *kafka.Reader
 	startOnce  sync.Once
 	stopOnce   sync.Once
@@ -46,7 +46,7 @@ type KafkaConsumer struct {
 	cancelFunc context.CancelFunc
 }
 
-func NewKafkaConsumer(config KafkaConfig) (*KafkaConsumer, error) {
+func NewConsumer(config Config) (*Consumer, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func NewKafkaConsumer(config KafkaConfig) (*KafkaConsumer, error) {
 		readerConfig.StartOffset = kafka.LastOffset
 	}
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	return &KafkaConsumer{
+	return &Consumer{
 		config:     config,
 		reader:     reader,
 		startOnce:  sync.Once{},
@@ -110,15 +110,22 @@ func NewKafkaConsumer(config KafkaConfig) (*KafkaConsumer, error) {
 	}, nil
 }
 
-func (c *KafkaConsumer) Consume(consumer func(context.Context, int64, string) error, autoCommit bool, executorNum int) {
+func (c *Consumer) Consume(consumer func(context.Context, int64, []byte) error, options ...Option) {
 	if consumer == nil {
 		return
 	}
+	o := &option{}
+	for _, ot := range options {
+		ot(o)
+	}
+	if o.ExecutorsNum <= 0 {
+		o.ExecutorsNum = 1
+	}
 	c.startOnce.Do(func() {
-		for i := 0; i < executorNum; i++ {
+		for i := 0; i < o.ExecutorsNum; i++ {
 			go func() {
-				logger.Logger.Infof("start consume topic: %s, autoCommit: %v, groupId: %s", c.config.Topic, autoCommit, c.config.GroupId)
-				if autoCommit {
+				logger.Logger.Infof("start consume topic: %s, autoCommit: %v, groupId: %s", c.config.Topic, o.AutoCommit, c.config.GroupId)
+				if o.AutoCommit {
 					c.consumeAutoCommit(consumer)
 				} else {
 					c.consumeNotAutoCommit(consumer)
@@ -128,7 +135,7 @@ func (c *KafkaConsumer) Consume(consumer func(context.Context, int64, string) er
 	})
 }
 
-func (c *KafkaConsumer) consumeAutoCommit(consumer func(context.Context, int64, string) error) {
+func (c *Consumer) consumeAutoCommit(consumer func(context.Context, int64, []byte) error) {
 	ck := context.Background()
 	for {
 		if c.isDone() {
@@ -143,20 +150,20 @@ func (c *KafkaConsumer) consumeAutoCommit(consumer func(context.Context, int64, 
 			time.Sleep(time.Second)
 			continue
 		}
+		mdcCtx := logger.AppendToMDC(context.Background(), map[string]string{
+			logger.TraceId: idutil.RandomUuid(),
+		})
 		fatal := threadutil.RunSafe(func() {
-			mdcCtx := logger.AppendToMDC(context.Background(), map[string]string{
-				logger.TraceId: idutil.RandomUuid(),
-			})
-			_ = consumer(mdcCtx, m.Offset, string(m.Value))
+			_ = consumer(mdcCtx, m.Offset, m.Value)
 		})
 		if fatal != nil {
-			logger.Logger.Error("failed to consume message:", err)
+			logger.Logger.WithContext(mdcCtx).Error("failed to consume message:", err)
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
 
-func (c *KafkaConsumer) consumeNotAutoCommit(consumer func(context.Context, int64, string) error) {
+func (c *Consumer) consumeNotAutoCommit(consumer func(context.Context, int64, []byte) error) {
 	for {
 		if c.isDone() {
 			return
@@ -170,25 +177,25 @@ func (c *KafkaConsumer) consumeNotAutoCommit(consumer func(context.Context, int6
 			time.Sleep(time.Second)
 			continue
 		}
+		mdcCtx := logger.AppendToMDC(context.Background(), map[string]string{
+			logger.TraceId: idutil.RandomUuid(),
+		})
 		fatal := threadutil.RunSafe(func() {
-			mdcCtx := logger.AppendToMDC(context.Background(), map[string]string{
-				logger.TraceId: idutil.RandomUuid(),
-			})
-			err = consumer(mdcCtx, m.Offset, string(m.Value))
+			err = consumer(mdcCtx, m.Offset, m.Value)
 		})
 		if fatal == nil && err == nil {
 			if err2 := c.reader.CommitMessages(c.ctx, m); err2 != nil {
-				logger.Logger.Error("failed to commit messages:", err)
+				logger.Logger.WithContext(mdcCtx).Error("failed to commit messages:", err)
 				time.Sleep(100 * time.Millisecond)
 			}
 		} else if fatal != nil {
-			logger.Logger.Error("failed to commit messages:", err)
+			logger.Logger.WithContext(mdcCtx).Error("failed to commit messages:", err)
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
 
-func (c *KafkaConsumer) Stop() {
+func (c *Consumer) Stop() {
 	c.stopOnce.Do(func() {
 		logger.Logger.Infof("stop consume topic: %s, groupId: %s", c.config.Topic, c.config.GroupId)
 		c.cancelFunc()
@@ -198,6 +205,28 @@ func (c *KafkaConsumer) Stop() {
 	})
 }
 
-func (c *KafkaConsumer) isDone() bool {
+func (c *Consumer) isDone() bool {
 	return c.ctx.Err() != nil
+}
+
+type option struct {
+	AutoCommit   bool
+	ExecutorsNum int
+}
+
+type Option func(option *option)
+
+func WithAutoCommit(b bool) Option {
+	return func(o *option) {
+		o.AutoCommit = b
+	}
+}
+
+func WithExecutorsNum(n int) Option {
+	return func(o *option) {
+		if n <= 0 {
+			n = 1
+		}
+		o.ExecutorsNum = n
+	}
 }

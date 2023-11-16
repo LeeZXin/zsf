@@ -29,33 +29,27 @@ func RegisterApplicationLifeCycle(lifeCycle LifeCycle) {
 
 func onApplicationStart() {
 	mu.Lock()
-	listeners := lifeCycles[:]
+	lc := lifeCycles[:]
 	mu.Unlock()
-	for _, listener := range listeners {
-		listener.OnApplicationStart()
+	for _, l := range lc {
+		l.OnApplicationStart()
 	}
 }
 
 func onApplicationShutdown() {
 	mu.Lock()
-	listeners := lifeCycles[:]
+	lc := lifeCycles[:]
 	mu.Unlock()
-	if len(listeners) == 0 {
-		return
-	}
-	for _, listener := range listeners {
-		listener.OnApplicationShutdown()
+	for _, l := range lc {
+		l.OnApplicationShutdown()
 	}
 }
 
 func afterInitialize() {
 	mu.Lock()
-	listeners := lifeCycles[:]
+	lc := lifeCycles[:]
 	mu.Unlock()
-	if len(listeners) == 0 {
-		return
-	}
-	for _, listener := range listeners {
-		listener.AfterInitialize()
+	for _, l := range lc {
+		l.AfterInitialize()
 	}
 }

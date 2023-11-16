@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	memclient "github.com/LeeZXin/zsf/registry/mem/memclient"
+	"github.com/LeeZXin/zsf/registry/mem/memclient"
 )
 
 var (

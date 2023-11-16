@@ -17,11 +17,6 @@ import (
 )
 
 // grpc server封装
-
-const (
-	DefaultServerPort = 15004
-)
-
 var (
 	acceptedHeaders = hashset.NewHashSet[string](nil)
 )
@@ -34,21 +29,14 @@ func init() {
 			acceptedHeaders.Add(s)
 		}
 	}
-	port := static.GetInt("grpc.port")
-	if port <= 0 {
-		port = DefaultServerPort
-	}
 	zsf.RegisterApplicationLifeCycle(&server{
 		enabled: !static.Exists("grpc.enabled") || static.GetBool("grpc.enabled"),
-		port:    port,
 	})
 }
 
 type server struct {
 	enabled bool
-	port    int
 	*grpc.Server
-	deregister registry.IDeregister
 }
 
 func (s *server) OnApplicationStart() {
@@ -87,12 +75,12 @@ func (s *server) OnApplicationStart() {
 	for _, fn := range funcList {
 		fn(s.Server)
 	}
-	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", s.port))
+	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", common.DefaultGrpcServerPort))
 	if err != nil {
 		logger.Logger.Panic(err)
 	}
 	go func() {
-		logger.Logger.Info("grpc server start:", s.port)
+		logger.Logger.Info("grpc server start:", common.DefaultGrpcServerPort)
 		if err := s.Serve(listen); err != nil {
 			logger.Logger.Panic(err)
 		}
@@ -105,19 +93,7 @@ func (s *server) AfterInitialize() {
 	}
 	// 是否进行服务注册
 	if static.GetBool("grpc.registry.enabled") {
-		weight := static.GetInt("grpc.weight")
-		if weight == 0 {
-			weight = 1
-		}
-		r, b := registry.GetServiceRegistry()
-		if !b {
-			logger.Logger.Panic("unknown registry")
-		}
-		s.deregister = r.StartRegisterSelf(registry.ServiceInfo{
-			Port:   s.port,
-			Scheme: common.GrpcProtocol,
-			Weight: weight,
-		})
+		registry.RegisterGrpcServer()
 	}
 }
 
@@ -125,8 +101,8 @@ func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
 	}
-	if s.deregister != nil {
-		s.deregister.DeregisterSelf()
+	if static.GetBool("grpc.registry.enabled") {
+		registry.DeregisterGrpcServer()
 	}
 	if s.Server != nil {
 		logger.Logger.Info("grpc server shutdown")

@@ -67,6 +67,6 @@ func NewAddrWatcher() *AddrWatcher {
 		serviceMap: sync.Map{},
 		listener:   channel,
 	}
-	w.ptask, _ = taskutil.NewPeriodicalTask(30*time.Second, w.watch)
+	w.ptask, _ = taskutil.NewPeriodicalTask(10*time.Second, w.watch)
 	return w
 }

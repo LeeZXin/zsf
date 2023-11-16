@@ -19,7 +19,7 @@ func init() {
 }
 
 const (
-	DefaultPort = 16054
+	DefaultServerPort = 16054
 )
 
 type server struct {
@@ -33,12 +33,8 @@ func (s *server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Any("/metrics", gin.WrapH(promhttp.Handler()))
-	port := static.GetInt("prometheus.port")
-	if port <= 0 {
-		port = DefaultPort
-	}
 	s.Server = &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
+		Addr:              fmt.Sprintf(":%d", DefaultServerPort),
 		ReadTimeout:       20 * time.Second,
 		ReadHeaderTimeout: 20 * time.Second,
 		WriteTimeout:      20 * time.Second,
@@ -47,7 +43,7 @@ func (s *server) OnApplicationStart() {
 	}
 	//启动pprof server
 	go func() {
-		logger.Logger.Infof("prometheus server start port: %d", port)
+		logger.Logger.Infof("prometheus server start port: %d", DefaultServerPort)
 		err := s.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Panic(err)

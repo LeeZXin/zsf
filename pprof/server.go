@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultPort = 16098
+	DefaultServerPort = 16098
 )
 
 func init() {
@@ -22,14 +22,10 @@ type server struct{}
 func (*server) OnApplicationStart() {
 	enabled := static.GetBool("pprof.enabled")
 	if enabled {
-		port := static.GetInt("pprof.port")
-		if port <= 0 {
-			port = DefaultPort
-		}
 		//启动pprof server
 		go func() {
 			//只允许本地访问
-			err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", port), nil)
+			err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", DefaultServerPort), nil)
 			if err != nil && err != http.ErrServerClosed {
 				logger.Logger.Panic(err)
 			}
