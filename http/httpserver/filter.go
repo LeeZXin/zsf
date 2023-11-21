@@ -70,7 +70,7 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 			defer entry.Exit()
 			invoke(c)
 		} else {
-			c.String(http.StatusForbidden, "request limit")
+			c.String(http.StatusTooManyRequests, "request limit")
 			c.Abort()
 		}
 	}
