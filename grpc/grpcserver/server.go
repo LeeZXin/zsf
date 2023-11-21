@@ -99,9 +99,7 @@ func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
 	}
-	if static.GetBool("grpc.registry.enabled") {
-		registry.DeregisterGrpcServer()
-	}
+	registry.DeregisterGrpcServer()
 	if s.Server != nil {
 		logger.Logger.Info("grpc server shutdown")
 		s.GracefulStop()
