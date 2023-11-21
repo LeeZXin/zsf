@@ -87,6 +87,9 @@ type serviceWrapper struct {
 
 // RegisterHttpServer 注册http服务
 func RegisterHttpServer() {
+	if !static.GetBool("http.registry.enabled") {
+		return
+	}
 	registry, b := getServiceRegistry()
 	if !b {
 		logger.Logger.Panic("unknown registry type")
@@ -115,6 +118,9 @@ func RegisterHttpServer() {
 
 // DeregisterHttpServer 注销http服务
 func DeregisterHttpServer() {
+	if !static.GetBool("http.registry.enabled") {
+		return
+	}
 	httpMu.Lock()
 	defer httpMu.Unlock()
 	if httpActive.CompareAndSwap(true, false) {
@@ -128,6 +134,9 @@ func DeregisterHttpServer() {
 
 // RegisterGrpcServer 注册grpc服务
 func RegisterGrpcServer() {
+	if !static.GetBool("grpc.registry.enabled") {
+		return
+	}
 	registry, b := getServiceRegistry()
 	if !b {
 		logger.Logger.Panic("unknown registry type")
@@ -156,6 +165,9 @@ func RegisterGrpcServer() {
 
 // DeregisterGrpcServer 注销grpc服务
 func DeregisterGrpcServer() {
+	if !static.GetBool("grpc.registry.enabled") {
+		return
+	}
 	grpcMu.Lock()
 	defer grpcMu.Unlock()
 	if grpcActive.CompareAndSwap(true, false) {

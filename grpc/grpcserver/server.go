@@ -92,9 +92,7 @@ func (s *server) AfterInitialize() {
 		return
 	}
 	// 是否进行服务注册
-	if static.GetBool("grpc.registry.enabled") {
-		registry.RegisterGrpcServer()
-	}
+	registry.RegisterGrpcServer()
 }
 
 func (s *server) OnApplicationShutdown() {

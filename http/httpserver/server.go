@@ -71,18 +71,14 @@ func (s *server) AfterInitialize() {
 		return
 	}
 	//是否开启http服务注册
-	if static.GetBool("http.registry.enabled") {
-		registry.RegisterHttpServer()
-	}
+	registry.RegisterHttpServer()
 }
 
 func (s *server) OnApplicationShutdown() {
 	if !s.enabled {
 		return
 	}
-	if static.GetBool("http.registry.enabled") {
-		registry.DeregisterHttpServer()
-	}
+	registry.DeregisterHttpServer()
 	if s.Server != nil {
 		logger.Logger.Info("http server shutdown")
 		s.Shutdown(context.Background())
