@@ -6,6 +6,7 @@ import (
 	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"os"
+	"path/filepath"
 )
 
 // 静态文件服务发现
@@ -28,10 +29,10 @@ type staticConfig struct {
 }
 
 func init() {
-	path := fmt.Sprintf("./resources/static-discovery-%s.json", cmd.GetEnv())
+	path := fmt.Sprintf(filepath.Join(common.ResourcesDir, "static-discovery-%s.json"), cmd.GetEnv())
 	content, err := os.ReadFile(path)
 	if err != nil {
-		path = "./resources/static-discovery.json"
+		path = filepath.Join(common.ResourcesDir, "static-discovery.json")
 		content, err = os.ReadFile(path)
 		if err != nil {
 			return

@@ -23,3 +23,7 @@ logger:
       token: fuck
     clean:
       enabled: true
+
+https:
+  certFile: zsh.rsa.ca
+  keyFile: zsh.rsa

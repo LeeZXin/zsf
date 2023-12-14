@@ -9,7 +9,10 @@ import (
 	"github.com/LeeZXin/zsf/registry"
 	"github.com/LeeZXin/zsf/zsf"
 	"github.com/gin-gonic/gin"
+	"io"
+	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 )
 
@@ -30,8 +33,19 @@ func (s *server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
 	e := gin.New()
-	//重写404请求
-	e.NoRoute(http404)
+	//静态资源文件路径
+	e.Static("/static", filepath.Join(common.ResourcesDir, "static"))
+	// 404
+	noRoute := noRouteFunc.Load()
+	if noRoute != nil {
+		e.NoRoute(noRoute.(gin.HandlerFunc))
+	}
+	noMethod := noMethodFunc.Load()
+	if noMethod != nil {
+		e.NoMethod(noMethod.(gin.HandlerFunc))
+	} else if noRoute != nil {
+		e.NoMethod(noRoute.(gin.HandlerFunc))
+	}
 	//filter
 	e.Use(getFilters()...)
 	fnList := getRegisterFuncList()
@@ -51,15 +65,44 @@ func (s *server) OnApplicationStart() {
 		idleTimeoutSec = 60
 	}
 	s.Server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", common.DefaultHttpServerPort),
+		Addr:         fmt.Sprintf(":%d", common.HttpServerPort),
 		ReadTimeout:  time.Duration(readTimeoutSec) * time.Second,
 		WriteTimeout: time.Duration(writeTimeoutSec) * time.Second,
 		IdleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
 		Handler:      e,
+		ErrorLog:     log.New(io.Discard, "", 0),
 	}
-	logger.Logger.Info("http server start:", common.DefaultHttpServerPort)
+
+	var (
+		certFilePath string
+		keyFilePath  string
+	)
+	httpsEnabled := static.GetBool("https.enabled")
+	if httpsEnabled {
+		certFilePath = static.GetString("https.certFile")
+		keyFilePath = static.GetString("https.keyFile")
+		if certFilePath == "" {
+			logger.Logger.Panic("https.certFile config is empty")
+		} else {
+			certFilePath = filepath.Join(common.ResourcesDir, certFilePath)
+		}
+		if keyFilePath == "" {
+			logger.Logger.Panic("https.keyFile config is empty")
+		} else {
+			keyFilePath = filepath.Join(common.ResourcesDir, keyFilePath)
+		}
+	}
 	go func() {
-		err := s.ListenAndServe()
+		var err error
+		if httpsEnabled {
+			logger.Logger.Info("https server start:", common.HttpServerPort)
+			logger.Logger.Infof("https server certFile path: %s", certFilePath)
+			logger.Logger.Infof("https server keyFile path: %s", keyFilePath)
+			err = s.ListenAndServeTLS(certFilePath, keyFilePath)
+		} else {
+			logger.Logger.Info("http server start:", common.HttpServerPort)
+			err = s.ListenAndServe()
+		}
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Panic(err)
 		}
@@ -83,10 +126,6 @@ func (s *server) OnApplicationShutdown() {
 		logger.Logger.Info("http server shutdown")
 		s.Shutdown(context.Background())
 	}
-}
-
-func http404(c *gin.Context) {
-	c.JSON(http.StatusNotFound, "not found")
 }
 
 func init() {

@@ -18,6 +18,7 @@ grpc:
 # http 配置
 http:
   enabled: true
+  port: 8011
   weight: 1
   registry:
     enabled: false

@@ -104,7 +104,7 @@ func RegisterHttpServer() {
 			weight = 1
 		}
 		info := ServiceInfo{
-			Port:   common.DefaultHttpServerPort,
+			Port:   common.HttpServerPort,
 			Scheme: common.HttpProtocol,
 			Weight: weight,
 		}
@@ -151,7 +151,7 @@ func RegisterGrpcServer() {
 			weight = 1
 		}
 		info := ServiceInfo{
-			Port:   common.DefaultGrpcServerPort,
+			Port:   common.GrpcServerPort,
 			Scheme: common.GrpcProtocol,
 			Weight: weight,
 		}

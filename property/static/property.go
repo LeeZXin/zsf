@@ -21,7 +21,7 @@ func init() {
 	//默认加载/resources/application.yaml
 	v1 := viper.New()
 	v1.SetConfigType("yaml")
-	v1.AddConfigPath("./resources/")
+	v1.AddConfigPath("resources")
 	v1.SetConfigName("application.yaml")
 	_ = v1.ReadInConfig()
 	v = viper.New()
@@ -31,7 +31,7 @@ func init() {
 	//根据环境配置加载/resources/application-{env}.yaml
 	//覆盖上面默认配置
 	v.SetConfigType("yaml")
-	v.AddConfigPath("./resources/")
+	v.AddConfigPath("resources")
 	v.SetConfigName(fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
 	_ = v.ReadInConfig()
 }

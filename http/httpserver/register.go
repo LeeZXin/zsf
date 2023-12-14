@@ -4,6 +4,7 @@ import (
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/gin-gonic/gin"
 	"sync"
+	"sync/atomic"
 )
 
 type RegisterRouterFunc func(*gin.Engine)
@@ -11,6 +12,9 @@ type RegisterRouterFunc func(*gin.Engine)
 var (
 	registerFuncList = make([]RegisterRouterFunc, 0)
 	registerFuncMu   = sync.Mutex{}
+
+	noRouteFunc  = atomic.Value{}
+	noMethodFunc = atomic.Value{}
 )
 
 var (
@@ -29,6 +33,18 @@ func init() {
 			promFilter(),
 			skywalkingFilter(),
 		)
+	}
+}
+
+func SetNoRouteFunc(f gin.HandlerFunc) {
+	if f != nil {
+		noRouteFunc.Store(f)
+	}
+}
+
+func SetNoMethodFunc(f gin.HandlerFunc) {
+	if f != nil {
+		noMethodFunc.Store(f)
 	}
 }
 

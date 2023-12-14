@@ -14,6 +14,9 @@ var (
 	localIP string
 
 	instanceId = idutil.RandomUuid()
+
+	HttpServerPort int
+	GrpcServerPort int
 )
 
 const (
@@ -25,6 +28,8 @@ const (
 
 	DefaultHttpServerPort = 15003
 	DefaultGrpcServerPort = 15004
+
+	ResourcesDir = "resources"
 )
 
 func init() {
@@ -47,6 +52,14 @@ func init() {
 	localIP = iputil.GetIPV4()
 	if localIP == "" {
 		panic("can not get local ipv4")
+	}
+	HttpServerPort = static.GetInt("http.port")
+	if HttpServerPort <= 0 {
+		HttpServerPort = DefaultHttpServerPort
+	}
+	GrpcServerPort = static.GetInt("grpc.port")
+	if GrpcServerPort <= 0 {
+		GrpcServerPort = DefaultGrpcServerPort
 	}
 }
 

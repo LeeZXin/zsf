@@ -55,9 +55,9 @@ func Run(options ...Option) {
 			opt(o)
 		}
 		if o.Banner != "" {
-			fmt.Println(o.Banner)
+			logger.Logger.Info(o.Banner)
 		} else {
-			fmt.Print(`
+			logger.Logger.Info(`
  ████████  ████████ ████████
 ░░░░░░██  ██░░░░░░ ░██░░░░░ 
      ██  ░██       ░██      
