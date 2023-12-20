@@ -27,6 +27,7 @@ func init() {
 	if err != nil {
 		logger.Logger.Panic(err)
 	}
+	logger.Logger.Infof("init mysqlstore: %s", static.GetString("xorm.dataSourceName"))
 }
 
 func TxContext(pctx context.Context) (context.Context, mysqlutil.Committer, error) {
@@ -47,4 +48,8 @@ func GetXormSession(ctx context.Context) *xorm.Session {
 
 func NewXormSession(ctx context.Context) *xorm.Session {
 	return engine.NewXormSession(ctx)
+}
+
+func GetEngine() *xorm.Engine {
+	return engine.GetEngine()
 }

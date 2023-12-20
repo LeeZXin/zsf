@@ -59,6 +59,13 @@ func (c *xormCloser) Close() error {
 	return c.session.Close()
 }
 
+type discardCloser struct {
+}
+
+func (c *discardCloser) Close() error {
+	return nil
+}
+
 type Config struct {
 	DataSourceName  string `json:"dataSourceName"`
 	MaxIdleConns    int    `json:"maxIdleConns"`
@@ -135,12 +142,15 @@ func (e *Engine) WithTx(ctx context.Context, fn func(context.Context) error) err
 	return committer.Commit()
 }
 
-func (e *Engine) Context(pctx context.Context) (context.Context, Closer) {
-	if pctx == nil {
-		pctx = context.Background()
+func (e *Engine) Context(ctx context.Context) (context.Context, Closer) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	session := e.NewXormSession(pctx)
-	return e.newContext(pctx, session), &xormCloser{session: session}
+	if xctx, ok := ctx.(*xormContext); ok {
+		return xctx, &discardCloser{}
+	}
+	session := e.NewXormSession(ctx)
+	return e.newContext(ctx, session), &xormCloser{session: session}
 }
 
 func (e *Engine) GetXormSession(ctx context.Context) *xorm.Session {
@@ -169,4 +179,8 @@ func (e *Engine) NewXormSession(ctx context.Context) *xorm.Session {
 
 func (e *Engine) newAutoCloseXormSession(ctx context.Context) *xorm.Session {
 	return e.engine.Context(ctx)
+}
+
+func (e *Engine) GetEngine() *xorm.Engine {
+	return e.engine
 }
