@@ -27,7 +27,6 @@ func init() {
 	if err != nil {
 		logger.Logger.Panic(err)
 	}
-	logger.Logger.Infof("init mysqlstore: %s", static.GetString("xorm.dataSourceName"))
 }
 
 func TxContext(pctx context.Context) (context.Context, mysqlutil.Committer, error) {
