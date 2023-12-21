@@ -112,18 +112,18 @@ func (*Engine) newContext(ctx context.Context, session *xorm.Session) *xormConte
 	}
 }
 
-func (e *Engine) TxContext(pctx context.Context) (context.Context, Committer, error) {
-	if pctx == nil {
-		pctx = context.Background()
+func (e *Engine) TxContext(ctx context.Context) (context.Context, Committer, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	session := e.getTxXormSession(pctx)
+	session := e.getTxXormSession(ctx)
 	if session.IsInTx() {
-		return pctx, &xormCommitter{session: session}, nil
+		return ctx, &xormCommitter{session: session}, nil
 	}
 	if err := session.Begin(); err != nil {
 		return nil, nil, err
 	}
-	return e.newContext(pctx, session), &xormCommitter{session: session}, nil
+	return e.newContext(ctx, session), &xormCommitter{session: session}, nil
 }
 
 func (e *Engine) WithTx(ctx context.Context, fn func(context.Context) error) error {
@@ -147,7 +147,9 @@ func (e *Engine) Context(ctx context.Context) (context.Context, Closer) {
 		ctx = context.Background()
 	}
 	if xctx, ok := ctx.(*xormContext); ok {
-		return xctx, &discardCloser{}
+		if !xctx.session.IsClosed() {
+			return xctx, &discardCloser{}
+		}
 	}
 	session := e.NewXormSession(ctx)
 	return e.newContext(ctx, session), &xormCloser{session: session}
@@ -156,7 +158,9 @@ func (e *Engine) Context(ctx context.Context) (context.Context, Closer) {
 func (e *Engine) GetXormSession(ctx context.Context) *xorm.Session {
 	if ctx != nil {
 		if xctx, ok := ctx.(*xormContext); ok {
-			return xctx.session
+			if !xctx.session.IsClosed() {
+				return xctx.session
+			}
 		}
 	}
 	return e.newAutoCloseXormSession(ctx)
@@ -165,7 +169,9 @@ func (e *Engine) GetXormSession(ctx context.Context) *xorm.Session {
 func (e *Engine) getTxXormSession(ctx context.Context) *xorm.Session {
 	if ctx != nil {
 		if xctx, ok := ctx.(*xormContext); ok {
-			return xctx.session
+			if !xctx.session.IsClosed() {
+				return xctx.session
+			}
 		}
 	}
 	return e.NewXormSession(ctx)
