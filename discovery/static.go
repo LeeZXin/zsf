@@ -56,9 +56,8 @@ func init() {
 				if target.Addr == "" || target.Port == 0 {
 					continue
 				}
-				version := target.Version
-				if version == "" {
-					version = common.DefaultVersion
+				if target.Version == "" {
+					target.Version = common.DefaultVersion
 				}
 				addr := ServiceAddr{
 					Addr:    target.Addr,
