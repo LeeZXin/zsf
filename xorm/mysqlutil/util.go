@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/LeeZXin/zsf-utils/quit"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/xorm/xormlog"
 	_ "github.com/go-sql-driver/mysql"
 	"time"
@@ -189,4 +190,16 @@ func (e *Engine) newAutoCloseXormSession(ctx context.Context) *xorm.Session {
 
 func (e *Engine) GetEngine() *xorm.Engine {
 	return e.engine
+}
+
+func MustGetXormSession(ctx context.Context) *xorm.Session {
+	if ctx != nil {
+		if xctx, ok := ctx.(*xormContext); ok {
+			if !xctx.session.IsClosed() {
+				return xctx.session
+			}
+		}
+	}
+	logger.Logger.Panic("failed to get xorm.Session")
+	return nil
 }
