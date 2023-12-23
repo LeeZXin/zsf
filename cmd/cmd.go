@@ -8,9 +8,6 @@ import (
 var (
 	env     string
 	version string
-
-	envCmd = flag.String("env", "", "app env")
-	verCmd = flag.String("ver", "", "app version")
 )
 
 const (
@@ -23,21 +20,13 @@ func init() {
 	if !flag.Parsed() {
 		flag.Parse()
 	}
-	if verCmd == nil || *verCmd == "" {
-		version = os.Getenv("ZSF_VERSION")
-		if version == "" {
-			version = DefaultVersion
-		}
-	} else {
-		version = *verCmd
+	version = os.Getenv("ZSF_VERSION")
+	if version == "" {
+		version = DefaultVersion
 	}
-	if envCmd == nil || *envCmd == "" {
-		env = os.Getenv("ZSF_ENV")
-		if env == "" {
-			env = DefaultEnv
-		}
-	} else {
-		env = *envCmd
+	env = os.Getenv("ZSF_ENV")
+	if env == "" {
+		env = DefaultEnv
 	}
 }
 
