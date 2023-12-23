@@ -1,4 +1,4 @@
-package xormstore
+package mysqlstore
 
 import (
 	"context"
