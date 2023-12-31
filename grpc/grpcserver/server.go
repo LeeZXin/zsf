@@ -75,12 +75,12 @@ func (s *server) OnApplicationStart() {
 	for _, fn := range funcList {
 		fn(s.Server)
 	}
-	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", common.GrpcServerPort))
+	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", common.GrpcServerPort()))
 	if err != nil {
 		logger.Logger.Panic(err)
 	}
 	go func() {
-		logger.Logger.Info("grpc server start:", common.GrpcServerPort)
+		logger.Logger.Info("grpc server start:", common.GrpcServerPort())
 		if err := s.Serve(listen); err != nil {
 			logger.Logger.Panic(err)
 		}

@@ -65,7 +65,7 @@ func (s *server) OnApplicationStart() {
 		idleTimeoutSec = 60
 	}
 	s.Server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", common.HttpServerPort),
+		Addr:         fmt.Sprintf(":%d", common.HttpServerPort()),
 		ReadTimeout:  time.Duration(readTimeoutSec) * time.Second,
 		WriteTimeout: time.Duration(writeTimeoutSec) * time.Second,
 		IdleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
@@ -95,12 +95,12 @@ func (s *server) OnApplicationStart() {
 	go func() {
 		var err error
 		if httpsEnabled {
-			logger.Logger.Info("https server start:", common.HttpServerPort)
+			logger.Logger.Info("https server start:", common.HttpServerPort())
 			logger.Logger.Infof("https server certFile path: %s", certFilePath)
 			logger.Logger.Infof("https server keyFile path: %s", keyFilePath)
 			err = s.ListenAndServeTLS(certFilePath, keyFilePath)
 		} else {
-			logger.Logger.Info("http server start:", common.HttpServerPort)
+			logger.Logger.Info("http server start:", common.HttpServerPort())
 			err = s.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {

@@ -15,8 +15,8 @@ var (
 
 	instanceId = idutil.RandomUuid()
 
-	HttpServerPort int
-	GrpcServerPort int
+	httpServerPort int
+	grpcServerPort int
 )
 
 const (
@@ -53,13 +53,13 @@ func init() {
 	if localIP == "" {
 		panic("can not get local ipv4")
 	}
-	HttpServerPort = static.GetInt("http.port")
-	if HttpServerPort <= 0 {
-		HttpServerPort = DefaultHttpServerPort
+	httpServerPort = static.GetInt("http.port")
+	if httpServerPort <= 0 {
+		httpServerPort = DefaultHttpServerPort
 	}
-	GrpcServerPort = static.GetInt("grpc.port")
-	if GrpcServerPort <= 0 {
-		GrpcServerPort = DefaultGrpcServerPort
+	grpcServerPort = static.GetInt("grpc.port")
+	if grpcServerPort <= 0 {
+		grpcServerPort = DefaultGrpcServerPort
 	}
 }
 
@@ -81,4 +81,12 @@ func GetLocalIP() string {
 
 func GetInstanceId() string {
 	return instanceId
+}
+
+func HttpServerPort() int {
+	return httpServerPort
+}
+
+func GrpcServerPort() int {
+	return grpcServerPort
 }
