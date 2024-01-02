@@ -56,3 +56,7 @@ func GenTraceId(ctx context.Context) (context.Context, string) {
 		TraceId: uuid,
 	}), uuid
 }
+
+func CopyMDC(ctx context.Context) context.Context {
+	return AppendToMDC(context.Background(), GetMDC(ctx))
+}
