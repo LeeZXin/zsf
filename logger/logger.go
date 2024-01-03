@@ -10,7 +10,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -51,9 +52,18 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		}
 	}
 	ts := entry.Time.Format(defaultTimeFormat)
-	logStr := fmt.Sprintf("%s [%s] [%s:%d] [%s] %s\n", ts, entry.Level, path.Base(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
+	logStr := fmt.Sprintf("%s [%s] [%s:%d] [%s] %s\n", ts, entry.Level, splitFilePath(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
 	buffer.WriteString(logStr)
 	return buffer.Bytes(), nil
+}
+
+func splitFilePath(path string) string {
+	split := strings.Split(path, string(os.PathSeparator))
+	if len(split) < 2 {
+		return path
+	}
+	i := len(split)
+	return filepath.Join(split[i-2], split[i-1])
 }
 
 func init() {
