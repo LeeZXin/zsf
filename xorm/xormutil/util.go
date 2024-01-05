@@ -33,6 +33,7 @@ func (ctx *xormContext) Value(key any) any {
 
 type Committer interface {
 	Commit() error
+	Rollback() error
 	Closer
 }
 
@@ -46,6 +47,10 @@ type xormCommitter struct {
 
 func (c *xormCommitter) Commit() error {
 	return c.session.Commit()
+}
+
+func (c *xormCommitter) Rollback() error {
+	return c.session.Rollback()
 }
 
 func (c *xormCommitter) Close() error {
