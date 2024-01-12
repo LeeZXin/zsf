@@ -127,7 +127,7 @@ func (e *Engine) TxContext(ctx context.Context) (context.Context, Committer, err
 		return ctx, &xormCommitter{session: session}, nil
 	}
 	if err := session.Begin(); err != nil {
-		return nil, nil, err
+		return ctx, nil, err
 	}
 	return e.newContext(ctx, session), &xormCommitter{session: session}, nil
 }
