@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/idutil"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/hashicorp/consul/api"
@@ -62,7 +62,7 @@ func (s *consulImpl) RegisterSelf() {
 				Name: s.info.GetRpcName(),
 				Tags: []string{
 					common.ProtocolPrefix + s.info.Scheme,
-					common.VersionPrefix + cmd.GetVersion(),
+					common.VersionPrefix + env.GetVersion(),
 				},
 				Port:    s.info.Port,
 				Address: common.GetLocalIP(),

@@ -6,9 +6,9 @@ import (
 	"github.com/LeeZXin/zsf-utils/collections/hashset"
 	"github.com/LeeZXin/zsf-utils/executor"
 	"github.com/LeeZXin/zsf-utils/psub"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/consul"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/hashicorp/consul/api"
@@ -40,7 +40,7 @@ func newConsulProperty() *consulProperty {
 	ret := &consulProperty{
 		notifyChannel: notifyChannel,
 		watchKeys:     hashset.NewConcurrentHashSet[string](),
-		propertyKey:   fmt.Sprintf("%s/property/www/%s", cmd.GetEnv(), common.GetApplicationName()),
+		propertyKey:   fmt.Sprintf("%s/property/www/%s", env.GetEnv(), common.GetApplicationName()),
 		client:        consul.NewConsulClient(static.GetString("property.consul.address"), static.GetString("property.consul.token")),
 	}
 	return ret

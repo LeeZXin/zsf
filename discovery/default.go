@@ -7,8 +7,8 @@ import (
 	"github.com/LeeZXin/zsf-utils/listutil"
 	"github.com/LeeZXin/zsf-utils/localcache"
 	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"strconv"
@@ -80,7 +80,7 @@ func (c *DefaultDiscovery) GetAllAddrs(ctx context.Context, serviceName string) 
 func getSelector(ctx context.Context, selectorMap map[string]selector.Selector[string]) selector.Selector[string] {
 	version := rpcheader.GetHeaders(ctx).Get(rpcheader.ApiVersion)
 	if version == "" {
-		version = cmd.GetVersion()
+		version = env.GetVersion()
 	}
 	hit, ok := selectorMap[version]
 	if !ok {

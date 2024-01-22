@@ -2,7 +2,7 @@ package static
 
 import (
 	"fmt"
-	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/spf13/viper"
 	"io"
 	"reflect"
@@ -17,6 +17,7 @@ var (
 	v *viper.Viper
 )
 
+// init 配置优先顺序 application-{dev}.yaml > node-{nodeFlag}.yaml > application.yaml
 func init() {
 	//默认加载/resources/application.yaml
 	v1 := viper.New()
@@ -24,15 +25,28 @@ func init() {
 	v1.AddConfigPath("resources")
 	v1.SetConfigName("application.yaml")
 	_ = v1.ReadInConfig()
+	// 最终配置
 	v = viper.New()
 	for k, s := range v1.AllSettings() {
 		v.SetDefault(k, s)
+	}
+	// 加载集群标记不同的配置信息
+	if env.GetNodeFlag() != "" {
+		v2 := viper.New()
+		v2.SetConfigType("yaml")
+		v2.AddConfigPath("resources")
+		// 注意是node-开头 与application-区分开
+		v2.SetConfigName(fmt.Sprintf("node-%s.yaml", env.GetNodeFlag()))
+		_ = v2.ReadInConfig()
+		for k, s := range v2.AllSettings() {
+			v.SetDefault(k, s)
+		}
 	}
 	//根据环境配置加载/resources/application-{env}.yaml
 	//覆盖上面默认配置
 	v.SetConfigType("yaml")
 	v.AddConfigPath("resources")
-	v.SetConfigName(fmt.Sprintf("application-%s.yaml", cmd.GetEnv()))
+	v.SetConfigName(fmt.Sprintf("application-%s.yaml", env.GetEnv()))
 	_ = v.ReadInConfig()
 }
 

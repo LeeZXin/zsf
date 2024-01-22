@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/executor"
-	"github.com/LeeZXin/zsf/cmd"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -80,7 +80,7 @@ func init() {
 	if static.GetBool("logger.bleve.enabled") {
 		Logger.AddHook(newBleveHook())
 	}
-	switch cmd.GetEnv() {
+	switch env.GetEnv() {
 	case "prd":
 		Logger.SetOutput(newLogWriter())
 	default:

@@ -2,8 +2,8 @@ package registry
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/registry/mem/memclient"
@@ -53,7 +53,7 @@ func (s *memImpl) StartRegisterSelf() {
 				Port:          s.info.Port,
 				InstanceId:    s.instanceId,
 				Weight:        s.info.Weight,
-				Version:       cmd.GetVersion(),
+				Version:       env.GetVersion(),
 				LeaseDuration: 20,
 			})
 			if err2 == nil {

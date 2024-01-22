@@ -1,13 +1,13 @@
-package cmd
+package env
 
 import (
-	"flag"
 	"os"
 )
 
 var (
-	env     string
-	version string
+	env      string
+	version  string
+	nodeFlag string
 )
 
 const (
@@ -17,9 +17,6 @@ const (
 
 func init() {
 	//服务版本号
-	if !flag.Parsed() {
-		flag.Parse()
-	}
 	version = os.Getenv("ZSF_VERSION")
 	if version == "" {
 		version = DefaultVersion
@@ -28,6 +25,7 @@ func init() {
 	if env == "" {
 		env = DefaultEnv
 	}
+	nodeFlag = os.Getenv("ZSF_NODE_FLAG")
 }
 
 func GetEnv() string {
@@ -36,4 +34,8 @@ func GetEnv() string {
 
 func GetVersion() string {
 	return version
+}
+
+func GetNodeFlag() string {
+	return nodeFlag
 }

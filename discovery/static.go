@@ -3,8 +3,8 @@ package discovery
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/env"
 	"os"
 	"path/filepath"
 )
@@ -29,7 +29,7 @@ type staticConfig struct {
 }
 
 func init() {
-	path := fmt.Sprintf(filepath.Join(common.ResourcesDir, "static-discovery-%s.json"), cmd.GetEnv())
+	path := fmt.Sprintf(filepath.Join(common.ResourcesDir, "static-discovery-%s.json"), env.GetEnv())
 	content, err := os.ReadFile(path)
 	if err != nil {
 		path = filepath.Join(common.ResourcesDir, "static-discovery.json")

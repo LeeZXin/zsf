@@ -7,8 +7,8 @@ import (
 	"github.com/LeeZXin/zsf-utils/randutil"
 	"github.com/LeeZXin/zsf-utils/taskutil"
 	"github.com/LeeZXin/zsf/bleve/index"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/property/static"
 	_ "github.com/blevesearch/bleve/index/store/goleveldb"
 	"github.com/bwmarrin/snowflake"
@@ -96,7 +96,7 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 		Timestamp:   now.UnixMilli(),
 		Version:     LogVersion,
 		Level:       entry.Level.String(),
-		Env:         cmd.GetEnv(),
+		Env:         env.GetEnv(),
 		SourceIp:    common.GetLocalIP(),
 		Type:        "kafka",
 		Application: common.GetApplicationName(),
@@ -169,7 +169,7 @@ func (k *nsqHook) Fire(entry *logrus.Entry) error {
 		Timestamp:   now.UnixMilli(),
 		Version:     LogVersion,
 		Level:       entry.Level.String(),
-		Env:         cmd.GetEnv(),
+		Env:         env.GetEnv(),
 		SourceIp:    common.GetLocalIP(),
 		Type:        "nsq",
 		Application: common.GetApplicationName(),
@@ -233,7 +233,7 @@ func (k *bleveHook) Fire(entry *logrus.Entry) error {
 		Timestamp:   time.Now().UnixMilli(),
 		Version:     LogVersion,
 		Level:       entry.Level.String(),
-		Env:         cmd.GetEnv(),
+		Env:         env.GetEnv(),
 		SourceIp:    common.GetLocalIP(),
 		Type:        "bleve",
 		Application: common.GetApplicationName(),

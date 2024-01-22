@@ -3,8 +3,8 @@ package balancer
 import (
 	"errors"
 	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/cmd"
 	"github.com/LeeZXin/zsf/common"
+	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
@@ -84,7 +84,7 @@ type picker struct {
 func (p *picker) Pick(b balancer.PickInfo) (pickResult balancer.PickResult, err error) {
 	ver := rpcheader.GetHeaders(b.Ctx).Get(rpcheader.ApiVersion)
 	if ver == "" {
-		ver = cmd.GetVersion()
+		ver = env.GetVersion()
 	}
 	var (
 		nodeSelector selector.Selector[balancer.SubConn]
