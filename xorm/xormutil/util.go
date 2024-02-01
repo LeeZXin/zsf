@@ -7,6 +7,7 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/xorm/xormlog"
 	_ "github.com/go-sql-driver/mysql"
+	"strings"
 	"time"
 	"xorm.io/xorm"
 )
@@ -205,6 +206,13 @@ func MustGetXormSession(ctx context.Context) *xorm.Session {
 			}
 		}
 	}
-	logger.Logger.Panic("failed to get xorm.Session")
+	logger.Logger.WithContext(ctx).Panic("failed to get xorm.Session")
 	return nil
+}
+
+func IsDuplicatedEntryError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "Error 1062")
 }
