@@ -60,3 +60,7 @@ func GenTraceId(ctx context.Context) (context.Context, string) {
 func CopyMDC(ctx context.Context) context.Context {
 	return AppendToMDC(context.Background(), GetMDC(ctx))
 }
+
+func GetTraceId(ctx context.Context) string {
+	return GetMDC(ctx).Get(TraceId)
+}
