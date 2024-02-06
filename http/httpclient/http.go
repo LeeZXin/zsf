@@ -3,8 +3,6 @@ package httpclient
 import (
 	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/quit"
-	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/property/static"
 	"net/http"
 )
 
@@ -45,17 +43,8 @@ func Dial(serviceName string) Client {
 
 // initClient 初始化带有服务发现的http client
 func initClient(serviceName string) Client {
-	lbPolicyConfig := static.GetString("http.client.lbPolicy")
-	var lbPolicy string
-	switch lbPolicyConfig {
-	case selector.RoundRobinPolicy, selector.WeightedRoundRobinPolicy:
-		lbPolicy = lbPolicyConfig
-	default:
-		lbPolicy = selector.RoundRobinPolicy
-	}
 	c := &clientImpl{
 		ServiceName:  serviceName,
-		LbPolicy:     lbPolicy,
 		Interceptors: getInterceptors(),
 	}
 	c.init()

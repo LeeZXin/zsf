@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/LeeZXin/zsf-utils/httputil"
-	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/discovery"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"io"
@@ -50,20 +49,11 @@ type Client interface {
 
 type clientImpl struct {
 	ServiceName  string
-	LbPolicy     string
 	http         *http.Client
 	Interceptors []Interceptor
 }
 
 func (c *clientImpl) init() {
-	if c.LbPolicy == "" {
-		c.LbPolicy = selector.RoundRobinPolicy
-	} else {
-		_, ok := selector.FindNewSelectorFunc[any](c.LbPolicy)
-		if !ok {
-			c.LbPolicy = selector.RoundRobinPolicy
-		}
-	}
 	c.http = httputil.NewRetryableHttpClient()
 }
 
