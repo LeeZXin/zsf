@@ -29,7 +29,8 @@ const (
 	DefaultHttpServerPort = 15003
 	DefaultGrpcServerPort = 15004
 
-	ResourcesDir = "resources"
+	ResourcesDir  = "resources"
+	ServicePrefix = "/services/"
 )
 
 func init() {

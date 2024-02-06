@@ -90,7 +90,7 @@ func defaultAuth(c *ApiContext) bool {
 	case HttpUriType:
 		url = config.Uri.Address + path
 	case DiscoveryUriType:
-		host, err := discovery.SelectOne(c.Request.Context(), config.Uri.DiscoveryTarget)
+		host, err := discovery.PickOneHost(c, config.Uri.DiscoveryTarget)
 		if err != nil {
 			c.String(config.ErrorStatusCode, config.ErrorMessage)
 			return false
@@ -103,11 +103,11 @@ func defaultAuth(c *ApiContext) bool {
 		err     error
 	)
 	if config.Uri.Timeout > 0 {
-		timeout, cancelFunc := context.WithTimeout(c.Request.Context(), time.Duration(config.Uri.Timeout)*time.Second)
+		timeout, cancelFunc := context.WithTimeout(c, time.Duration(config.Uri.Timeout)*time.Second)
 		defer cancelFunc()
 		authReq, err = http.NewRequestWithContext(timeout, http.MethodPost, url, bytes.NewReader(reqBody))
 	} else {
-		authReq, err = http.NewRequestWithContext(c.Request.Context(), http.MethodPost, url, bytes.NewReader(reqBody))
+		authReq, err = http.NewRequestWithContext(c, http.MethodPost, url, bytes.NewReader(reqBody))
 	}
 	if err != nil {
 		c.String(config.ErrorStatusCode, config.ErrorMessage)

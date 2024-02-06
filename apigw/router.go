@@ -10,10 +10,6 @@ import (
 	"net/http"
 )
 
-var (
-	DefaultRoutersImpl Routers = new(defaultImpl)
-)
-
 // 路由策略
 const (
 	// FullMatchType 全匹配
@@ -250,23 +246,4 @@ func (r *routersImpl) AddRouter(config RouterConfig) error {
 		err = exprMatchTransport(r, config, transport)
 	}
 	return err
-}
-
-type defaultImpl struct{}
-
-func (*defaultImpl) putFullMatchTransport(string, Transport) {
-}
-
-func (*defaultImpl) putPrefixMatchTransport(string, Transport) {
-}
-
-func (*defaultImpl) putExprMatchTransport(*hexpr.Expr, Transport) {
-}
-
-func (*defaultImpl) FindTransport(*gin.Context) (Transport, bool) {
-	return nil, false
-}
-
-func (*defaultImpl) AddRouter(RouterConfig) error {
-	return nil
 }

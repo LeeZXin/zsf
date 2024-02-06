@@ -4,7 +4,6 @@ import (
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property/dynamic"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/SkyAPM/go2sky"
 	"github.com/SkyAPM/go2sky/reporter"
@@ -59,11 +58,11 @@ func init() {
 	}
 
 	//动态调整采样率
-	dynamic.OnKeyChange("skywalking.samplerRate", func() {
+	/*dynamic.OnKeyChange("skywalking.samplerRate", func() {
 		rate := static.GetFloat64("skywalking.samplerRate")
 		logger.Logger.Info("skywalking.samplerRate changed:", rate)
 		go2sky.NewDynamicSampler(rate, tracer)
-	})
+	})*/
 
 	Tracer = tracer
 	logger.Logger.Info("skywalking start tracer:", serverAddr)

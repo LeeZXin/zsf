@@ -1,180 +1,165 @@
 package registry
 
 import (
-	"github.com/LeeZXin/zsf-utils/collections/hashmap"
+	"context"
 	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/env"
+	"github.com/LeeZXin/zsf/etcdclient"
 	"github.com/LeeZXin/zsf/property/static"
 	"sync"
-	"sync/atomic"
 )
 
-//服务发现
-
+// 服务注册
 var (
-	registryMap = hashmap.NewConcurrentHashMap[string, IRegistry]()
+	httpAction = newHttpAction()
+	grpcAction = newGrpcAction()
 
-	httpService = atomic.Value{}
-	grpcService = atomic.Value{}
-
-	httpActive = atomic.Bool{}
-	grpcActive = atomic.Bool{}
-
-	httpMu = sync.Mutex{}
-	grpcMu = sync.Mutex{}
-)
-
-const (
-	ConsulRegistryType = "consul"
-	MemRegistryType    = "mem"
-	StaticRegistryType = "static"
+	registryImpl Registry
 )
 
 func init() {
-	RegisterServiceRegistry(&consulRegistry{})
-	RegisterServiceRegistry(&memRegistry{})
-	RegisterServiceRegistry(&staticRegistry{})
+	if static.GetBool("http.registry.enabled") || static.GetBool("grpc.registry.enabled") {
+		registryImpl = &etcdRegistry{
+			client: etcdclient.GetClient(),
+		}
+	}
 }
 
-// IRegistry 插件式实现服务注册
-type IRegistry interface {
-	GetRegistryType() string
-	RegisterSelf(ServiceInfo) DeregisterAction
+type registerAction struct {
+	active     bool
+	deregister DeregisterAction
+	mu         sync.Mutex
+	enabled    bool
+	weight     int
+	port       int
+	scheme     string
 }
 
-type DeregisterAction interface {
-	DeregisterSelf()
+func (r *registerAction) Register() {
+	if !r.enabled {
+		return
+	}
+	r.Deregister()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.active {
+		r.deregister = registryImpl.RegisterSelf(RegisterInfo{
+			Port:   r.port,
+			Scheme: r.scheme,
+			Weight: r.weight,
+		})
+		r.active = true
+	}
 }
 
-type deregisterActionImpl struct {
+func (r *registerAction) Deregister() {
+	if !r.enabled {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.active {
+		r.deregister()
+		r.active = false
+	}
 }
 
-func (*deregisterActionImpl) DeregisterSelf() {}
+func newHttpAction() *registerAction {
+	weight := static.GetInt("http.weight")
+	if weight == 0 {
+		weight = 1
+	}
+	return &registerAction{
+		enabled: static.GetBool("http.registry.enabled"),
+		weight:  weight,
+		port:    common.HttpServerPort(),
+		scheme:  common.HttpProtocol,
+	}
+}
 
-// ServiceInfo 注册所需的信息
-type ServiceInfo struct {
+func newGrpcAction() *registerAction {
+	weight := static.GetInt("grpc.weight")
+	if weight == 0 {
+		weight = 1
+	}
+	return &registerAction{
+		enabled: static.GetBool("grpc.registry.enabled"),
+		weight:  weight,
+		port:    common.GrpcServerPort(),
+		scheme:  common.GrpcProtocol,
+	}
+}
+
+// Registry 插件式实现服务注册
+type Registry interface {
+	RegisterSelf(RegisterInfo) DeregisterAction
+}
+
+type DeregisterAction context.CancelFunc
+
+// RegisterInfo 注册所需的信息
+type RegisterInfo struct {
 	// Port 端口
 	Port int
 	// Scheme 服务协议
 	Scheme string
 	// Weight 权重
-	Weight int
+	Weight       int
+	rpcName      string
+	registerPath string
 }
 
-func (s *ServiceInfo) GetRpcName() string {
-	return common.GetApplicationName() + "-" + s.Scheme
-}
-
-func RegisterServiceRegistry(registry IRegistry) {
-	if registry == nil {
-		return
+func (s *RegisterInfo) GetRegisterPath() string {
+	if s.registerPath == "" {
+		s.registerPath = common.ServicePrefix + s.GetRpcName() + "/" + common.GetInstanceId()
 	}
-	registryMap.Put(registry.GetRegistryType(), registry)
+	return s.registerPath
 }
 
-func getServiceRegistry() (IRegistry, bool) {
-	registryType := static.GetString("registry.type")
-	if registryType == "" {
-		registryType = ConsulRegistryType
+func (s *RegisterInfo) GetRpcName() string {
+	if s.rpcName == "" {
+		s.rpcName = common.GetApplicationName() + "-" + s.Scheme
 	}
-	return registryMap.Get(registryType)
+	return s.rpcName
 }
 
-type serviceWrapper struct {
-	info       ServiceInfo
-	deregister DeregisterAction
+func (s *RegisterInfo) GetServiceAddr() ServiceAddr {
+	return ServiceAddr{
+		InstanceId: common.GetInstanceId(),
+		Name:       s.GetRpcName(),
+		Addr:       common.GetLocalIP(),
+		Port:       s.Port,
+		Weight:     s.Weight,
+		Version:    env.GetVersion(),
+	}
 }
 
 // RegisterHttpServer 注册http服务
 func RegisterHttpServer() {
-	if !static.GetBool("http.registry.enabled") {
-		return
-	}
-	registry, b := getServiceRegistry()
-	if !b {
-		logger.Logger.Panic("unknown registry type")
-	}
-	// 先注销 再注册
-	DeregisterHttpServer()
-	httpMu.Lock()
-	defer httpMu.Unlock()
-	if httpActive.CompareAndSwap(false, true) {
-		weight := static.GetInt("http.weight")
-		if weight == 0 {
-			weight = 1
-		}
-		info := ServiceInfo{
-			Port:   common.HttpServerPort(),
-			Scheme: common.HttpProtocol,
-			Weight: weight,
-		}
-		deregisterAction := registry.RegisterSelf(info)
-		httpService.Store(serviceWrapper{
-			info:       info,
-			deregister: deregisterAction,
-		})
-	}
+	httpAction.Register()
 }
 
 // DeregisterHttpServer 注销http服务
 func DeregisterHttpServer() {
-	if !static.GetBool("http.registry.enabled") {
-		return
-	}
-	httpMu.Lock()
-	defer httpMu.Unlock()
-	if httpActive.CompareAndSwap(true, false) {
-		val := httpService.Load()
-		if val == nil {
-			return
-		}
-		val.(serviceWrapper).deregister.DeregisterSelf()
-	}
+	httpAction.Deregister()
 }
 
 // RegisterGrpcServer 注册grpc服务
 func RegisterGrpcServer() {
-	if !static.GetBool("grpc.registry.enabled") {
-		return
-	}
-	registry, b := getServiceRegistry()
-	if !b {
-		logger.Logger.Panic("unknown registry type")
-	}
-	// 先注销 再注册
-	DeregisterGrpcServer()
-	grpcMu.Lock()
-	defer grpcMu.Unlock()
-	if grpcActive.CompareAndSwap(false, true) {
-		weight := static.GetInt("grpc.weight")
-		if weight == 0 {
-			weight = 1
-		}
-		info := ServiceInfo{
-			Port:   common.GrpcServerPort(),
-			Scheme: common.GrpcProtocol,
-			Weight: weight,
-		}
-		deregisterAction := registry.RegisterSelf(info)
-		grpcService.Store(serviceWrapper{
-			info:       info,
-			deregister: deregisterAction,
-		})
-	}
+	grpcAction.Register()
 }
 
 // DeregisterGrpcServer 注销grpc服务
 func DeregisterGrpcServer() {
-	if !static.GetBool("grpc.registry.enabled") {
-		return
-	}
-	grpcMu.Lock()
-	defer grpcMu.Unlock()
-	if grpcActive.CompareAndSwap(true, false) {
-		val := grpcService.Load()
-		if val == nil {
-			return
-		}
-		val.(serviceWrapper).deregister.DeregisterSelf()
-	}
+	grpcAction.Deregister()
+}
+
+// ServiceAddr 服务信息
+type ServiceAddr struct {
+	InstanceId string `json:"instanceId"`
+	Name       string `json:"name"`
+	Addr       string `json:"addr"`
+	Port       int    `json:"port"`
+	Weight     int    `json:"weight"`
+	Version    string `json:"version"`
 }
