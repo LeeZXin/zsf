@@ -29,20 +29,16 @@ func init() {
 			acceptedHeaders.Add(s)
 		}
 	}
-	zsf.RegisterApplicationLifeCycle(&server{
-		enabled: static.GetBool("grpc.enabled"),
-	})
+	if static.GetBool("grpc.enabled") {
+		zsf.RegisterApplicationLifeCycle(new(server))
+	}
 }
 
 type server struct {
-	enabled bool
 	*grpc.Server
 }
 
 func (s *server) OnApplicationStart() {
-	if !s.enabled {
-		return
-	}
 	// 连接空闲时间
 	maxConnectionIdleSec := static.GetInt("grpc.maxConnectionIdleSec")
 	if maxConnectionIdleSec == 0 {
@@ -88,17 +84,11 @@ func (s *server) OnApplicationStart() {
 }
 
 func (s *server) AfterInitialize() {
-	if !s.enabled {
-		return
-	}
 	// 是否进行服务注册
 	registry.RegisterGrpcServer()
 }
 
 func (s *server) OnApplicationShutdown() {
-	if !s.enabled {
-		return
-	}
 	registry.DeregisterGrpcServer()
 	if s.Server != nil {
 		logger.Logger.Info("grpc server shutdown")

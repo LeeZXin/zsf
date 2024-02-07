@@ -21,14 +21,10 @@ import (
 // 服务注册
 
 type server struct {
-	enabled bool
 	*http.Server
 }
 
 func (s *server) OnApplicationStart() {
-	if !s.enabled {
-		return
-	}
 	//gin mode
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
@@ -110,17 +106,11 @@ func (s *server) OnApplicationStart() {
 }
 
 func (s *server) AfterInitialize() {
-	if !s.enabled {
-		return
-	}
 	//是否开启http服务注册
 	registry.RegisterHttpServer()
 }
 
 func (s *server) OnApplicationShutdown() {
-	if !s.enabled {
-		return
-	}
 	registry.DeregisterHttpServer()
 	if s.Server != nil {
 		logger.Logger.Info("http server shutdown")
@@ -129,7 +119,7 @@ func (s *server) OnApplicationShutdown() {
 }
 
 func init() {
-	zsf.RegisterApplicationLifeCycle(&server{
-		enabled: !static.Exists("http.enabled") || static.GetBool("http.enabled"),
-	})
+	if static.GetBool("http.enabled") {
+		zsf.RegisterApplicationLifeCycle(new(server))
+	}
 }

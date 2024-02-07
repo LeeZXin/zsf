@@ -15,7 +15,9 @@ import (
 // 启动prometheus http服务，与正常httpServer隔离开
 
 func init() {
-	zsf.RegisterApplicationLifeCycle(new(server))
+	if static.GetBool("prometheus.enabled") {
+		zsf.RegisterApplicationLifeCycle(new(server))
+	}
 }
 
 const (
@@ -27,9 +29,6 @@ type server struct {
 }
 
 func (s *server) OnApplicationStart() {
-	if !static.GetBool("prometheus.enabled") {
-		return
-	}
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Any("/metrics", gin.WrapH(promhttp.Handler()))
