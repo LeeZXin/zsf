@@ -59,10 +59,10 @@ func (t *transportImpl) Handle(c *gin.Context) {
 	t.rpc.Handle(ctx)
 }
 
-func readRequestBody(ctx *gin.Context) ([]byte, bool) {
+func readRequestBody(c *gin.Context) ([]byte, bool) {
 	b := make([]byte, 1024)
 	ret := bytes.Buffer{}
-	body := ctx.Request.Body
+	body := c.Request.Body
 	defer body.Close()
 	for {
 		n, err := body.Read(b)
