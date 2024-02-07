@@ -78,7 +78,7 @@ func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opt
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	// 获取服务ip
-	node, err := discovery.PickOneHost(ctx, c.ServiceName)
+	host, err := discovery.PickOneHost(ctx, c.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,6 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		}
 	}
 	// 拼接host
-	host := node
 	url := "http://" + host
 	if !strings.HasPrefix(path, "/") {
 		url += "/"
@@ -133,16 +132,15 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		return err
 	}
 	defer respBody.Body.Close()
-	if respBody.StatusCode < http.StatusBadRequest {
-		respBytes, err := io.ReadAll(respBody.Body)
-		if err != nil {
-			return err
-		}
-		if resp != nil {
-			return json.Unmarshal(respBytes, resp)
-		}
-	} else {
+	if respBody.StatusCode >= http.StatusBadRequest {
 		return errors.New("request error with code:" + strconv.Itoa(respBody.StatusCode))
+	}
+	respBytes, err := io.ReadAll(respBody.Body)
+	if err != nil {
+		return err
+	}
+	if resp != nil {
+		return json.Unmarshal(respBytes, resp)
 	}
 	return nil
 }

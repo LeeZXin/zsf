@@ -51,8 +51,8 @@ func (d *etcdDiscovery) PickOne(ctx context.Context, name string) (ServiceAddr, 
 		return ServiceAddr{}, err
 	}
 	ret, err := findSelector(ctx, targetSelector).Select()
-	if err != nil {
-		return ServiceAddr{}, err
+	if err == selector.EmptyNodesErr {
+		return ServiceAddr{}, ServiceNotFound
 	}
 	return ret.Data, nil
 }

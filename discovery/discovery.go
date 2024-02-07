@@ -84,7 +84,7 @@ func GetDiscovery() Discovery {
 }
 
 func OnAddrChange(name string, fn ServiceChangeFunc) {
-	GetDiscovery().OnAddrChange(name, fn)
+	discoveryImpl.OnAddrChange(name, fn)
 }
 
 func findSelector(ctx context.Context, selectorMap map[string]selector.Selector[ServiceAddr]) selector.Selector[ServiceAddr] {
@@ -139,7 +139,7 @@ func convertMultiVersionNodes(addrs []ServiceAddr) map[string][]selector.Node[Se
 }
 
 func PickOneHost(ctx context.Context, serviceName string) (string, error) {
-	one, err := GetDiscovery().PickOne(ctx, serviceName)
+	one, err := discoveryImpl.PickOne(ctx, serviceName)
 	if err != nil {
 		return "", err
 	}
