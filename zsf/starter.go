@@ -122,15 +122,15 @@ func WithRunMode(runMode string) Option {
 func createPidFile(filePath string) {
 	currentPid := os.Getpid()
 	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
-		logger.Logger.Panic("create PID folder: %v", err)
+		logger.Logger.Fatalf("create PID folder: %v", err)
 	}
 
 	file, err := os.Create(filePath)
 	if err != nil {
-		logger.Logger.Panic("create PID file: %v", err)
+		logger.Logger.Fatalf("create PID file: %v", err)
 	}
 	defer file.Close()
 	if _, err := file.WriteString(strconv.FormatInt(int64(currentPid), 10)); err != nil {
-		logger.Logger.Panic("write PID information: %v", err)
+		logger.Logger.Fatalf("write PID information: %v", err)
 	}
 }

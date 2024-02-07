@@ -77,12 +77,12 @@ func (s *server) OnApplicationStart() {
 	}
 	listen, err := net.Listen("tcp", fmt.Sprintf(":%d", common.GrpcServerPort()))
 	if err != nil {
-		logger.Logger.Panic(err)
+		logger.Logger.Fatal(err)
 	}
 	go func() {
 		logger.Logger.Info("grpc server start:", common.GrpcServerPort())
 		if err := s.Serve(listen); err != nil {
-			logger.Logger.Panic(err)
+			logger.Logger.Fatal(err)
 		}
 	}()
 }

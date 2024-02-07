@@ -27,7 +27,7 @@ func (*server) OnApplicationStart() {
 			//只允许本地访问
 			err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", DefaultServerPort), nil)
 			if err != nil && err != http.ErrServerClosed {
-				logger.Logger.Panic(err)
+				logger.Logger.Fatalf("pprof server starts failed: %v", err)
 			}
 		}()
 	}

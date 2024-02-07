@@ -25,7 +25,7 @@ func init() {
 		SlowSqlDuration: time.Duration(static.GetInt("xorm.slowSqlDuration")) * time.Millisecond,
 	})
 	if err != nil {
-		logger.Logger.Panic(err)
+		logger.Logger.Fatalf("mysqlstore.xorm init failed: %v", err)
 	}
 }
 

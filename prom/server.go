@@ -46,7 +46,7 @@ func (s *server) OnApplicationStart() {
 		logger.Logger.Infof("prometheus server start port: %d", DefaultServerPort)
 		err := s.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			logger.Logger.Panic(err)
+			logger.Logger.Fatalf("prometheus server starts failed: %v", err)
 		}
 	}()
 }

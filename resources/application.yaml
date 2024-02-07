@@ -25,22 +25,9 @@ http:
   client:
     lbPolicy: round_robin
 
-# consul配置
-consul:
-  address: 127.0.0.1:8500
-  token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
-
-memRegistry:
-  host: 127.0.0.1:9099
-  token: 5941da18-da21-d7a1-7c50-b69c10d43d0f
-
-# 配置自动加载
-property:
-  enabled: false
-
-# 服务发现 type = consul or static
+# 服务发现 type = etcd or static
 discovery:
-  type: static
+  type: etcd
 
 registry:
   type: consul
@@ -69,7 +56,10 @@ actuator:
 httptask:
   token: 123
 
+etcd:
+  username: xxxx
+  password: xxxx
+  hosts: 127.0.0.1:8080,127.0.0.1:8001
 
-# consul agent -server -ui -bootstrap-expect=1 -data-dir=./consuldata -node=agent-1 -client=0.0.0.0 -datacenter=dc1 -bind=127.0.0.1 -rejoin -config-dir=./consuldata
 # git tag -a "v1.0.1" -m "beta"
 # git push origin master --tags

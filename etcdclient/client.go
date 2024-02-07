@@ -53,7 +53,7 @@ func initEtcd() {
 			Logger:           zap.NewNop(),
 		})
 		if err != nil {
-			logger.Logger.Panic(err)
+			logger.Logger.Fatalf("etcd client starts failed: %v", err)
 		}
 		quit.AddShutdownHook(func() {
 			client.Close()

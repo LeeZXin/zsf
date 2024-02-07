@@ -82,12 +82,12 @@ func (s *server) OnApplicationStart() {
 		certFilePath = static.GetString("https.certFile")
 		keyFilePath = static.GetString("https.keyFile")
 		if certFilePath == "" {
-			logger.Logger.Panic("https.certFile config is empty")
+			logger.Logger.Fatal("https.certFile config is empty")
 		} else {
 			certFilePath = filepath.Join(common.ResourcesDir, certFilePath)
 		}
 		if keyFilePath == "" {
-			logger.Logger.Panic("https.keyFile config is empty")
+			logger.Logger.Fatal("https.keyFile config is empty")
 		} else {
 			keyFilePath = filepath.Join(common.ResourcesDir, keyFilePath)
 		}
@@ -104,7 +104,7 @@ func (s *server) OnApplicationStart() {
 			err = s.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {
-			logger.Logger.Panic(err)
+			logger.Logger.Fatalf("http server starts failed: %v", err)
 		}
 	}()
 }
