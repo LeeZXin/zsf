@@ -25,7 +25,7 @@ type etcdDiscovery struct {
 	router     localcache.ExpireCache[map[string]selector.Selector[ServiceAddr]]
 }
 
-func (*etcdDiscovery) GetDiscoveryType() Type {
+func (*etcdDiscovery) GetDiscoveryType() string {
 	return EtcdDiscoveryType
 }
 

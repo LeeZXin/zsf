@@ -27,11 +27,9 @@ var (
 	discoveryImpl Discovery
 )
 
-type Type string
-
 const (
-	StaticDiscoveryType Type = "static"
-	EtcdDiscoveryType   Type = "etcd"
+	StaticDiscoveryType = "static"
+	EtcdDiscoveryType   = "etcd"
 )
 
 func init() {
@@ -50,7 +48,7 @@ func init() {
 
 type Discovery interface {
 	Init()
-	GetDiscoveryType() Type
+	GetDiscoveryType() string
 	GetServiceInfo(string) ([]ServiceAddr, error)
 	PickOne(context.Context, string) (ServiceAddr, error)
 	OnAddrChange(string, ServiceChangeFunc)

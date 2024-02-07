@@ -79,7 +79,7 @@ func (s *staticDiscovery) Init() {
 	}
 }
 
-func (*staticDiscovery) GetDiscoveryType() Type {
+func (*staticDiscovery) GetDiscoveryType() string {
 	return StaticDiscoveryType
 }
 
