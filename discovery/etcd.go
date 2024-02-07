@@ -17,7 +17,6 @@ import (
 )
 
 type etcdDiscovery struct {
-	initOnce   sync.Once
 	watchOnce  sync.Once
 	funcCache  hashmap.Map[string, ServiceChangeFunc]
 	addrsCache hashmap.Map[string, []ServiceAddr]
