@@ -15,45 +15,47 @@ var (
 	grpcAction = newGrpcAction()
 
 	registryImpl Registry
+	initOnce     = sync.Once{}
 )
 
-func init() {
-	if static.GetBool("http.registry.enabled") || static.GetBool("grpc.registry.enabled") {
+func getRegistry() Registry {
+	initOnce.Do(func() {
 		registryImpl = &etcdRegistry{
 			client: etcdclient.GetClient(),
 		}
-	}
+	})
+	return registryImpl
 }
 
-type registerAction struct {
+type RegisterAction struct {
 	active     bool
 	deregister DeregisterAction
 	mu         sync.Mutex
-	enabled    bool
-	weight     int
-	port       int
-	scheme     string
+	Enabled    bool
+	Weight     int
+	Port       int
+	Scheme     string
 }
 
-func (r *registerAction) Register() {
-	if !r.enabled {
+func (r *RegisterAction) Register() {
+	if !r.Enabled {
 		return
 	}
 	r.Deregister()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.active {
-		r.deregister = registryImpl.RegisterSelf(RegisterInfo{
-			Port:   r.port,
-			Scheme: r.scheme,
-			Weight: r.weight,
+		r.deregister = getRegistry().RegisterSelf(RegisterInfo{
+			Port:   r.Port,
+			Scheme: r.Scheme,
+			Weight: r.Weight,
 		})
 		r.active = true
 	}
 }
 
-func (r *registerAction) Deregister() {
-	if !r.enabled {
+func (r *RegisterAction) Deregister() {
+	if !r.Enabled {
 		return
 	}
 	r.mu.Lock()
@@ -64,29 +66,29 @@ func (r *registerAction) Deregister() {
 	}
 }
 
-func newHttpAction() *registerAction {
-	weight := static.GetInt("http.weight")
+func newHttpAction() *RegisterAction {
+	weight := static.GetInt("http.Weight")
 	if weight == 0 {
 		weight = 1
 	}
-	return &registerAction{
-		enabled: static.GetBool("http.registry.enabled"),
-		weight:  weight,
-		port:    common.HttpServerPort(),
-		scheme:  common.HttpProtocol,
+	return &RegisterAction{
+		Enabled: static.GetBool("http.registry.Enabled"),
+		Weight:  weight,
+		Port:    common.HttpServerPort(),
+		Scheme:  common.HttpProtocol,
 	}
 }
 
-func newGrpcAction() *registerAction {
-	weight := static.GetInt("grpc.weight")
+func newGrpcAction() *RegisterAction {
+	weight := static.GetInt("grpc.Weight")
 	if weight == 0 {
 		weight = 1
 	}
-	return &registerAction{
-		enabled: static.GetBool("grpc.registry.enabled"),
-		weight:  weight,
-		port:    common.GrpcServerPort(),
-		scheme:  common.GrpcProtocol,
+	return &RegisterAction{
+		Enabled: static.GetBool("grpc.registry.Enabled"),
+		Weight:  weight,
+		Port:    common.GrpcServerPort(),
+		Scheme:  common.GrpcProtocol,
 	}
 }
 
@@ -159,7 +161,7 @@ type ServiceAddr struct {
 	InstanceId string `json:"instanceId"`
 	Name       string `json:"name"`
 	Addr       string `json:"addr"`
-	Port       int    `json:"port"`
-	Weight     int    `json:"weight"`
+	Port       int    `json:"Port"`
+	Weight     int    `json:"Weight"`
 	Version    string `json:"version"`
 }

@@ -14,7 +14,7 @@ type etcdRegistry struct {
 
 func (r *etcdRegistry) RegisterSelf(info RegisterInfo) DeregisterAction {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	logger.Logger.Infof("register rpc: %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
+	logger.Logger.Infof("register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
 	go func() {
 		for {
 			if ctx.Err() != nil {
