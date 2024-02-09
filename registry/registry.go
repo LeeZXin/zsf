@@ -1,7 +1,6 @@
 package registry
 
 import (
-	"context"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/etcdclient"
@@ -97,7 +96,7 @@ type Registry interface {
 	RegisterSelf(RegisterInfo) DeregisterAction
 }
 
-type DeregisterAction context.CancelFunc
+type DeregisterAction func()
 
 // RegisterInfo 注册所需的信息
 type RegisterInfo struct {

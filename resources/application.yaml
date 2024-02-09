@@ -56,10 +56,5 @@ actuator:
 httptask:
   token: 123
 
-etcd:
-  username: xxxx
-  password: xxxx
-  hosts: 127.0.0.1:8080,127.0.0.1:8001
-
 # git tag -a "v1.0.1" -m "beta"
 # git push origin master --tags

@@ -3,9 +3,14 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/LeeZXin/zsf/logger"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"time"
+)
+
+var (
+	leaseFailedErr = errors.New("lease failed")
 )
 
 type etcdRegistry struct {
@@ -22,14 +27,25 @@ func (r *etcdRegistry) RegisterSelf(info RegisterInfo) DeregisterAction {
 			}
 			// 一直续约
 			err := r.grantAndKeepalive(ctx, info)
-			if err != nil && err != context.Canceled {
-				logger.Logger.Error(err)
+			if err == nil || ctx.Err() != nil {
+				return
 			}
+			logger.Logger.Error(err)
 			// 续约异常 重新注册
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
+			logger.Logger.Infof("try to re register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
 		}
 	}()
-	return DeregisterAction(cancelFunc)
+	return func() {
+		cancelFunc()
+		logger.Logger.Infof("deregister %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
+		timeoutCtx, timeoutFunc := context.WithTimeout(context.Background(), 2*time.Second)
+		defer timeoutFunc()
+		_, err := r.client.Delete(timeoutCtx, info.GetRegisterPath())
+		if err != nil {
+			logger.Logger.Error(err)
+		}
+	}
 }
 
 func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info RegisterInfo) error {
@@ -37,20 +53,33 @@ func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info RegisterInfo)
 	if err != nil {
 		return err
 	}
-	path := info.GetRegisterPath()
 	output, _ := json.Marshal(info.GetServiceAddr())
-	_, err = r.client.Put(ctx, path, string(output), clientv3.WithLease(grant.ID))
+	_, err = r.client.Put(ctx, info.GetRegisterPath(), string(output), clientv3.WithLease(grant.ID))
 	if err != nil {
 		return err
 	}
-	for {
+	ch, err := r.client.KeepAlive(ctx, grant.ID)
+	if err != nil {
+		return err
+	}
+	defer func() {
 		if ctx.Err() != nil {
+			// 如果是cancelFunc触发的 手动释放租约
+			_, err2 := r.client.Revoke(context.Background(), grant.ID)
+			if err2 != nil {
+				logger.Logger.Error(err2)
+			}
+		}
+	}()
+	for {
+		select {
+		case res := <-ch:
+			if res == nil {
+				//续约终止
+				return leaseFailedErr
+			}
+		case <-ctx.Done():
 			return nil
 		}
-		_, err = r.client.KeepAlive(ctx, grant.ID)
-		if err != nil {
-			return err
-		}
-		time.Sleep(5 * time.Second)
 	}
 }
