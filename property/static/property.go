@@ -27,8 +27,8 @@ func init() {
 	_ = v1.ReadInConfig()
 	// 最终配置
 	v = viper.New()
-	for k, s := range v1.AllSettings() {
-		v.SetDefault(k, s)
+	for _, k := range v1.AllKeys() {
+		v.SetDefault(k, v1.Get(k))
 	}
 	// 加载集群标记不同的配置信息
 	if env.GetNodeFlag() != "" {
@@ -38,8 +38,8 @@ func init() {
 		// 注意是node-开头 与application-区分开
 		v2.SetConfigName(fmt.Sprintf("node-%s.yaml", env.GetNodeFlag()))
 		_ = v2.ReadInConfig()
-		for k, s := range v2.AllSettings() {
-			v.SetDefault(k, s)
+		for _, k := range v2.AllKeys() {
+			v.SetDefault(k, v2.Get(k))
 		}
 	}
 	//根据环境配置加载/resources/application-{env}.yaml
