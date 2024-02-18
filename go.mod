@@ -22,7 +22,7 @@ require (
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	nhooyr.io/websocket v1.8.7
+	nhooyr.io/websocket v1.8.10
 	skywalking.apache.org/repo/goapi v0.0.0-20230314034821-0c5a44bb767a
 	xorm.io/xorm v1.3.2
 )
