@@ -26,9 +26,8 @@ func init() {
 	)
 	//关闭所有的连接
 	quit.AddShutdownHook(func() {
-		clientCache.Range(func(_ string, client Client) bool {
+		clientCache.Range(func(_ string, client Client) {
 			client.Close()
-			return true
 		})
 	})
 }

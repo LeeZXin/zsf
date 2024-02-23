@@ -58,9 +58,8 @@ func initGrpc() {
 	}
 	//关闭grpc channel
 	quit.AddShutdownHook(func() {
-		connCache.Range(func(_ string, conn *grpc.ClientConn) bool {
+		connCache.Range(func(_ string, conn *grpc.ClientConn) {
 			conn.Close()
-			return true
 		})
 	})
 }

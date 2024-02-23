@@ -18,7 +18,7 @@ import (
 
 // grpc server封装
 var (
-	acceptedHeaders = hashset.NewHashSet[string](nil)
+	acceptedHeaders = hashset.NewHashSet[string]()
 )
 
 func init() {

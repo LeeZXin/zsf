@@ -18,8 +18,8 @@ import (
 
 type etcdDiscovery struct {
 	watchOnce  sync.Once
-	funcCache  hashmap.Map[string, ServiceChangeFunc]
-	addrsCache hashmap.Map[string, []ServiceAddr]
+	funcCache  *hashmap.ConcurrentHashMap[string, ServiceChangeFunc]
+	addrsCache *hashmap.ConcurrentHashMap[string, []ServiceAddr]
 	client     clientv3.KV
 	router     localcache.ExpireCache[map[string]selector.Selector[ServiceAddr]]
 }
