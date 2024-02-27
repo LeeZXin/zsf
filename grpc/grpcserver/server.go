@@ -7,7 +7,7 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/registry"
+	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/LeeZXin/zsf/zsf"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"

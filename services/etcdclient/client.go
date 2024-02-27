@@ -26,16 +26,6 @@ func NewKV() clientv3.KV {
 	return clientv3.NewKV(client)
 }
 
-func NewWatcher() clientv3.Watcher {
-	initEtcd()
-	return clientv3.NewWatcher(client)
-}
-
-func NewLease() clientv3.Lease {
-	initEtcd()
-	return clientv3.NewLease(client)
-}
-
 func GetClient() *clientv3.Client {
 	initEtcd()
 	return client
@@ -45,7 +35,7 @@ func initEtcd() {
 	initOnce.Do(func() {
 		var err error
 		client, err = clientv3.New(clientv3.Config{
-			Endpoints:        strings.Split(etcdHosts, ","),
+			Endpoints:        strings.Split(etcdHosts, ";"),
 			AutoSyncInterval: time.Minute,
 			DialTimeout:      10 * time.Second,
 			Username:         etcdUsername,

@@ -3,7 +3,7 @@ package apigw
 import (
 	"context"
 	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/services/discovery"
 )
 
 type hostSelector interface {

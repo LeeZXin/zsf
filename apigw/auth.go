@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/LeeZXin/zsf-utils/httputil"
-	"github.com/LeeZXin/zsf/discovery"
+	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/spf13/cast"
 	"net/http"
 	"strings"

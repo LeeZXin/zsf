@@ -33,7 +33,7 @@ func (r *etcdRegistry) RegisterSelf(info RegisterInfo) DeregisterAction {
 			logger.Logger.Error(err)
 			// 续约异常 重新注册
 			time.Sleep(5 * time.Second)
-			logger.Logger.Infof("try to re register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
+			logger.Logger.Infof("try to re-register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
 		}
 	}()
 	return func() {
@@ -65,9 +65,9 @@ func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info RegisterInfo)
 	defer func() {
 		if ctx.Err() != nil {
 			// 如果是cancelFunc触发的 手动释放租约
-			_, err2 := r.client.Revoke(context.Background(), grant.ID)
-			if err2 != nil {
-				logger.Logger.Error(err2)
+			_, err := r.client.Revoke(ctx, grant.ID)
+			if err != nil {
+				logger.Logger.Error(err)
 			}
 		}
 	}()

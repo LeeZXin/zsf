@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/env"
 	"github.com/spf13/viper"
-	"io"
 	"reflect"
 )
 
@@ -19,14 +18,14 @@ var (
 
 // init 配置优先顺序 application-{dev}.yaml > node-{nodeFlag}.yaml > application.yaml
 func init() {
+	// 最终配置
+	v = viper.New()
 	//默认加载/resources/application.yaml
 	v1 := viper.New()
 	v1.SetConfigType("yaml")
 	v1.AddConfigPath("resources")
 	v1.SetConfigName("application.yaml")
 	_ = v1.ReadInConfig()
-	// 最终配置
-	v = viper.New()
 	for _, k := range v1.AllKeys() {
 		v.SetDefault(k, v1.Get(k))
 	}
@@ -78,20 +77,12 @@ func GetStringMap(key string) map[string]any {
 	return v.GetStringMap(key)
 }
 
-func MergeConfig(in io.Reader) error {
-	return v.MergeConfig(in)
-}
-
 func Exists(key string) bool {
 	return v.IsSet(key)
 }
 
 func GetInt64(key string) int64 {
 	return v.GetInt64(key)
-}
-
-func AllSettings() map[string]any {
-	return v.AllSettings()
 }
 
 func GetMapSlice(key string) []map[string]any {

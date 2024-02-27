@@ -3,8 +3,8 @@ package registry
 import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
-	"github.com/LeeZXin/zsf/etcdclient"
 	"github.com/LeeZXin/zsf/property/static"
+	"github.com/LeeZXin/zsf/services/etcdclient"
 	"sync"
 )
 
@@ -66,12 +66,12 @@ func (r *RegisterAction) Deregister() {
 }
 
 func newHttpAction() *RegisterAction {
-	weight := static.GetInt("http.Weight")
+	weight := static.GetInt("http.weight")
 	if weight == 0 {
 		weight = 1
 	}
 	return &RegisterAction{
-		Enabled: static.GetBool("http.registry.Enabled"),
+		Enabled: static.GetBool("http.registry.enabled"),
 		Weight:  weight,
 		Port:    common.HttpServerPort(),
 		Scheme:  common.HttpProtocol,
@@ -79,12 +79,12 @@ func newHttpAction() *RegisterAction {
 }
 
 func newGrpcAction() *RegisterAction {
-	weight := static.GetInt("grpc.Weight")
+	weight := static.GetInt("grpc.weight")
 	if weight == 0 {
 		weight = 1
 	}
 	return &RegisterAction{
-		Enabled: static.GetBool("grpc.registry.Enabled"),
+		Enabled: static.GetBool("grpc.registry.enabled"),
 		Weight:  weight,
 		Port:    common.GrpcServerPort(),
 		Scheme:  common.GrpcProtocol,

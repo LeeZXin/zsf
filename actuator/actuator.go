@@ -6,7 +6,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/ginutil"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/registry"
+	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/LeeZXin/zsf/zsf"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
