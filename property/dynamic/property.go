@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	ob = newObserver().init()
+	ob = newObserver()
 )
 
 type observer struct {
@@ -33,6 +33,7 @@ type observer struct {
 }
 
 func (o *observer) Close() {
+	logger.Logger.Infof("dynamic property observer closed")
 	o.cancelFunc()
 	o.client.Close()
 	o.Lock()
@@ -63,6 +64,7 @@ func newObserver() *observer {
 	ret.ctx, ret.cancelFunc = context.WithCancel(context.Background())
 	quit.AddShutdownHook(ret.Close)
 	logger.Logger.Infof("start listening dynamic property key: %s", ret.key)
+	ret.init()
 	return ret
 }
 
@@ -168,7 +170,7 @@ func (o *observer) newViper(name string, content []byte) (*viper.Viper, error) {
 	return v, nil
 }
 
-func (o *observer) init() *observer {
+func (o *observer) init() {
 	objList, rev := o.readRemote()
 	o.rev = rev
 	o.cache = hashmap.NewHashMap[string, *viper.Viper]()
@@ -183,7 +185,6 @@ func (o *observer) init() *observer {
 		o.cache.Put(obj.Name, v)
 	}
 	go o.watchRemote()
-	return o
 }
 
 func GetString(key, path string) string {
