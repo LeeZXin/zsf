@@ -1,11 +1,17 @@
 package registry
 
 import (
+	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
+	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/services/etcdclient"
+	"github.com/LeeZXin/zsf/services/lb"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+	"strings"
 	"sync"
+	"time"
 )
 
 // 服务注册
@@ -19,8 +25,22 @@ var (
 
 func getRegistry() Registry {
 	initOnce.Do(func() {
+		client, err := clientv3.New(clientv3.Config{
+			Endpoints:        strings.Split(static.GetString("discovery.etcd.endpoints"), ";"),
+			AutoSyncInterval: time.Minute,
+			DialTimeout:      10 * time.Second,
+			Username:         static.GetString("discovery.etcd.username"),
+			Password:         static.GetString("discovery.etcd.password"),
+			Logger:           zap.NewNop(),
+		})
+		if err != nil {
+			logger.Logger.Fatalf("etcd client starts failed: %v", err)
+		}
+		quit.AddShutdownHook(func() {
+			client.Close()
+		})
 		registryImpl = &etcdRegistry{
-			client: etcdclient.GetClient(),
+			client: client,
 		}
 	})
 	return registryImpl
@@ -124,14 +144,15 @@ func (s *RegisterInfo) GetRpcName() string {
 	return s.rpcName
 }
 
-func (s *RegisterInfo) GetServiceAddr() ServiceAddr {
-	return ServiceAddr{
-		InstanceId: common.GetInstanceId(),
-		Name:       s.GetRpcName(),
-		Addr:       common.GetLocalIP(),
-		Port:       s.Port,
-		Weight:     s.Weight,
-		Version:    env.GetVersion(),
+func (s *RegisterInfo) GetServer() lb.Server {
+	return lb.Server{
+		Name:    s.GetRpcName(),
+		Host:    common.GetLocalIP(),
+		Port:    s.Port,
+		Weight:  s.Weight,
+		Version: env.GetVersion(),
+		Region:  common.GetRegion(),
+		Zone:    common.GetZone(),
 	}
 }
 

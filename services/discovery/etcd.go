@@ -3,108 +3,78 @@ package discovery
 import (
 	"context"
 	"encoding/json"
-	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/localcache"
 	"github.com/LeeZXin/zsf-utils/quit"
-	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf-utils/taskutil"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/services/etcdclient"
+	"github.com/LeeZXin/zsf/services/lb"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"sync"
+	"go.uber.org/zap"
+	"strings"
 	"time"
 )
 
 type etcdDiscovery struct {
-	watchOnce  sync.Once
-	funcCache  *hashmap.ConcurrentHashMap[string, ServiceChangeFunc]
-	addrsCache *hashmap.ConcurrentHashMap[string, []ServiceAddr]
-	client     clientv3.KV
-	router     localcache.ExpireCache[map[string]selector.Selector[ServiceAddr]]
+	client clientv3.KV
+	router localcache.ExpireCache[lb.LoadBalancer]
 }
 
 func (*etcdDiscovery) GetDiscoveryType() string {
 	return EtcdDiscoveryType
 }
 
-func (d *etcdDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
+func (d *etcdDiscovery) Discover(name string) ([]lb.Server, error) {
 	response, err := d.client.Get(context.Background(), common.ServicePrefix+name, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]ServiceAddr, 0, len(response.Kvs))
+	servers := make([]lb.Server, 0, len(response.Kvs))
 	for _, kv := range response.Kvs {
-		var addr ServiceAddr
-		err := json.Unmarshal(kv.Value, &addr)
+		var s lb.Server
+		err = json.Unmarshal(kv.Value, &s)
 		if err == nil {
-			ret = append(ret)
+			servers = append(servers, s)
 		}
 	}
-	return ret, nil
+	return servers, nil
 }
 
-func (d *etcdDiscovery) PickOne(ctx context.Context, name string) (ServiceAddr, error) {
-	targetSelector, err := d.router.LoadData(ctx, name)
+func (d *etcdDiscovery) ChooseServer(ctx context.Context, name string) (lb.Server, error) {
+	balancer, err := d.router.LoadData(ctx, name)
 	if err != nil {
-		return ServiceAddr{}, err
+		return lb.Server{}, err
 	}
-	ret, err := findSelector(ctx, targetSelector).Select()
-	if err == selector.EmptyNodesErr {
-		return ServiceAddr{}, ServiceNotFound
-	}
-	return ret.Data, nil
+	return balancer.ChooseServer(ctx)
 }
 
-func (d *etcdDiscovery) OnAddrChange(name string, changeFunc ServiceChangeFunc) {
-	if changeFunc == nil {
-		return
-	}
-	// 首次获取
-	addrs, err := d.GetServiceInfo(name)
-	if err != nil {
-		logger.Logger.Error(err)
-		return
-	}
-	// 执行回调
-	changeFunc(addrs)
-	// 缓存
-	d.addrsCache.Put(name, addrs)
-	d.funcCache.Put(name, changeFunc)
-	d.watchOnce.Do(func() {
-		// 每十秒获取判断是否不同 不使用watcher
-		task, _ := taskutil.NewPeriodicalTask(10*time.Second, func() {
-			cpy := d.addrsCache.ToMap()
-			for srv, oldAddrs := range cpy {
-				newAddrs, err := d.GetServiceInfo(srv)
-				if err != nil {
-					logger.Logger.Error(err)
-					return
-				}
-				if !compareAddrs(oldAddrs, newAddrs) {
-					d.addrsCache.Put(srv, newAddrs)
-					fn, b := d.funcCache.Get(srv)
-					if b {
-						fn(newAddrs)
-					}
-				}
-			}
-		})
-		task.Start()
-		quit.AddShutdownHook(task.Stop, true)
+func newEtcdDiscovery(endpoints, username, password string) *etcdDiscovery {
+	ret := new(etcdDiscovery)
+	client, err := clientv3.New(clientv3.Config{
+		Endpoints:        strings.Split(endpoints, ";"),
+		AutoSyncInterval: time.Minute,
+		DialTimeout:      10 * time.Second,
+		Username:         username,
+		Password:         password,
+		Logger:           zap.NewNop(),
 	})
-}
-
-func (d *etcdDiscovery) Init() {
-	d.funcCache = hashmap.NewConcurrentHashMap[string, ServiceChangeFunc]()
-	d.addrsCache = hashmap.NewConcurrentHashMap[string, []ServiceAddr]()
-	d.client = etcdclient.NewKV()
-	d.router, _ = localcache.NewLocalCache(func(ctx context.Context, key string) (map[string]selector.Selector[ServiceAddr], error) {
-		addrs, err := d.GetServiceInfo(key)
+	if err != nil {
+		logger.Logger.Fatalf("etcd client starts failed: %v", err)
+	}
+	quit.AddShutdownHook(func() {
+		client.Close()
+	})
+	ret.client = clientv3.NewKV(client)
+	ret.router, _ = localcache.NewLocalCache(func(ctx context.Context, key string) (lb.LoadBalancer, error) {
+		servers, err := ret.Discover(key)
 		if err != nil {
 			logger.Logger.WithContext(ctx).Error(err)
 			return nil, err
 		}
-		return convertToSelector(convertMultiVersionNodes(addrs), lbPolicy), nil
+		balancer := &lb.NearbyLoadBalancer{
+			LbPolicy: lb.Policy(lbPolicy),
+		}
+		balancer.SetServers(servers)
+		return balancer, nil
 	}, 10*time.Second)
+	return ret
 }

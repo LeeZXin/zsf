@@ -53,7 +53,7 @@ func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info RegisterInfo)
 	if err != nil {
 		return err
 	}
-	output, _ := json.Marshal(info.GetServiceAddr())
+	output, _ := json.Marshal(info.GetServer())
 	_, err = r.client.Put(ctx, info.GetRegisterPath(), string(output), clientv3.WithLease(grant.ID))
 	if err != nil {
 		return err

@@ -4,109 +4,109 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
+	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/services/lb"
 	"os"
 	"path/filepath"
 )
 
 // 静态文件服务发现
-type staticAddr struct {
-	ServiceName string `json:"serviceName"`
-	Targets     []struct {
-		Addr    string `json:"addr"`
+type staticServer struct {
+	Name    string `json:"name"`
+	Targets []struct {
+		Host    string `json:"host"`
 		Port    int    `json:"port"`
 		Version string `json:"version"`
 		Weight  int    `json:"weight"`
+		Region  string `json:"region"`
+		Zone    string `json:"zone"`
 	} `json:"targets"`
 }
 
 type staticConfig struct {
-	Static []staticAddr `json:"static,omitempty"`
+	Static []staticServer `json:"static,omitempty"`
 }
 
 type staticDiscovery struct {
-	cache map[string][]ServiceAddr
+	cache map[string][]lb.Server
 	//多版本路由
-	router map[string]map[string]selector.Selector[ServiceAddr]
+	router map[string]lb.LoadBalancer
 }
 
-func (s *staticDiscovery) Init() {
+func newStaticDiscovery() *staticDiscovery {
+	ret := new(staticDiscovery)
 	path := fmt.Sprintf(filepath.Join(common.ResourcesDir, "static-discovery-%s.json"), env.GetEnv())
 	content, err := os.ReadFile(path)
 	if err != nil {
 		path = filepath.Join(common.ResourcesDir, "static-discovery.json")
 		content, err = os.ReadFile(path)
 		if err != nil {
-			return
+			logger.Logger.Fatalf("can not find static-discovery.json: %v", err)
 		}
 	}
 	var config staticConfig
 	err = json.Unmarshal(content, &config)
 	if err != nil {
-		return
+		logger.Logger.Fatalf("can not read static-discovery.json: %v", err)
 	}
-	s.cache = make(map[string][]ServiceAddr, 8)
-	for _, service := range config.Static {
-		if service.ServiceName == "" {
+	ret.cache = make(map[string][]lb.Server, 8)
+	for _, staticServers := range config.Static {
+		if staticServers.Name == "" {
 			continue
 		}
-		var addrs = make([]ServiceAddr, 0, len(service.Targets))
-		for _, target := range service.Targets {
-			if target.Addr == "" || target.Port == 0 {
+		servers := make([]lb.Server, 0, len(staticServers.Targets))
+		for _, target := range staticServers.Targets {
+			if target.Host == "" || target.Port == 0 {
 				continue
 			}
 			if target.Version == "" {
 				target.Version = common.DefaultVersion
 			}
-			addr := ServiceAddr{
-				Addr:    target.Addr,
+			server := lb.Server{
+				Name:    staticServers.Name,
+				Host:    target.Host,
 				Port:    target.Port,
-				Version: target.Version,
 				Weight:  target.Weight,
+				Version: target.Version,
+				Region:  target.Region,
+				Zone:    target.Zone,
 			}
-			if addr.Weight <= 0 {
-				addr.Weight = 1
+			if server.Weight <= 0 {
+				server.Weight = 1
 			}
-			addrs = append(addrs, addr)
+			servers = append(servers, server)
 		}
-		s.cache[service.ServiceName] = addrs
+		ret.cache[staticServers.Name] = servers
 	}
-	s.router = make(map[string]map[string]selector.Selector[ServiceAddr], len(s.cache))
-	for name, addrs := range s.cache {
-		s.router[name] = convertToSelector(convertMultiVersionNodes(addrs), lbPolicy)
+	ret.router = make(map[string]lb.LoadBalancer, len(ret.cache))
+	for name, servers := range ret.cache {
+		balancer := &lb.NearbyLoadBalancer{
+			LbPolicy: lb.Policy(lbPolicy),
+		}
+		balancer.SetServers(servers)
+		ret.router[name] = balancer
 	}
+	return ret
 }
 
 func (*staticDiscovery) GetDiscoveryType() string {
 	return StaticDiscoveryType
 }
 
-func (s *staticDiscovery) GetServiceInfo(name string) ([]ServiceAddr, error) {
-	addrs, ok := s.cache[name]
+func (s *staticDiscovery) Discover(name string) ([]lb.Server, error) {
+	servers, ok := s.cache[name]
 	if ok {
-		return addrs, nil
+		return servers, nil
 	}
-	return []ServiceAddr{}, nil
+	return []lb.Server{}, nil
 }
 
-func (s *staticDiscovery) PickOne(ctx context.Context, name string) (ServiceAddr, error) {
-	multiVersionAddrs, b := s.router[name]
+func (s *staticDiscovery) ChooseServer(ctx context.Context, name string) (lb.Server, error) {
+	balancer, b := s.router[name]
 	if !b {
-		return ServiceAddr{}, ServiceNotFound
+		return lb.Server{}, lb.ServerNotFound
 	}
-	targetSelector := findSelector(ctx, multiVersionAddrs)
-	node, err := targetSelector.Select()
-	if err == selector.EmptyNodesErr {
-		return ServiceAddr{}, ServiceNotFound
-	}
-	return node.Data, nil
-}
-
-func (s *staticDiscovery) OnAddrChange(name string, changeFunc ServiceChangeFunc) {
-	if changeFunc != nil {
-		addrs, _ := s.GetServiceInfo(name)
-		changeFunc(addrs)
-	}
+	return balancer.ChooseServer(ctx)
 }

@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/services/discovery"
+	"github.com/LeeZXin/zsf/services/lb"
 	"io"
 	"net/http"
 	"strconv"
@@ -25,6 +27,7 @@ const (
 
 type dialOption struct {
 	header map[string]string
+	zone   string
 }
 
 type Option func(*dialOption)
@@ -36,6 +39,12 @@ type headerOption struct {
 func WithHeader(header map[string]string) Option {
 	return func(o *dialOption) {
 		o.header = header
+	}
+}
+
+func WithZone(zone string) Option {
+	return func(o *dialOption) {
+		o.zone = zone
 	}
 }
 
@@ -77,10 +86,28 @@ func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opt
 }
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
+	// 加载选项
+	apply := &dialOption{}
+	if opts != nil {
+		for _, opt := range opts {
+			opt(apply)
+		}
+	}
 	// 获取服务ip
-	host, err := discovery.PickOneHost(ctx, c.ServiceName)
-	if err != nil {
-		return err
+	var (
+		server lb.Server
+		err    error
+	)
+	if apply.zone == "" {
+		server, err = discovery.ChooseServer(ctx, c.ServiceName)
+		if err != nil {
+			return err
+		}
+	} else {
+		server, err = discovery.ChooseServerWithZone(ctx, apply.zone, c.ServiceName)
+		if err != nil {
+			return err
+		}
 	}
 	// request
 	var reqBytes []byte
@@ -90,15 +117,8 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 			return err
 		}
 	}
-	// 加载选项
-	apply := &dialOption{}
-	if opts != nil {
-		for _, opt := range opts {
-			opt(apply)
-		}
-	}
 	// 拼接host
-	url := "http://" + host
+	url := "http://" + fmt.Sprintf("%s:%d", server.Host, server.Port)
 	if !strings.HasPrefix(path, "/") {
 		url += "/"
 	}

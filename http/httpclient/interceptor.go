@@ -31,7 +31,9 @@ func headerInterceptor() Interceptor {
 func promInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		begin := time.Now()
-		defer prom.HttpClientRequestTotal.WithLabelValues("http://" + request.Host + request.URL.Path).Observe(float64(time.Since(begin).Milliseconds()))
+		defer prom.HttpClientRequestTotal.
+			WithLabelValues("http://" + request.Host + request.URL.Path).
+			Observe(float64(time.Since(begin).Milliseconds()))
 		return invoker(request)
 	}
 }

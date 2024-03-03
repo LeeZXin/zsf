@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/spf13/cast"
@@ -90,12 +91,12 @@ func defaultAuth(c *ApiContext) bool {
 	case HttpUriType:
 		url = config.Uri.Address + path
 	case DiscoveryUriType:
-		host, err := discovery.PickOneHost(c, config.Uri.DiscoveryTarget)
+		server, err := discovery.ChooseServer(c, config.Uri.DiscoveryTarget)
 		if err != nil {
 			c.String(config.ErrorStatusCode, config.ErrorMessage)
 			return false
 		}
-		url = "http://" + host + path
+		url = "http://" + fmt.Sprintf("%s:%d", server.Host, server.Port) + path
 	}
 	reqBody, _ := json.Marshal(authReqJson)
 	var (

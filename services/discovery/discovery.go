@@ -2,156 +2,94 @@ package discovery
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"github.com/LeeZXin/zsf-utils/selector"
-	"github.com/LeeZXin/zsf/common"
-	"github.com/LeeZXin/zsf/env"
+	"github.com/LeeZXin/zsf/logger"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/rpcheader"
-	"strconv"
+	"github.com/LeeZXin/zsf/services/lb"
+	"github.com/spf13/cast"
 )
 
 var (
 	discoveryType = static.GetString("discovery.type")
 	lbPolicy      = static.GetString("discovery.lbPolicy")
 
-	ServiceNotFound = errors.New("service not found")
-
-	discoveryMap = map[string]Discovery{
-		StaticDiscoveryType: new(staticDiscovery),
-		EtcdDiscoveryType:   new(etcdDiscovery),
-	}
-
+	multiEtcd     = make(map[string]Discovery)
 	discoveryImpl Discovery
+	localZone     string
 )
 
 const (
-	StaticDiscoveryType = "static"
-	EtcdDiscoveryType   = "etcd"
+	StaticDiscoveryType    = "static"
+	EtcdDiscoveryType      = "etcd"
+	MultiEtcdDiscoveryType = "multiEtcd"
 )
 
 func init() {
-	if discoveryType == "" {
-		discoveryType = StaticDiscoveryType
+	switch discoveryType {
+	case StaticDiscoveryType:
+		discoveryImpl = newStaticDiscovery()
+	case EtcdDiscoveryType:
+		discoveryImpl = newEtcdDiscovery(
+			static.GetString("discovery.etcd.endpoints"),
+			static.GetString("discovery.etcd.username"),
+			static.GetString("discovery.etcd.password"),
+		)
+	case MultiEtcdDiscoveryType:
+		localZone = static.GetString("discovery.zone")
+		if localZone == "" {
+			logger.Logger.Fatalf("empty discovery.zone")
+		}
+		etcdCfgs := static.GetMapSlice("discovery.multi")
+		for _, etcdCfg := range etcdCfgs {
+			zone := cast.ToString(etcdCfg["zone"])
+			if zone == "" {
+				continue
+			}
+			_, b := multiEtcd[zone]
+			if b {
+				logger.Logger.Fatalf("duplicated discovery.multi.zone")
+			}
+			endpoints := cast.ToString(etcdCfg["endpoints"])
+			username := cast.ToString(etcdCfg["username"])
+			password := cast.ToString(etcdCfg["password"])
+			multiEtcd[zone] = newEtcdDiscovery(endpoints, username, password)
+		}
 	}
-	if lbPolicy == "" {
-		lbPolicy = selector.RoundRobinPolicy
-	}
-	discoveryImpl = discoveryMap[discoveryType]
-	if discoveryImpl == nil {
-		discoveryImpl = discoveryMap[StaticDiscoveryType]
-	}
-	discoveryImpl.Init()
 }
 
 type Discovery interface {
-	Init()
 	GetDiscoveryType() string
-	GetServiceInfo(string) ([]ServiceAddr, error)
-	PickOne(context.Context, string) (ServiceAddr, error)
-	OnAddrChange(string, ServiceChangeFunc)
-}
-
-type ServiceChangeFunc func([]ServiceAddr)
-
-// ServiceAddr 服务信息
-type ServiceAddr struct {
-	InstanceId string `json:"instanceId"`
-	Name       string `json:"name"`
-	Addr       string `json:"addr"`
-	Port       int    `json:"port"`
-	Weight     int    `json:"weight"`
-	Version    string `json:"version"`
-}
-
-func (s *ServiceAddr) IsSameAs(s2 *ServiceAddr) bool {
-	if s2 == nil {
-		return false
-	}
-	return s.Name == s2.Name &&
-		s.Addr == s2.Addr &&
-		s.Port == s2.Port &&
-		s.Weight == s2.Weight &&
-		s.Version == s2.Version
+	Discover(string) ([]lb.Server, error)
+	ChooseServer(context.Context, string) (lb.Server, error)
 }
 
 func GetDiscovery() Discovery {
 	return discoveryImpl
 }
 
-func OnAddrChange(name string, fn ServiceChangeFunc) {
-	discoveryImpl.OnAddrChange(name, fn)
+func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
+	if discoveryType == MultiEtcdDiscoveryType {
+		return ChooseServerWithZone(ctx, localZone, name)
+	}
+	return discoveryImpl.ChooseServer(ctx, name)
 }
 
-func findSelector(ctx context.Context, selectorMap map[string]selector.Selector[ServiceAddr]) selector.Selector[ServiceAddr] {
-	version := rpcheader.GetHeaders(ctx).Get(rpcheader.ApiVersion)
-	if version == "" {
-		version = env.GetVersion()
+func ChooseServerWithZone(ctx context.Context, zone, name string) (lb.Server, error) {
+	discovery, b := multiEtcd[zone]
+	if !b {
+		return lb.Server{}, lb.ServerNotFound
 	}
-	hit, ok := selectorMap[version]
-	if !ok {
-		hit = selectorMap[common.DefaultVersion]
-	}
-	return hit
+	return discovery.ChooseServer(ctx, name)
 }
 
-func convertToSelector(nodesMap map[string][]selector.Node[ServiceAddr], lbPolicy string) map[string]selector.Selector[ServiceAddr] {
-	ret := make(map[string]selector.Selector[ServiceAddr], len(nodesMap))
-	fn, ok := selector.FindNewSelectorFunc[ServiceAddr](lbPolicy)
-	if !ok {
-		fn = selector.NewRoundRobinSelector[ServiceAddr]
-	}
-	for version, nodes := range nodesMap {
-		ret[version] = fn(nodes)
-	}
-	return ret
-}
-
-// convertMultiVersionNodes 返回多版本地址信息
-func convertMultiVersionNodes(addrs []ServiceAddr) map[string][]selector.Node[ServiceAddr] {
-	ret := make(map[string][]selector.Node[ServiceAddr], 8)
-	//默认版本节点先初始化
-	ret[common.DefaultVersion] = make([]selector.Node[ServiceAddr], 0)
-	for i, addr := range addrs {
-		if addr.Version == "" {
-			addr.Version = common.DefaultVersion
-		}
-		n := selector.Node[ServiceAddr]{
-			Id:     strconv.Itoa(i),
-			Weight: addr.Weight,
-			Data:   addr,
-		}
-		ns, ok := ret[addr.Version]
-		if ok {
-			ret[addr.Version] = append(ns, n)
-		} else {
-			ret[addr.Version] = append(make([]selector.Node[ServiceAddr], 0), n)
-		}
-		if addr.Version != common.DefaultVersion {
-			ret[common.DefaultVersion] = append(ret[common.DefaultVersion], n)
-		}
-	}
-	return ret
-}
-
-func PickOneHost(ctx context.Context, serviceName string) (string, error) {
-	one, err := discoveryImpl.PickOne(ctx, serviceName)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s:%d", one.Addr, one.Port), nil
-}
-
-func compareAddrs(xs, ys []ServiceAddr) bool {
+func compareServers(xs, ys []lb.Server) bool {
 	if len(xs) != len(ys) {
 		return false
 	}
 	for _, x := range xs {
 		find := false
 		for _, y := range ys {
-			if x.IsSameAs(&y) {
+			if x.IsSameAs(y) {
 				find = true
 				break
 			}
