@@ -70,7 +70,7 @@ func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
 }
 
 func Discover(ctx context.Context, name string) ([]lb.Server, error) {
-	if discoveryImpl != nil {
+	if discoveryImpl == nil {
 		return nil, lb.ServerNotFound
 	}
 	return discoveryImpl.Discover(ctx, name)
