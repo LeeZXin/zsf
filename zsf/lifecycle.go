@@ -8,12 +8,3 @@ type LifeCycle interface {
 	// OnApplicationShutdown 服务关闭
 	OnApplicationShutdown()
 }
-
-func RegisterApplicationLifeCycle(lifeCycle LifeCycle) {
-	//if lifeCycle == nil {
-	//	return
-	//}
-	//mu.Lock()
-	//defer mu.Unlock()
-	//lifeCycles = append(lifeCycles, lifeCycle)
-}
