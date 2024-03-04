@@ -36,6 +36,10 @@ func (w *WeightRoundRobinLoadBalancer) SetServers(servers []Server) {
 	w.max = max(weights)
 }
 
+func (w *WeightRoundRobinLoadBalancer) GetServers() []Server {
+	return w.allServers
+}
+
 func (w *WeightRoundRobinLoadBalancer) ChooseServer(_ context.Context) (Server, error) {
 	w.smu.RLock()
 	defer w.smu.RUnlock()

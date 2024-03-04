@@ -16,18 +16,13 @@ var (
 	instanceId = idutil.RandomUuid()
 
 	httpServerPort int
-	grpcServerPort int
 )
 
 const (
 	DefaultVersion = "default"
 	HttpProtocol   = "http"
-	GrpcProtocol   = "grpc"
-	VersionPrefix  = "version="
-	ProtocolPrefix = "protocol="
 
 	DefaultHttpServerPort = 15003
-	DefaultGrpcServerPort = 15004
 
 	ResourcesDir   = "resources"
 	ServicePrefix  = "/services/"
@@ -59,10 +54,6 @@ func init() {
 	if httpServerPort <= 0 {
 		httpServerPort = DefaultHttpServerPort
 	}
-	grpcServerPort = static.GetInt("grpc.port")
-	if grpcServerPort <= 0 {
-		grpcServerPort = DefaultGrpcServerPort
-	}
 }
 
 func GetApplicationName() string {
@@ -87,8 +78,4 @@ func GetInstanceId() string {
 
 func HttpServerPort() int {
 	return httpServerPort
-}
-
-func GrpcServerPort() int {
-	return grpcServerPort
 }

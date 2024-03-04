@@ -7,7 +7,6 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/registry"
-	"github.com/LeeZXin/zsf/zsf"
 	"github.com/gin-gonic/gin"
 	"io"
 	"log"
@@ -20,11 +19,43 @@ import (
 // 常见异常处理、header处理等
 // 服务注册
 
-type server struct {
-	*http.Server
+var (
+	server *Server
+)
+
+type Server struct {
+	action     registry.Action
+	httpServer *http.Server
 }
 
-func (s *server) OnApplicationStart() {
+type serverOpts struct {
+	action registry.Action
+}
+
+type ServerOpt func(*serverOpts)
+
+func WithRegistryAction(action registry.Action) ServerOpt {
+	return func(opts *serverOpts) {
+		opts.action = action
+	}
+}
+
+func NewServer(opts ...ServerOpt) *Server {
+	o := new(serverOpts)
+	for _, opt := range opts {
+		opt(o)
+	}
+	server = &Server{
+		action: o.action,
+	}
+	return server
+}
+
+func (s *Server) GetRegistryAction() registry.Action {
+	return s.action
+}
+
+func (s *Server) OnApplicationStart() {
 	//gin mode
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
@@ -60,7 +91,7 @@ func (s *server) OnApplicationStart() {
 	if idleTimeoutSec == 0 {
 		idleTimeoutSec = 60
 	}
-	s.Server = &http.Server{
+	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", common.HttpServerPort()),
 		ReadTimeout:  time.Duration(readTimeoutSec) * time.Second,
 		WriteTimeout: time.Duration(writeTimeoutSec) * time.Second,
@@ -94,10 +125,10 @@ func (s *server) OnApplicationStart() {
 			logger.Logger.Info("https server start:", common.HttpServerPort())
 			logger.Logger.Infof("https server certFile path: %s", certFilePath)
 			logger.Logger.Infof("https server keyFile path: %s", keyFilePath)
-			err = s.ListenAndServeTLS(certFilePath, keyFilePath)
+			err = s.httpServer.ListenAndServeTLS(certFilePath, keyFilePath)
 		} else {
 			logger.Logger.Info("http server start:", common.HttpServerPort())
-			err = s.ListenAndServe()
+			err = s.httpServer.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Fatalf("http server starts failed: %v", err)
@@ -105,21 +136,25 @@ func (s *server) OnApplicationStart() {
 	}()
 }
 
-func (s *server) AfterInitialize() {
-	//是否开启http服务注册
-	registry.RegisterHttpServer()
+func (s *Server) AfterInitialize() {
+	if s.action != nil {
+		s.action.Register()
+	}
 }
 
-func (s *server) OnApplicationShutdown() {
-	registry.DeregisterHttpServer()
-	if s.Server != nil {
+func (s *Server) OnApplicationShutdown() {
+	if s.action != nil {
+		s.action.Deregister()
+	}
+	if s.httpServer != nil {
 		logger.Logger.Info("http server shutdown")
-		s.Shutdown(context.Background())
+		s.httpServer.Shutdown(context.Background())
 	}
 }
 
-func init() {
-	if static.GetBool("http.enabled") {
-		zsf.RegisterApplicationLifeCycle(new(server))
+func GetRegistryAction() registry.Action {
+	if server != nil {
+		return server.GetRegistryAction()
 	}
+	return nil
 }

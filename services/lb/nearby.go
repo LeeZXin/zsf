@@ -33,6 +33,10 @@ func (r *NearbyLoadBalancer) SetServers(servers []Server) {
 	r.lb = r.initNearbyLb(servers)
 }
 
+func (r *NearbyLoadBalancer) GetServers() []Server {
+	return r.allServers
+}
+
 func (r *NearbyLoadBalancer) initNearbyLb(servers []Server) nearbyLb {
 	ret := nearbyLb{
 		rlb: make(map[string]regionLb, 8),

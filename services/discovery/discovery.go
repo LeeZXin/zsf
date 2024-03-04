@@ -58,13 +58,8 @@ func init() {
 }
 
 type Discovery interface {
-	GetDiscoveryType() string
 	Discover(string) ([]lb.Server, error)
 	ChooseServer(context.Context, string) (lb.Server, error)
-}
-
-func GetDiscovery() Discovery {
-	return discoveryImpl
 }
 
 func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
@@ -82,13 +77,13 @@ func ChooseServerWithZone(ctx context.Context, zone, name string) (lb.Server, er
 	return discovery.ChooseServer(ctx, name)
 }
 
-func compareServers(xs, ys []lb.Server) bool {
-	if len(xs) != len(ys) {
+func compareServers(s1, s2 []lb.Server) bool {
+	if len(s1) != len(s2) {
 		return false
 	}
-	for _, x := range xs {
+	for _, x := range s1 {
 		find := false
-		for _, y := range ys {
+		for _, y := range s2 {
 			if x.IsSameAs(y) {
 				find = true
 				break

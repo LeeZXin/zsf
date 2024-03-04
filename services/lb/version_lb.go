@@ -50,6 +50,10 @@ func (v *VersionLoadBalancer) SetServers(servers []Server) {
 	}
 }
 
+func (v *VersionLoadBalancer) GetServers() []Server {
+	return v.allServers
+}
+
 func (v *VersionLoadBalancer) ChooseServer(ctx context.Context) (Server, error) {
 	if ctx == nil {
 		ctx = context.Background()

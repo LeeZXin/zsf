@@ -27,6 +27,10 @@ func (r *RoundRobinLoadBalancer) SetServers(servers []Server) {
 	r.incr = 0
 }
 
+func (r *RoundRobinLoadBalancer) GetServers() []Server {
+	return r.allServers
+}
+
 func (r *RoundRobinLoadBalancer) ChooseServer(_ context.Context) (Server, error) {
 	r.smu.RLock()
 	defer r.smu.RUnlock()

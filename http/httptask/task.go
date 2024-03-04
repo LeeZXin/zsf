@@ -2,7 +2,6 @@ package httptask
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/LeeZXin/zsf/http/httpserver"
 	"github.com/LeeZXin/zsf/logger"
@@ -10,12 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
+	"sync"
 )
 
 type HttpTask func(context.Context, map[string]any, url.Values)
 
 var (
-	taskMap = hashmap.NewConcurrentHashMap[string, HttpTask]()
+	taskMap = sync.Map{}
 	token   = static.GetString("httptask.token")
 )
 
@@ -23,18 +23,18 @@ func AppendHttpTask(name string, task HttpTask) {
 	if task == nil {
 		return
 	}
-	taskMap.Put(name, task)
+	taskMap.Store(name, task)
 }
 
 func init() {
 	httpserver.AppendRegisterRouterFunc(func(e *gin.Engine) {
-		e.Any("/httptask/v1/:taskName", func(c *gin.Context) {
+		e.Any("/httpTask/v1/:taskName", func(c *gin.Context) {
 			if token == "" || c.Request.Header.Get("task-token") != token {
 				c.String(http.StatusForbidden, "forbidden")
 				return
 			}
 			taskName := c.Param("taskName")
-			task, b := taskMap.Get(taskName)
+			task, b := taskMap.Load(taskName)
 			if !b {
 				c.String(http.StatusNotFound, "task not found")
 			} else {
@@ -42,9 +42,9 @@ func init() {
 				c.ShouldBind(&body)
 				go func() {
 					if err := threadutil.RunSafe(func() {
-						task(c.Request.Context(), body, c.Request.URL.Query())
+						task.(HttpTask)(c.Request.Context(), body, c.Request.URL.Query())
 					}); err != nil {
-						logger.Logger.Errorf("httptask: %s err: %s", taskName, err)
+						logger.Logger.Errorf("httpTask: %s err: %s", taskName, err)
 					}
 				}()
 			}

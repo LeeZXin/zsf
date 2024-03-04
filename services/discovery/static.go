@@ -91,10 +91,6 @@ func newStaticDiscovery() *staticDiscovery {
 	return ret
 }
 
-func (*staticDiscovery) GetDiscoveryType() string {
-	return StaticDiscoveryType
-}
-
 func (s *staticDiscovery) Discover(name string) ([]lb.Server, error) {
 	servers, ok := s.cache[name]
 	if ok {

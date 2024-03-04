@@ -16,18 +16,9 @@ import (
 )
 
 // 日志logrus格式封装
-// grpc logger封装
-
-type vLogger struct {
-	*logrus.Logger
-}
-
-func (*vLogger) V(l int) bool {
-	return true
-}
 
 var (
-	Logger *vLogger
+	Logger *logrus.Logger
 
 	defaultFormatter = &logFormatter{}
 
@@ -67,7 +58,7 @@ func splitFilePath(path string) string {
 }
 
 func init() {
-	Logger = &vLogger{Logger: logrus.New()}
+	Logger = logrus.New()
 	Logger.SetReportCaller(true)
 	Logger.SetFormatter(defaultFormatter)
 	Logger.SetLevel(logrus.InfoLevel)

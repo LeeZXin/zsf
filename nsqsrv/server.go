@@ -59,9 +59,7 @@ func HttpRouter(server Server, e *gin.Engine) error {
 	if e == nil {
 		return errors.New("empty engine")
 	}
-	// 两个都行
-	e.Any("/", auth(server))
-	e.Any("/auth", auth(server))
+	e.Any("/nsq/auth", auth(server))
 	return nil
 }
 

@@ -24,6 +24,7 @@ func (s *Server) IsSameAs(s2 Server) bool {
 
 type LoadBalancer interface {
 	SetServers([]Server)
+	GetServers() []Server
 	ChooseServer(context.Context) (Server, error)
 }
 

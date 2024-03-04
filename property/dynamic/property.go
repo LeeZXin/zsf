@@ -3,7 +3,6 @@ package dynamic
 import (
 	"bytes"
 	"context"
-	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
@@ -24,7 +23,7 @@ var (
 
 type observer struct {
 	sync.RWMutex
-	cache      *hashmap.HashMap[string, *viper.Viper]
+	cache      map[string]*viper.Viper
 	client     *clientv3.Client
 	key        string
 	ctx        context.Context
@@ -42,15 +41,15 @@ func (o *observer) Close() {
 }
 
 func newObserver() *observer {
-	ret := new(observer)
-	ret.cache = hashmap.NewHashMap[string, *viper.Viper]()
+	o := new(observer)
+	o.cache = make(map[string]*viper.Viper, 8)
 	namespace := static.GetString("property.dynamic.namespace")
 	if namespace == "" {
 		namespace = "default"
 	}
-	ret.key = common.PropertyPrefix + namespace + "/" + common.GetApplicationName() + "/"
+	o.key = common.PropertyPrefix + namespace + "/" + common.GetApplicationName() + "/"
 	var err error
-	ret.client, err = clientv3.New(clientv3.Config{
+	o.client, err = clientv3.New(clientv3.Config{
 		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.hosts"), ";"),
 		AutoSyncInterval: time.Minute,
 		DialTimeout:      10 * time.Second,
@@ -61,11 +60,11 @@ func newObserver() *observer {
 	if err != nil {
 		logger.Logger.Fatalf("property etcd client starts failed: %v", err)
 	}
-	ret.ctx, ret.cancelFunc = context.WithCancel(context.Background())
-	quit.AddShutdownHook(ret.Close)
-	logger.Logger.Infof("start listening dynamic property key: %s", ret.key)
-	ret.init()
-	return ret
+	o.ctx, o.cancelFunc = context.WithCancel(context.Background())
+	quit.AddShutdownHook(o.Close)
+	logger.Logger.Infof("start listening dynamic property key: %s", o.key)
+	o.init()
+	return o
 }
 
 type propObj struct {
@@ -101,25 +100,25 @@ func (o *observer) watchRemote() {
 		watcher.Close()
 		time.Sleep(10 * time.Second)
 	}
-
 }
 
 func (o *observer) deleteKey(key string) {
 	o.Lock()
 	defer o.Unlock()
-	o.cache.Remove(key)
+	delete(o.cache, key)
 }
 
 func (o *observer) putKey(key string, v *viper.Viper) {
 	o.Lock()
 	defer o.Unlock()
-	o.cache.Put(key, v)
+	o.cache[key] = v
 }
 
 func (o *observer) getViper(key string) (*viper.Viper, bool) {
 	o.RLock()
 	defer o.RUnlock()
-	return o.cache.Get(key)
+	ret, b := o.cache[key]
+	return ret, b
 }
 
 func (o *observer) dealChan(wchan clientv3.WatchChan) {
@@ -173,7 +172,6 @@ func (o *observer) newViper(name string, content []byte) (*viper.Viper, error) {
 func (o *observer) init() {
 	objList, rev := o.readRemote()
 	o.rev = rev
-	o.cache = hashmap.NewHashMap[string, *viper.Viper]()
 	for _, obj := range objList {
 		if obj.Name == "" {
 			continue
@@ -182,7 +180,7 @@ func (o *observer) init() {
 		if err != nil {
 			continue
 		}
-		o.cache.Put(obj.Name, v)
+		o.cache[obj.Name] = v
 	}
 	go o.watchRemote()
 }

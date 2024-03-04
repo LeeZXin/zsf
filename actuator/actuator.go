@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/ginutil"
+	"github.com/LeeZXin/zsf/http/httpserver"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/services/registry"
-	"github.com/LeeZXin/zsf/zsf"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -15,21 +13,19 @@ import (
 	"time"
 )
 
-func init() {
-	if static.GetBool("actuator.enabled") {
-		zsf.RegisterApplicationLifeCycle(new(server))
-	}
-}
-
 const (
 	DefaultServerPort = 16055
 )
 
-type server struct {
-	*http.Server
+type Server struct {
+	httpServer *http.Server
 }
 
-func (s *server) OnApplicationStart() {
+func NewServer() *Server {
+	return new(Server)
+}
+
+func (s *Server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	// 健康状态检查
@@ -69,33 +65,21 @@ func (s *server) OnApplicationStart() {
 			c.String(http.StatusOK, "")
 		}
 	})
-	r.Any("/actuator/v1/deregisterHttpServer", func(c *gin.Context) {
-		go registry.DeregisterHttpServer()
-		c.String(http.StatusOK, "ok")
-	})
-	r.Any("/actuator/v1/registerHttpServer", func(c *gin.Context) {
-		go registry.RegisterHttpServer()
-		c.String(http.StatusOK, "ok")
-	})
-	r.Any("/actuator/v1/deregisterGrpcServer", func(c *gin.Context) {
-		go registry.DeregisterGrpcServer()
-		c.String(http.StatusOK, "ok")
-	})
-	r.Any("/actuator/v1/registerGrpcServer", func(c *gin.Context) {
-		go registry.RegisterGrpcServer()
-		c.String(http.StatusOK, "ok")
-	})
 	r.Any("/actuator/v1/deregisterServer", func(c *gin.Context) {
-		go registry.DeregisterGrpcServer()
-		go registry.DeregisterHttpServer()
+		action := httpserver.GetRegistryAction()
+		if action != nil {
+			go action.Deregister()
+		}
 		c.String(http.StatusOK, "ok")
 	})
 	r.Any("/actuator/v1/registerServer", func(c *gin.Context) {
-		go registry.RegisterGrpcServer()
-		go registry.RegisterHttpServer()
+		action := httpserver.GetRegistryAction()
+		if action != nil {
+			go action.Register()
+		}
 		c.String(http.StatusOK, "ok")
 	})
-	s.Server = &http.Server{
+	s.httpServer = &http.Server{
 		Addr:              fmt.Sprintf(":%d", DefaultServerPort),
 		ReadTimeout:       20 * time.Second,
 		ReadHeaderTimeout: 20 * time.Second,
@@ -106,21 +90,21 @@ func (s *server) OnApplicationStart() {
 	//启动server
 	go func() {
 		logger.Logger.Infof("actuator server start port: %d", DefaultServerPort)
-		err := s.ListenAndServe()
+		err := s.httpServer.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
 			logger.Logger.Fatalf("actuator server starts failed: %v", err)
 		}
 	}()
 }
 
-func (s *server) OnApplicationShutdown() {
-	if s.Server != nil {
+func (s *Server) OnApplicationShutdown() {
+	if s.httpServer != nil {
 		logger.Logger.Info("actuator server shutdown")
-		_ = s.Shutdown(context.Background())
+		_ = s.httpServer.Shutdown(context.Background())
 	}
 }
 
-func (*server) AfterInitialize() {
+func (*Server) AfterInitialize() {
 }
 
 type UpdateLogLevelReqVO struct {

@@ -1,10 +1,9 @@
 package pprof
 
 import (
+	"context"
 	"fmt"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property/static"
-	"github.com/LeeZXin/zsf/zsf"
 	"net/http"
 	_ "net/http/pprof"
 )
@@ -13,28 +12,35 @@ const (
 	DefaultServerPort = 16098
 )
 
-func init() {
-	zsf.RegisterApplicationLifeCycle(new(server))
+type Server struct {
+	httpServer *http.Server
 }
 
-type server struct{}
+func NewServer() *Server {
+	return new(Server)
+}
 
-func (*server) OnApplicationStart() {
-	enabled := static.GetBool("pprof.enabled")
-	if enabled {
-		//启动pprof server
-		go func() {
-			//只允许本地访问
-			err := http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", DefaultServerPort), nil)
-			if err != nil && err != http.ErrServerClosed {
-				logger.Logger.Fatalf("pprof server starts failed: %v", err)
-			}
-		}()
+func (s *Server) OnApplicationStart() {
+	s.httpServer = &http.Server{
+		Addr: fmt.Sprintf("127.0.0.1:%d", DefaultServerPort),
+	}
+	//启动pprof server
+	go func() {
+		logger.Logger.Infof("pprof server start: %d", DefaultServerPort)
+		//只允许本地访问
+		err := s.httpServer.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			logger.Logger.Fatalf("pprof server starts failed: %v", err)
+		}
+	}()
+}
+
+func (s *Server) OnApplicationShutdown() {
+	if s.httpServer != nil {
+		logger.Logger.Info("pprof server shutdown")
+		s.httpServer.Shutdown(context.Background())
 	}
 }
 
-func (*server) OnApplicationShutdown() {
-}
-
-func (*server) AfterInitialize() {
+func (*Server) AfterInitialize() {
 }

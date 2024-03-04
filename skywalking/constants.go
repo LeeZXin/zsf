@@ -8,8 +8,6 @@ const (
 	ComponentIDGOGrpcStreamServer = 60005
 	ComponentIDGOGrpcStreamClient = 60006
 
-	TagGrpcMethod = "grpc.method"
 	TagRpcScheme  = "rpc.scheme"
-	TagGrpcScheme = "grpc"
 	TagHttpScheme = "http"
 )

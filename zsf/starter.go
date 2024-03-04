@@ -22,6 +22,8 @@ var (
 	runMode = atomic.Value{}
 	// 版本
 	version = atomic.Value{}
+
+	lifeCycles []LifeCycle
 )
 
 func init() {
@@ -54,6 +56,7 @@ func Run(options ...Option) {
 		for _, opt := range options {
 			opt(o)
 		}
+		lifeCycles = o.LifeCycles
 		if o.Banner != "" {
 			logger.Logger.Info(o.Banner)
 		} else {
@@ -77,20 +80,27 @@ func Run(options ...Option) {
 			createPidFile(o.PidPath)
 		}
 		runMode.Store(o.RunMode)
-		onApplicationStart()
+		for _, l := range lifeCycles {
+			l.OnApplicationStart()
+		}
 		quit.AddShutdownHook(func() {
-			onApplicationShutdown()
+			for _, l := range lifeCycles {
+				l.OnApplicationShutdown()
+			}
 		})
-		afterInitialize()
+		for _, l := range lifeCycles {
+			l.AfterInitialize()
+		}
 		quit.Wait()
 	})
 }
 
 type option struct {
-	Banner  string
-	Version string
-	PidPath string
-	RunMode string
+	Banner     string
+	Version    string
+	PidPath    string
+	RunMode    string
+	LifeCycles []LifeCycle
 }
 
 type Option func(*option)
@@ -116,6 +126,12 @@ func WithPidFile(filePath string) Option {
 func WithRunMode(runMode string) Option {
 	return func(o *option) {
 		o.RunMode = runMode
+	}
+}
+
+func WithLifeCycles(lifeCycles ...LifeCycle) Option {
+	return func(o *option) {
+		o.LifeCycles = lifeCycles
 	}
 }
 

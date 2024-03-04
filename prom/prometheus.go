@@ -3,7 +3,7 @@ package prom
 import "github.com/prometheus/client_golang/prometheus"
 
 // prometheus请求监控
-// grpcServer、grpcClient、httpServer、httpClient
+// httpServer、httpClient
 
 var (
 	HttpClientRequestTotal = prometheus.NewSummaryVec(prometheus.SummaryOpts{
