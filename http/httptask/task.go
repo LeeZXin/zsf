@@ -47,8 +47,8 @@ func init() {
 						logger.Logger.Errorf("httpTask: %s err: %s", taskName, err)
 					}
 				}()
+				c.String(http.StatusOK, "ok")
 			}
-			c.String(http.StatusOK, "ok")
 		})
 	})
 }
