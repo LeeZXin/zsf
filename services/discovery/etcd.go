@@ -21,8 +21,8 @@ type etcdDiscovery struct {
 	cache  map[string]lb.LoadBalancer
 }
 
-func (d *etcdDiscovery) Discover(name string) ([]lb.Server, error) {
-	response, err := d.client.Get(context.Background(), common.ServicePrefix+name, clientv3.WithPrefix())
+func (d *etcdDiscovery) Discover(ctx context.Context, name string) ([]lb.Server, error) {
+	response, err := d.client.Get(ctx, common.ServicePrefix+name, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (d *etcdDiscovery) ChooseServer(ctx context.Context, name string) (lb.Serve
 }
 
 func (d *etcdDiscovery) getLoadBalancer(ctx context.Context, name string) (lb.LoadBalancer, error) {
-	servers, err := d.Discover(name)
+	servers, err := d.Discover(ctx, name)
 	if err != nil {
 		logger.Logger.WithContext(ctx).Error(err)
 		return nil, err
@@ -82,8 +82,9 @@ func (d *etcdDiscovery) watch() {
 		cpy[name] = loadBalancer.GetServers()
 	}
 	d.cmu.RUnlock()
+	ctx := context.Background()
 	for name, servers := range cpy {
-		newServers, err := d.Discover(name)
+		newServers, err := d.Discover(ctx, name)
 		if err != nil {
 			logger.Logger.Error(err)
 			return

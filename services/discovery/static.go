@@ -91,7 +91,7 @@ func newStaticDiscovery() *staticDiscovery {
 	return ret
 }
 
-func (s *staticDiscovery) Discover(name string) ([]lb.Server, error) {
+func (s *staticDiscovery) Discover(_ context.Context, name string) ([]lb.Server, error) {
 	servers, ok := s.cache[name]
 	if ok {
 		return servers, nil

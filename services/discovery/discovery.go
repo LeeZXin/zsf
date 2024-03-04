@@ -58,7 +58,7 @@ func init() {
 }
 
 type Discovery interface {
-	Discover(string) ([]lb.Server, error)
+	Discover(context.Context, string) ([]lb.Server, error)
 	ChooseServer(context.Context, string) (lb.Server, error)
 }
 
@@ -67,6 +67,21 @@ func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
 		return ChooseServerWithZone(ctx, localZone, name)
 	}
 	return discoveryImpl.ChooseServer(ctx, name)
+}
+
+func Discover(ctx context.Context, name string) ([]lb.Server, error) {
+	if discoveryImpl != nil {
+		return nil, lb.ServerNotFound
+	}
+	return discoveryImpl.Discover(ctx, name)
+}
+
+func DiscoverWithZone(ctx context.Context, zone, name string) ([]lb.Server, error) {
+	discovery, b := multiEtcd[zone]
+	if !b {
+		return nil, lb.ServerNotFound
+	}
+	return discovery.Discover(ctx, name)
 }
 
 func ChooseServerWithZone(ctx context.Context, zone, name string) (lb.Server, error) {
