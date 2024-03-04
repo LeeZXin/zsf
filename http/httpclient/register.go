@@ -3,21 +3,21 @@ package httpclient
 import "sync"
 
 var (
-	interceptors   = make([]Interceptor, 0)
-	interceptorsMu = sync.Mutex{}
+	interceptors = make([]Interceptor, 0)
+	imu          = sync.Mutex{}
 )
 
-func RegisterInterceptors(f ...Interceptor) {
-	if len(f) == 0 {
+func RegisterInterceptors(is ...Interceptor) {
+	if len(is) == 0 {
 		return
 	}
-	interceptorsMu.Lock()
-	defer interceptorsMu.Unlock()
-	interceptors = append(interceptors, f...)
+	imu.Lock()
+	defer imu.Unlock()
+	interceptors = append(interceptors, is...)
 }
 
 func getInterceptors() []Interceptor {
-	interceptorsMu.Lock()
-	defer interceptorsMu.Unlock()
+	imu.Lock()
+	defer imu.Unlock()
 	return interceptors[:]
 }

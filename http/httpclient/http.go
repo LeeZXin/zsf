@@ -22,7 +22,6 @@ func init() {
 	RegisterInterceptors(
 		headerInterceptor(),
 		promInterceptor(),
-		skywalkingInterceptor(),
 	)
 	//关闭所有的连接
 	quit.AddShutdownHook(func() {

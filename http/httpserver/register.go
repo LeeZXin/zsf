@@ -31,7 +31,6 @@ func init() {
 			recoverFilter(),
 			headerFilter(),
 			promFilter(),
-			skywalkingFilter(),
 		)
 	}
 }
