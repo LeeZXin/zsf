@@ -44,16 +44,6 @@ func Dial(serviceName string) Client {
 	return ret
 }
 
-// initClient 初始化带有服务发现的http client
-func initClient(serviceName string) Client {
-	c := &clientImpl{
-		ServiceName:  serviceName,
-		Interceptors: getInterceptors(),
-		httpClient:   httputil.NewRetryableHttpClient(),
-	}
-	return c
-}
-
 // 拦截器wrapper 实现类似洋葱递归执行功能
 type interceptorsWrapper struct {
 	interceptorList []Interceptor

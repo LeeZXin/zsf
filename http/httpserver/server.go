@@ -25,28 +25,46 @@ var (
 
 type Server struct {
 	action     registry.Action
+	noRoute    gin.HandlerFunc
+	noMethod   gin.HandlerFunc
 	httpServer *http.Server
 }
 
-type serverOpts struct {
-	action registry.Action
+type opts struct {
+	action   registry.Action
+	noRoute  gin.HandlerFunc
+	noMethod gin.HandlerFunc
 }
 
-type ServerOpt func(*serverOpts)
+type Opt func(*opts)
 
-func WithRegistryAction(action registry.Action) ServerOpt {
-	return func(opts *serverOpts) {
+func WithRegistryAction(action registry.Action) Opt {
+	return func(opts *opts) {
 		opts.action = action
 	}
 }
 
-func NewServer(opts ...ServerOpt) *Server {
-	o := new(serverOpts)
-	for _, opt := range opts {
+func WithNoRoute(f gin.HandlerFunc) Opt {
+	return func(opts *opts) {
+		opts.noRoute = f
+	}
+}
+
+func WithNoMethod(f gin.HandlerFunc) Opt {
+	return func(opts *opts) {
+		opts.noMethod = f
+	}
+}
+
+func NewServer(os ...Opt) *Server {
+	o := new(opts)
+	for _, opt := range os {
 		opt(o)
 	}
 	server = &Server{
-		action: o.action,
+		action:   o.action,
+		noRoute:  o.noRoute,
+		noMethod: o.noMethod,
 	}
 	return server
 }
@@ -63,15 +81,13 @@ func (s *Server) OnApplicationStart() {
 	//静态资源文件路径
 	e.Static("/static", filepath.Join(common.ResourcesDir, "static"))
 	// 404
-	noRoute := noRouteFunc.Load()
-	if noRoute != nil {
-		e.NoRoute(noRoute.(gin.HandlerFunc))
+	if s.noRoute != nil {
+		e.NoRoute(s.noRoute)
 	}
-	noMethod := noMethodFunc.Load()
-	if noMethod != nil {
-		e.NoMethod(noMethod.(gin.HandlerFunc))
-	} else if noRoute != nil {
-		e.NoMethod(noRoute.(gin.HandlerFunc))
+	if s.noMethod != nil {
+		e.NoMethod(s.noMethod)
+	} else if s.noRoute != nil {
+		e.NoMethod(s.noMethod)
 	}
 	//filter
 	e.Use(getFilters()...)

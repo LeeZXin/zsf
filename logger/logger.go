@@ -20,8 +20,7 @@ import (
 var (
 	Logger *logrus.Logger
 
-	defaultFormatter = &logFormatter{}
-
+	defaultFormatter  = &logFormatter{}
 	defaultTimeFormat = "2006-01-02 15:04:05.000"
 )
 
@@ -105,8 +104,8 @@ func newLumberjackLogger() *lumberjack.Logger {
 	return &lumberjack.Logger{
 		Filename:   "./logs/application.log", //日志文件位置
 		MaxSize:    100,                      // 单文件最大容量,单位是MB
-		MaxBackups: 2,                        // 最大保留过期文件个数
-		MaxAge:     1,                        // 保留过期文件的最大时间间隔,单位是天
+		MaxBackups: 10,                       // 最大保留过期文件个数
+		MaxAge:     20,                       // 保留过期文件的最大时间间隔,单位是天
 		Compress:   true,                     // 是否需要压缩滚动日志, 使用的 gzip 压缩
 	}
 }

@@ -29,12 +29,14 @@ type LogContent struct {
 	Version   string `json:"version"`
 	Level     string `json:"level"`
 	Env       string `json:"env"`
+	Region    string `json:"region"`
+	Zone      string `json:"zone"`
 
 	SourceIp string `json:"sourceIp"`
 	Type     string `json:"type"`
 
-	Application string `json:"application"`
-	Content     string `json:"content"`
+	App     string `json:"app"`
+	Content string `json:"content"`
 }
 
 func newKafkaHook() logrus.Hook {
@@ -93,14 +95,16 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 	now := time.Now()
 	t, _ := now.MarshalBinary()
 	v := LogContent{
-		Timestamp:   now.UnixMilli(),
-		Version:     LogVersion,
-		Level:       entry.Level.String(),
-		Env:         env.GetEnv(),
-		SourceIp:    common.GetLocalIP(),
-		Type:        "kafka",
-		Application: common.GetApplicationName(),
-		Content:     string(content),
+		Timestamp: now.UnixMilli(),
+		Version:   LogVersion,
+		Level:     entry.Level.String(),
+		Env:       env.GetEnv(),
+		Region:    common.GetRegion(),
+		Zone:      common.GetZone(),
+		SourceIp:  common.GetLocalIP(),
+		Type:      "kafka",
+		App:       common.GetApplicationName(),
+		Content:   string(content),
 	}
 	value, _ := json.Marshal(v)
 	_ = k.writer.WriteMessages(context.Background(), kafka.Message{
@@ -166,14 +170,16 @@ func (k *nsqHook) Fire(entry *logrus.Entry) error {
 	}
 	now := time.Now()
 	v := LogContent{
-		Timestamp:   now.UnixMilli(),
-		Version:     LogVersion,
-		Level:       entry.Level.String(),
-		Env:         env.GetEnv(),
-		SourceIp:    common.GetLocalIP(),
-		Type:        "nsq",
-		Application: common.GetApplicationName(),
-		Content:     string(content),
+		Timestamp: now.UnixMilli(),
+		Version:   LogVersion,
+		Level:     entry.Level.String(),
+		Env:       env.GetEnv(),
+		Region:    common.GetRegion(),
+		Zone:      common.GetZone(),
+		SourceIp:  common.GetLocalIP(),
+		Type:      "nsq",
+		App:       common.GetApplicationName(),
+		Content:   string(content),
 	}
 	value, _ := json.Marshal(v)
 	k.task.Execute(value, len(value))
@@ -230,14 +236,16 @@ func (k *bleveHook) Fire(entry *logrus.Entry) error {
 		return err
 	}
 	k.chunkTask.Execute(LogContent{
-		Timestamp:   time.Now().UnixMilli(),
-		Version:     LogVersion,
-		Level:       entry.Level.String(),
-		Env:         env.GetEnv(),
-		SourceIp:    common.GetLocalIP(),
-		Type:        "bleve",
-		Application: common.GetApplicationName(),
-		Content:     string(content),
+		Timestamp: time.Now().UnixMilli(),
+		Version:   LogVersion,
+		Level:     entry.Level.String(),
+		Env:       env.GetEnv(),
+		Region:    common.GetRegion(),
+		Zone:      common.GetZone(),
+		SourceIp:  common.GetLocalIP(),
+		Type:      "bleve",
+		App:       common.GetApplicationName(),
+		Content:   string(content),
 	}, 1)
 	return nil
 }
