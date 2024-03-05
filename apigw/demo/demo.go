@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/apigw"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
@@ -10,7 +9,7 @@ import (
 )
 
 var (
-	routers = apigw.NewRouters(httputil.NewRetryableHttpClient())
+	routers = apigw.NewRouters()
 )
 
 func init() {

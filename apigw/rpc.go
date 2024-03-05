@@ -52,7 +52,7 @@ func (t *httpExecutor) Handle(c *ApiContext) {
 			if !c.config.AuthFunc(c) {
 				return
 			}
-		} else if !defaultAuth(c) {
+		} else if !t.defaultAuth(c) {
 			return
 		}
 		url := c.url

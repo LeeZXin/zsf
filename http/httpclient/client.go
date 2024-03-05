@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/LeeZXin/zsf/services/lb"
@@ -26,8 +25,9 @@ const (
 )
 
 type dialOption struct {
-	header map[string]string
-	zone   string
+	header    map[string]string
+	zone      string
+	discovery discovery.Discovery
 }
 
 type Option func(*dialOption)
@@ -48,6 +48,12 @@ func WithZone(zone string) Option {
 	}
 }
 
+func WithDiscovery(dis discovery.Discovery) Option {
+	return func(o *dialOption) {
+		o.discovery = dis
+	}
+}
+
 type Client interface {
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
@@ -58,17 +64,13 @@ type Client interface {
 
 type clientImpl struct {
 	ServiceName  string
-	http         *http.Client
+	httpClient   *http.Client
 	Interceptors []Interceptor
 }
 
-func (c *clientImpl) init() {
-	c.http = httputil.NewRetryableHttpClient()
-}
-
 func (c *clientImpl) Close() {
-	if c.http != nil {
-		c.http.CloseIdleConnections()
+	if c.httpClient != nil {
+		c.httpClient.CloseIdleConnections()
 	}
 }
 
@@ -98,13 +100,20 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		server lb.Server
 		err    error
 	)
+	dis := apply.discovery
+	if dis == nil {
+		dis = discovery.GetDefaultDiscovery()
+	}
+	if dis == nil {
+		return errors.New("discovery is not set")
+	}
 	if apply.zone == "" {
-		server, err = discovery.ChooseServer(ctx, c.ServiceName)
+		server, err = dis.ChooseServer(ctx, c.ServiceName)
 		if err != nil {
 			return err
 		}
 	} else {
-		server, err = discovery.ChooseServerWithZone(ctx, apply.zone, c.ServiceName)
+		server, err = dis.ChooseServerWithZone(ctx, apply.zone, c.ServiceName)
 		if err != nil {
 			return err
 		}
@@ -143,7 +152,7 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	// 去除默认User-Agent
 	request.Header.Set("User-Agent", "")
 	invoker := func(request *http.Request) (*http.Response, error) {
-		return c.http.Do(request)
+		return c.httpClient.Do(request)
 	}
 	// 执行拦截器
 	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}

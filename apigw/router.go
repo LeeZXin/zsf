@@ -6,6 +6,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
+	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -137,9 +138,35 @@ type routersImpl struct {
 	exprMatch map[*hexpr.Expr]Transport
 	//连接池
 	httpClient *http.Client
+	//服务发现
+	discovery discovery.Discovery
 }
 
-func NewRouters(httpClient *http.Client) Routers {
+type routerOpts struct {
+	httpClient *http.Client
+	discovery  discovery.Discovery
+}
+
+type RouterOpt func(*routerOpts)
+
+func WithHttpClient(httpClient *http.Client) RouterOpt {
+	return func(o *routerOpts) {
+		o.httpClient = httpClient
+	}
+}
+
+func WithDiscovery(discovery discovery.Discovery) RouterOpt {
+	return func(o *routerOpts) {
+		o.discovery = discovery
+	}
+}
+
+func NewRouters(opts ...RouterOpt) Routers {
+	o := new(routerOpts)
+	for _, opt := range opts {
+		opt(o)
+	}
+	httpClient := o.httpClient
 	if httpClient == nil {
 		httpClient = httputil.NewRetryableHttpClient()
 	}

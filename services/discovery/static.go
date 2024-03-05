@@ -7,6 +7,7 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/lb"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ type staticDiscovery struct {
 	router map[string]lb.LoadBalancer
 }
 
-func newStaticDiscovery() *staticDiscovery {
+func NewStaticDiscovery() Discovery {
 	ret := new(staticDiscovery)
 	path := fmt.Sprintf(filepath.Join(common.ResourcesDir, "static-discovery-%s.json"), env.GetEnv())
 	content, err := os.ReadFile(path)
@@ -44,7 +45,11 @@ func newStaticDiscovery() *staticDiscovery {
 		content, err = os.ReadFile(path)
 		if err != nil {
 			logger.Logger.Fatalf("can not find static-discovery.json: %v", err)
+		} else {
+			logger.Logger.Infof("read %s", path)
 		}
+	} else {
+		logger.Logger.Infof("read %s", path)
 	}
 	var config staticConfig
 	err = json.Unmarshal(content, &config)
@@ -80,6 +85,7 @@ func newStaticDiscovery() *staticDiscovery {
 		}
 		ret.cache[staticServers.Name] = servers
 	}
+	lbPolicy := static.GetString("discovery.lbPolicy")
 	ret.router = make(map[string]lb.LoadBalancer, len(ret.cache))
 	for name, servers := range ret.cache {
 		balancer := &lb.NearbyLoadBalancer{
@@ -99,10 +105,18 @@ func (s *staticDiscovery) Discover(_ context.Context, name string) ([]lb.Server,
 	return []lb.Server{}, nil
 }
 
+func (s *staticDiscovery) DiscoverWithZone(context.Context, string, string) ([]lb.Server, error) {
+	return nil, lb.ServerNotFound
+}
+
 func (s *staticDiscovery) ChooseServer(ctx context.Context, name string) (lb.Server, error) {
 	balancer, b := s.router[name]
 	if !b {
 		return lb.Server{}, lb.ServerNotFound
 	}
 	return balancer.ChooseServer(ctx)
+}
+
+func (s *staticDiscovery) ChooseServerWithZone(context.Context, string, string) (lb.Server, error) {
+	return lb.Server{}, lb.ServerNotFound
 }

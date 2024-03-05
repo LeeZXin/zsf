@@ -2,6 +2,7 @@ package apigw
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/services/discovery"
@@ -13,10 +14,14 @@ type hostSelector interface {
 
 type ipPortSelector struct {
 	serviceName string
+	discovery   discovery.Discovery
 }
 
 func (s *ipPortSelector) Select(ctx context.Context) (string, error) {
-	server, err := discovery.ChooseServer(ctx, s.serviceName)
+	if s.discovery == nil {
+		return "", errors.New("nil discovery")
+	}
+	server, err := s.discovery.ChooseServer(ctx, s.serviceName)
 	if err != nil {
 		return "", err
 	}

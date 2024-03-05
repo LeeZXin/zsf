@@ -2,6 +2,7 @@ package httpclient
 
 import (
 	"github.com/LeeZXin/zsf-utils/collections/hashmap"
+	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"net/http"
 )
@@ -34,7 +35,11 @@ func init() {
 // Dial 获取服务的client
 func Dial(serviceName string) Client {
 	ret, _, _ := clientCache.GetOrPutWithLoader(serviceName, func() (Client, error) {
-		return initClient(serviceName), nil
+		return &clientImpl{
+			ServiceName:  serviceName,
+			Interceptors: getInterceptors(),
+			httpClient:   httputil.NewRetryableHttpClient(),
+		}, nil
 	})
 	return ret
 }
@@ -44,8 +49,8 @@ func initClient(serviceName string) Client {
 	c := &clientImpl{
 		ServiceName:  serviceName,
 		Interceptors: getInterceptors(),
+		httpClient:   httputil.NewRetryableHttpClient(),
 	}
-	c.init()
 	return c
 }
 

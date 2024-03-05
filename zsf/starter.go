@@ -5,6 +5,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/services/discovery"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"os"
 	"path/filepath"
@@ -56,6 +57,9 @@ func Run(options ...Option) {
 		for _, opt := range options {
 			opt(o)
 		}
+		if o.discovery != nil {
+			discovery.SetDefaultDiscovery(o.discovery)
+		}
 		lifeCycles = o.LifeCycles
 		if o.Banner != "" {
 			logger.Logger.Info(o.Banner)
@@ -100,6 +104,7 @@ type option struct {
 	Version    string
 	PidPath    string
 	RunMode    string
+	discovery  discovery.Discovery
 	LifeCycles []LifeCycle
 }
 
@@ -126,6 +131,12 @@ func WithPidFile(filePath string) Option {
 func WithRunMode(runMode string) Option {
 	return func(o *option) {
 		o.RunMode = runMode
+	}
+}
+
+func WithDiscovery(d discovery.Discovery) Option {
+	return func(o *option) {
+		o.discovery = d
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/spf13/cast"
 	"net/http"
@@ -32,7 +31,7 @@ const (
 type AuthFunc func(*ApiContext) bool
 
 var (
-	httpClient = httputil.NewRetryableHttpClient()
+// httpClient = httputil.NewRetryableHttpClient()
 )
 
 type AuthUri struct {
@@ -75,7 +74,7 @@ func (c *AuthConfig) Validate() error {
 	return nil
 }
 
-func defaultAuth(c *ApiContext) bool {
+func (t *httpExecutor) defaultAuth(c *ApiContext) bool {
 	config, b := c.config.AuthConfig.(AuthConfig)
 	if !b {
 		c.String(http.StatusInternalServerError, "")
@@ -121,7 +120,7 @@ func defaultAuth(c *ApiContext) bool {
 		authReq.Header.Set(k, v)
 	}
 	authReq.Header.Set(ContentTypeTag, JsonContentType)
-	resp, err := httpClient.Do(authReq)
+	resp, err := t.httpClient.Do(authReq)
 	if err != nil {
 		c.String(config.ErrorStatusCode, config.ErrorMessage)
 		return false

@@ -2,94 +2,40 @@ package discovery
 
 import (
 	"context"
-	"github.com/LeeZXin/zsf/logger"
+	"errors"
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/lb"
-	"github.com/spf13/cast"
 )
 
 var (
-	discoveryType = static.GetString("discovery.type")
-	lbPolicy      = static.GetString("discovery.lbPolicy")
-
-	multiEtcd     = make(map[string]Discovery)
-	discoveryImpl Discovery
-	localZone     string
-)
-
-const (
-	StaticDiscoveryType    = "static"
-	EtcdDiscoveryType      = "etcd"
-	MultiEtcdDiscoveryType = "multiEtcd"
+	defaultDiscovery Discovery
 )
 
 func init() {
-	switch discoveryType {
-	case StaticDiscoveryType:
-		discoveryImpl = newStaticDiscovery()
-	case EtcdDiscoveryType:
-		discoveryImpl = newEtcdDiscovery(
-			static.GetString("discovery.etcd.endpoints"),
-			static.GetString("discovery.etcd.username"),
-			static.GetString("discovery.etcd.password"),
-		)
-	case MultiEtcdDiscoveryType:
-		localZone = static.GetString("discovery.zone")
-		if localZone == "" {
-			logger.Logger.Fatalf("empty discovery.zone")
-		}
-		etcdCfgs := static.GetMapSlice("discovery.multi")
-		for _, etcdCfg := range etcdCfgs {
-			zone := cast.ToString(etcdCfg["zone"])
-			if zone == "" {
-				continue
-			}
-			_, b := multiEtcd[zone]
-			if b {
-				logger.Logger.Fatalf("duplicated discovery.multi.zone")
-			}
-			endpoints := cast.ToString(etcdCfg["endpoints"])
-			username := cast.ToString(etcdCfg["username"])
-			password := cast.ToString(etcdCfg["password"])
-			multiEtcd[zone] = newEtcdDiscovery(endpoints, username, password)
-		}
+	switch static.GetString("discovery.type") {
+	case "static":
+		defaultDiscovery = NewStaticDiscovery()
+	case "etcd":
+		defaultDiscovery = NewEtcdDiscovery()
+	case "multiEtcd":
+		defaultDiscovery = NewMultiEtcdDiscovery()
 	}
+}
+
+func GetDefaultDiscovery() Discovery {
+	return defaultDiscovery
+}
+
+func SetDefaultDiscovery(discovery Discovery) {
+	defaultDiscovery = discovery
 }
 
 type Discovery interface {
 	Discover(context.Context, string) ([]lb.Server, error)
+	DiscoverWithZone(context.Context, string, string) ([]lb.Server, error)
 	ChooseServer(context.Context, string) (lb.Server, error)
-}
-
-func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
-	if discoveryType == MultiEtcdDiscoveryType {
-		return ChooseServerWithZone(ctx, localZone, name)
-	}
-	return discoveryImpl.ChooseServer(ctx, name)
-}
-
-func Discover(ctx context.Context, name string) ([]lb.Server, error) {
-	if discoveryImpl == nil {
-		return nil, lb.ServerNotFound
-	}
-	return discoveryImpl.Discover(ctx, name)
-}
-
-func DiscoverWithZone(ctx context.Context, zone, name string) ([]lb.Server, error) {
-	discovery, b := multiEtcd[zone]
-	if !b {
-		return nil, lb.ServerNotFound
-	}
-	return discovery.Discover(ctx, name)
-}
-
-func ChooseServerWithZone(ctx context.Context, zone, name string) (lb.Server, error) {
-	discovery, b := multiEtcd[zone]
-	if !b {
-		return lb.Server{}, lb.ServerNotFound
-	}
-	return discovery.ChooseServer(ctx, name)
+	ChooseServerWithZone(context.Context, string, string) (lb.Server, error)
 }
 
 func compareServers(s1, s2 []lb.Server) bool {
@@ -109,4 +55,32 @@ func compareServers(s1, s2 []lb.Server) bool {
 		}
 	}
 	return true
+}
+
+func Discover(ctx context.Context, name string) ([]lb.Server, error) {
+	if defaultDiscovery == nil {
+		return nil, errors.New("nil discovery")
+	}
+	return defaultDiscovery.Discover(ctx, name)
+}
+
+func DiscoverWithZone(ctx context.Context, zone string, name string) ([]lb.Server, error) {
+	if defaultDiscovery == nil {
+		return nil, errors.New("nil discovery")
+	}
+	return defaultDiscovery.DiscoverWithZone(ctx, zone, name)
+}
+
+func ChooseServer(ctx context.Context, name string) (lb.Server, error) {
+	if defaultDiscovery == nil {
+		return lb.Server{}, errors.New("nil discovery")
+	}
+	return defaultDiscovery.ChooseServer(ctx, name)
+}
+
+func ChooseServerWithZone(ctx context.Context, zone string, name string) (lb.Server, error) {
+	if defaultDiscovery == nil {
+		return lb.Server{}, errors.New("nil discovery")
+	}
+	return defaultDiscovery.ChooseServerWithZone(ctx, zone, name)
 }
