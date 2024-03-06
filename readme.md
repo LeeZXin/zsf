@@ -1,15 +1,15 @@
 zsf
 ---
-> zsf是一套http、grpc的golang后端服务框架  
+> zsf是在gin基础上扩展微服务的golang后端服务框架  
 > 意在提供服务治理、标准化代码模版、主要想解决后端服务从单体到小型微服务再到中大型微服务升级成本最小化问题  
-> 在gin、grpc、consul、skywalking、prometheus、pprof、xorm等基础上扩展了新功能  
+> 在gin、prometheus、pprof、xorm等基础上扩展了新功能  
 > 基础组件有协程池、广播组件、通用负载均衡组件、异步任务调度引擎等   
-> 以consul作为服务发现、注册以及配置中心使用  
+> 以etcd作为服务发现、注册以及配置中心使用  
 > logrus异步化写日志支持和kafka、nsq hook  
 > kafka、nsq consumer封装
 >
 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等
-> rpc、监控、限流、请求header传递、prometheus监控、go2sky接入等  
+> rpc、监控、限流、请求header传递、prometheus监控等  
 > xorm慢sql日志告警  
 > 支持自定义流程编排规则zengine
 >
@@ -62,17 +62,17 @@ http和grpc之间的请求头传递
 5、服务注册
 
 ```
-实现了http和grpc server的服务注册并定时上报consul心跳
+实现了http server的服务注册并定时上报etcd  
 ```
 
 6、服务发现
 
 ```
-实现http client和grpc client的服务发现  
-配合通用负载均衡路由，实现了http client和grpc client的负载均衡  
+实现http client服务发现，跨注册中心服务发现  
+配合通用负载均衡路由，实现了http client的负载均衡  
 轮询路由和加权轮询路由  
 其中默认实现了按版本号路由，可用于灰度发布，优先发送请求给相同版本的服务，若没有，发送给其他版本服务
-有实现以consul服务发现以及文件服务发现
+有实现以etcd服务发现以及文件服务发现
 ```
 
 7、prometheus server
@@ -81,7 +81,7 @@ http和grpc之间的请求头传递
 专门为prometheus的抓取启动新的http server，端口默认是16005
 ```
 
-8、viper多环境配置和consul配置中心
+8、viper多环境配置和etcd配置中心
 
 ```
 配置文件默认路径是./resources/application.yaml
@@ -89,9 +89,7 @@ http和grpc之间的请求头传递
 
 优先加载application.yaml, 其他application-sit.yaml会覆盖application.yaml
 
-实现监听consul配置中心变化来更新本地配置
-
-实现监听某个key变化触发回调功能
+实现监听etcd配置中心变化来更新本地配置
 ```
 
 9、pprof server
@@ -100,27 +98,13 @@ http和grpc之间的请求头传递
 必要时可以打开pprof server可分析程序 只能本地访问
 ```
 
-10、go2sky接入
-
-```
-skywalking grpc上报
-接入skywalking, 默认0.6采样率，可根据配置中心变更来动态调整
-实现http->grpc、grpc->http、等链路skywalking的打通
-```
-
-11、限流熔断
+10、限流熔断
 
 ```
 sentinel做限流熔断
 ```
 
-12、字段校验validator
-
-```
-魔改了一个开源库，使其能返回自定义错误信息
-```
-
-13、业务网关组件
+11、业务网关组件
 
 ```
 支持全匹配、前缀匹配、表达式匹配，path重写策略
@@ -131,7 +115,7 @@ sentinel做限流熔断
 mock请求返回结果, 支持任意http的statusCode，返回结果支持json和string两种类型
 ```
 
-14、流程编排引擎zengine
+12、流程编排引擎zengine
 
 ```
 可通过配置，对流程节点进行编排，不用发版便可修改函数调用顺序
@@ -139,7 +123,7 @@ mock请求返回结果, 支持任意http的statusCode，返回结果支持json�
 脚本节点使用gopher-lua
 ```
 
-15、异步任务调度引擎
+13、异步任务调度引擎
 
 ```
 参考java completablefuture思想 做的异步任务调度引擎 completable包下  
