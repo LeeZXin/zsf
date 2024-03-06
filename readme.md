@@ -40,10 +40,7 @@ zsf
 ```
 类似消息队列，可实现对一个topic进行广播
 通常用于不同模块之间的通信
-降低各模块的耦合
-
-被用来配置key变更触发回调
-grpc client服务发现ip列表变更触发回调
+降低各模块的耦合  
 ```
 
 4、rpc服务
@@ -52,10 +49,8 @@ grpc client服务发现ip列表变更触发回调
 gin的http server端实现
 gin + nhooyr扩展对websocket server的支持
 
-grpc server的实现
-
-实现prometheus对http、grpc请求的耗时频率监控
-http和grpc之间的请求头传递
+实现prometheus对http请求的耗时频率监控
+http之间的请求头传递
 ```
 
 5、服务注册
