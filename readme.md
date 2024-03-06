@@ -6,9 +6,8 @@ zsf
 > 基础组件有协程池、广播组件、通用负载均衡组件、异步任务调度引擎等   
 > 以etcd作为服务发现、注册以及配置中心使用  
 > logrus异步化写日志支持和kafka、nsq hook  
-> kafka、nsq consumer封装
->
-实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等
+> kafka、nsq consumer封装  
+> 实现api网关组件，可利用组件快速实现自定义api网关，支持mock请求返回结果，支持多种匹配策略，网关层支持http代理转发、负载均衡等
 > rpc、监控、限流、请求header传递、prometheus监控等  
 > xorm慢sql日志告警  
 > 支持自定义流程编排规则zengine
