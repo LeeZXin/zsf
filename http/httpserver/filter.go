@@ -78,7 +78,7 @@ func headerFilter() gin.HandlerFunc {
 			c.Request.Header.Set(rpcheader.TraceId, idutil.RandomUuid())
 		}
 		clone := CopyRequestHeader(c)
-		ctx := rpcheader.SetHeaders(c, clone)
+		ctx := rpcheader.SetHeaders(c.Request.Context(), clone)
 		ctx = logger.AppendToMDC(ctx, map[string]string{
 			logger.TraceId: clone.Get(rpcheader.TraceId),
 		})
