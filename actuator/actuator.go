@@ -28,6 +28,7 @@ func NewServer() *Server {
 func (s *Server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.ContextWithFallback = true
 	// 健康状态检查
 	r.Any("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "")

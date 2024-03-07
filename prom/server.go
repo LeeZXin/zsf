@@ -27,6 +27,7 @@ func NewServer() *Server {
 func (s *Server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.ContextWithFallback = true
 	r.Any("/metrics", gin.WrapH(promhttp.Handler()))
 	s.httpServer = &http.Server{
 		Addr:              fmt.Sprintf(":%d", DefaultServerPort),

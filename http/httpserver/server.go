@@ -78,6 +78,7 @@ func (s *Server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
 	e := gin.New()
+	e.ContextWithFallback = true
 	//静态资源文件路径
 	e.Static("/static", filepath.Join(common.ResourcesDir, "static"))
 	// 404
@@ -89,6 +90,7 @@ func (s *Server) OnApplicationStart() {
 	} else if s.noRoute != nil {
 		e.NoMethod(s.noMethod)
 	}
+	e.ContextWithFallback = true
 	//filter
 	e.Use(getFilters()...)
 	fnList := getRegisterFuncList()
