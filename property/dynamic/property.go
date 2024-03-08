@@ -160,13 +160,22 @@ func (o *observer) dealChan(wchan clientv3.WatchChan) {
 
 func (o *observer) newViper(name string, content []byte) (*viper.Viper, error) {
 	v := viper.New()
-	v.SetConfigType(path.Base(name))
+	v.SetConfigType(path.Base(splitName(name)))
 	err := v.MergeConfig(bytes.NewReader(content))
 	if err != nil {
 		logger.Logger.Errorf("merge remote config err, name: %s, err: %v", name, err)
 		return nil, err
 	}
 	return v, nil
+}
+
+// splitName 分离版本号 格式是 xxx/v00001
+func splitName(name string) string {
+	ret, _, found := strings.Cut(name, "/")
+	if found {
+		return ret
+	}
+	return name
 }
 
 func (o *observer) init() {
