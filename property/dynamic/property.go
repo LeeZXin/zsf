@@ -1,8 +1,8 @@
 package dynamic
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
@@ -160,22 +160,20 @@ func (o *observer) dealChan(wchan clientv3.WatchChan) {
 
 func (o *observer) newViper(name string, content []byte) (*viper.Viper, error) {
 	v := viper.New()
-	v.SetConfigType(path.Base(splitName(name)))
-	err := v.MergeConfig(bytes.NewReader(content))
+	v.SetConfigType(path.Base(name))
+	var val contentVal
+	err := json.Unmarshal(content, &val)
+	if err != nil {
+		logger.Logger.Errorf("json.Unmarshal config err, name: %s, err: %v", name, err)
+		return nil, err
+	}
+	err = v.MergeConfig(strings.NewReader(val.Content))
 	if err != nil {
 		logger.Logger.Errorf("merge remote config err, name: %s, err: %v", name, err)
 		return nil, err
 	}
+	logger.Logger.Infof("merge remote config successfully name: %s, version: %s", name, val.Version)
 	return v, nil
-}
-
-// splitName 分离版本号 格式是 xxx/v00001
-func splitName(name string) string {
-	ret, _, found := strings.Cut(name, "/")
-	if found {
-		return ret
-	}
-	return name
 }
 
 func (o *observer) init() {
@@ -192,6 +190,11 @@ func (o *observer) init() {
 		o.cache[obj.Name] = v
 	}
 	go o.watchRemote()
+}
+
+type contentVal struct {
+	Version string `json:"version"`
+	Content string `json:"content"`
 }
 
 func GetString(key, path string) string {
