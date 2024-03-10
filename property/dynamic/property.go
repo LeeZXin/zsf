@@ -43,11 +43,7 @@ func (o *observer) Close() {
 func newObserver() *observer {
 	o := new(observer)
 	o.cache = make(map[string]*viper.Viper, 8)
-	namespace := static.GetString("property.dynamic.namespace")
-	if namespace == "" {
-		namespace = "default"
-	}
-	o.key = common.PropertyPrefix + namespace + "/" + common.GetApplicationName() + "/"
+	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
 	var err error
 	o.client, err = clientv3.New(clientv3.Config{
 		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.hosts"), ";"),
@@ -75,6 +71,9 @@ type propObj struct {
 func (o *observer) readRemote() ([]propObj, int64) {
 	response, err := o.client.Get(o.ctx, o.key, clientv3.WithPrefix())
 	if err != nil {
+		if strings.Contains(err.Error(), "permission denied") {
+			logger.Logger.Fatalf("dynamic property permission denied")
+		}
 		logger.Logger.Error(err)
 		return nil, 0
 	}
@@ -93,9 +92,9 @@ func (o *observer) watchRemote() {
 		if o.ctx.Err() != nil {
 			return
 		}
-		logger.Logger.Infof("try to watch prefix: %s with revision: %d", o.key, o.rev)
+		logger.Logger.Infof("try to watch prefix: %s with revision: %d", o.key, o.rev+1)
 		watcher := clientv3.NewWatcher(o.client)
-		wchan := watcher.Watch(o.ctx, o.key, clientv3.WithPrefix(), clientv3.WithRev(o.rev))
+		wchan := watcher.Watch(o.ctx, o.key, clientv3.WithPrefix(), clientv3.WithRev(o.rev+1))
 		o.dealChan(wchan)
 		watcher.Close()
 		time.Sleep(10 * time.Second)
@@ -138,18 +137,20 @@ func (o *observer) dealChan(wchan clientv3.WatchChan) {
 			for _, event := range data.Events {
 				switch event.Type {
 				case clientv3.EventTypeDelete:
-					if event.PrevKv != nil {
-						key := strings.TrimPrefix(string(event.PrevKv.Key), o.key)
+					if event.Kv != nil {
+						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
 						logger.Logger.Infof("delete dynamic key: %s", key)
 						o.deleteKey(key)
 					}
 				case clientv3.EventTypePut:
 					if event.Kv != nil {
 						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						v, err := o.newViper(key, event.Kv.Value)
+						v, b, err := o.newViper(key, event.Kv.Value)
 						if err == nil {
-							logger.Logger.Infof("reset dynamic key: %s", key)
-							o.putKey(key, v)
+							logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
+							if !b {
+								o.putKey(key, v)
+							}
 						}
 					}
 				}
@@ -158,22 +159,33 @@ func (o *observer) dealChan(wchan clientv3.WatchChan) {
 	}
 }
 
-func (o *observer) newViper(name string, content []byte) (*viper.Viper, error) {
-	v := viper.New()
-	v.SetConfigType(path.Base(name))
+func ext(name string) string {
+	ret := path.Ext(name)
+	if len(ret) > 0 {
+		return ret[1:]
+	}
+	return ret
+}
+
+func (o *observer) newViper(name string, content []byte) (*viper.Viper, bool, error) {
+	v, b := o.getViper(name)
+	if !b {
+		v = viper.New()
+		v.SetConfigType(ext(name))
+	}
 	var val contentVal
 	err := json.Unmarshal(content, &val)
 	if err != nil {
 		logger.Logger.Errorf("json.Unmarshal config err, name: %s, err: %v", name, err)
-		return nil, err
+		return nil, false, err
 	}
 	err = v.MergeConfig(strings.NewReader(val.Content))
 	if err != nil {
 		logger.Logger.Errorf("merge remote config err, name: %s, err: %v", name, err)
-		return nil, err
+		return nil, false, err
 	}
 	logger.Logger.Infof("merge remote config successfully name: %s, version: %s", name, val.Version)
-	return v, nil
+	return v, b, nil
 }
 
 func (o *observer) init() {
@@ -183,7 +195,7 @@ func (o *observer) init() {
 		if obj.Name == "" {
 			continue
 		}
-		v, err := o.newViper(obj.Name, obj.Content)
+		v, _, err := o.newViper(obj.Name, obj.Content)
 		if err != nil {
 			continue
 		}
@@ -197,8 +209,16 @@ type contentVal struct {
 	Content string `json:"content"`
 }
 
-func GetString(key, path string) string {
+func getViper(key string) (*viper.Viper, bool) {
 	v, b := ob.getViper(key)
+	if !b {
+		logger.Logger.Errorf("no dynamic viper: %s", key)
+	}
+	return v, b
+}
+
+func GetString(key, path string) string {
+	v, b := getViper(key)
 	if !b {
 		return ""
 	}
@@ -206,7 +226,7 @@ func GetString(key, path string) string {
 }
 
 func GetInt(key, path string) int {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return 0
 	}
@@ -214,7 +234,7 @@ func GetInt(key, path string) int {
 }
 
 func Get(key, path string) any {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return nil
 	}
@@ -222,7 +242,7 @@ func Get(key, path string) any {
 }
 
 func GetBool(key, path string) bool {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return false
 	}
@@ -230,7 +250,7 @@ func GetBool(key, path string) bool {
 }
 
 func GetFloat64(key, path string) float64 {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return 0
 	}
@@ -238,7 +258,7 @@ func GetFloat64(key, path string) float64 {
 }
 
 func GetStringMapString(key, path string) map[string]string {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return make(map[string]string)
 	}
@@ -246,7 +266,7 @@ func GetStringMapString(key, path string) map[string]string {
 }
 
 func GetStringMap(key, path string) map[string]any {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return make(map[string]any)
 	}
@@ -254,7 +274,7 @@ func GetStringMap(key, path string) map[string]any {
 }
 
 func Exists(key, path string) bool {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return false
 	}
@@ -262,7 +282,7 @@ func Exists(key, path string) bool {
 }
 
 func GetInt64(key, path string) int64 {
-	v, b := ob.getViper(key)
+	v, b := getViper(key)
 	if !b {
 		return 0
 	}

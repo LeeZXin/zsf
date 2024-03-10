@@ -58,3 +58,10 @@ httptask:
 
 # git tag -a "v1.0.1" -m "beta"
 # git push origin master --tags
+
+property:
+  dynamic:
+    etcd:
+      hosts: 127.0.0.1:2379
+      username: my-runner
+      password: HBzyGQzFvrzx5uQG

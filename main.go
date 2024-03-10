@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/LeeZXin/zsf/actuator"
 	"github.com/LeeZXin/zsf/http/httpserver"
-	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/pprof"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/services/discovery"
@@ -16,7 +15,6 @@ import (
 func main() {
 	httpserver.AppendRegisterRouterFunc(func(e *gin.Engine) {
 		e.GET("/helloWorld", func(c *gin.Context) {
-			logger.Logger.WithContext(c).Info("helloWorld")
 			c.String(http.StatusOK, "ok")
 		})
 	})
