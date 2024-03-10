@@ -1,8 +1,9 @@
 package dynamic
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
@@ -138,40 +139,25 @@ func (o *observer) dealChan(wchan clientv3.WatchChan) {
 				switch event.Type {
 				case clientv3.EventTypeDelete:
 					if event.Kv != nil {
-						raw := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						key, _, b := splitVersionAndKey(raw)
-						if !b {
-							logger.Logger.Errorf("unsupported format dynamic key: %s", raw)
-						} else {
-							logger.Logger.Infof("delete dynamic key: %s", key)
-							o.deleteKey(key)
-						}
+						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
+						logger.Logger.Infof("delete dynamic key: %s", key)
+						o.deleteKey(key)
 					}
 				case clientv3.EventTypePut:
 					if event.Kv != nil {
-						raw := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						key, version, b := splitVersionAndKey(raw)
-						if !b {
-							logger.Logger.Errorf("unsupported format dynamic key: %s", raw)
-						} else {
-							v, b, err := o.newViper(key, version, event.Kv.Value)
-							if err == nil {
-								logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
-								if !b {
-									o.putKey(key, v)
-								}
+						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
+						v, b, err := o.newViper(key, event.Kv.Value)
+						if err == nil {
+							logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
+							if !b {
+								o.putKey(key, v)
 							}
 						}
-
 					}
 				}
 			}
 		}
 	}
-}
-
-func splitVersionAndKey(key string) (string, string, bool) {
-	return strings.Cut(key, "/")
 }
 
 func ext(name string) string {
@@ -182,18 +168,28 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *observer) newViper(key, version string, content []byte) (*viper.Viper, bool, error) {
+func (o *observer) newViper(key string, content []byte) (*viper.Viper, bool, error) {
 	v, b := o.getViper(key)
 	if !b {
 		v = viper.New()
 		v.SetConfigType(ext(key))
 	}
-	err := v.MergeConfig(bytes.NewReader(content))
+	var val contentVal
+	err := json.Unmarshal(content, &val)
+	if err != nil {
+		logger.Logger.Errorf("read remote config is not json format: %s", key)
+		return nil, false, err
+	}
+	if val.Version == "" {
+		logger.Logger.Errorf("read remote config version is empty: %s", key)
+		return nil, false, errors.New("empty version")
+	}
+	err = v.MergeConfig(strings.NewReader(val.Content))
 	if err != nil {
 		logger.Logger.Errorf("merge remote config err, key: %s, err: %v", key, err)
 		return nil, false, err
 	}
-	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, version)
+	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, val.Version)
 	return v, b, nil
 }
 
@@ -204,16 +200,12 @@ func (o *observer) init() {
 		if obj.Key == "" {
 			continue
 		}
-		key, version, b := splitVersionAndKey(obj.Key)
-		if b {
-			v, _, err := o.newViper(key, version, obj.Content)
-			if err != nil {
-				continue
-			}
-			o.cache[key] = v
-		} else {
-			logger.Logger.Errorf("unsupported format dynamic key: %s", obj.Key)
+		key := obj.Key
+		v, _, err := o.newViper(key, obj.Content)
+		if err != nil {
+			continue
 		}
+		o.cache[key] = v
 	}
 	go o.watchRemote()
 }
