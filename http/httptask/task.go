@@ -10,7 +10,7 @@ import (
 	"net/url"
 )
 
-type HttpTask func(io.Reader, url.Values)
+type HttpTask func([]byte, url.Values)
 
 var (
 	taskMap = make(map[string]HttpTask, 8)
@@ -36,8 +36,12 @@ func init() {
 			if !b {
 				c.String(http.StatusNotFound, "task not found")
 			} else {
-				body := c.Request.Body
-				defer body.Close()
+				defer c.Request.Body.Close()
+				body, err := io.ReadAll(c.Request.Body)
+				if err != nil {
+					c.String(http.StatusInternalServerError, "read body failed")
+					return
+				}
 				go func() {
 					if err := threadutil.RunSafe(func() {
 						task(body, c.Request.URL.Query())
