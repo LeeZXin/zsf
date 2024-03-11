@@ -55,11 +55,7 @@ func newRoundRobinSelector(targets []string) hostSelector {
 }
 
 func (s *roundRobinSelector) Select(context.Context) (string, error) {
-	lenTargets := len(s.targets)
-	if lenTargets == 0 {
-		return "", errors.New("empty targets")
-	}
-	return s.targets[s.index.Add(1)%uint64(lenTargets)], nil
+	return s.targets[s.index.Add(1)%uint64(len(s.targets))], nil
 }
 
 type weightedTarget struct {
