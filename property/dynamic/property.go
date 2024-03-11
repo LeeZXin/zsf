@@ -19,10 +19,10 @@ import (
 )
 
 var (
-	ob = newObserver()
+	loader = newPropertyLoader()
 )
 
-type observer struct {
+type propertyLoader struct {
 	sync.RWMutex
 	cache      map[string]*viper.Viper
 	client     *clientv3.Client
@@ -32,7 +32,7 @@ type observer struct {
 	rev        int64
 }
 
-func (o *observer) Close() {
+func (o *propertyLoader) Close() {
 	logger.Logger.Infof("dynamic property observer closed")
 	o.cancelFunc()
 	o.client.Close()
@@ -41,8 +41,8 @@ func (o *observer) Close() {
 	o.cache = nil
 }
 
-func newObserver() *observer {
-	o := new(observer)
+func newPropertyLoader() *propertyLoader {
+	o := new(propertyLoader)
 	o.cache = make(map[string]*viper.Viper, 8)
 	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
 	var err error
@@ -51,7 +51,7 @@ func newObserver() *observer {
 		AutoSyncInterval: time.Minute,
 		DialTimeout:      10 * time.Second,
 		Username:         static.GetString("property.dynamic.etcd.username"),
-		Password:         static.GetString("property.dynamic.etcd.password"),
+		Password:         static.GetString("property.dynamic.etcd.dyna"),
 		Logger:           zap.NewNop(),
 	})
 	if err != nil {
@@ -69,7 +69,7 @@ type propObj struct {
 	Content []byte
 }
 
-func (o *observer) readRemote() ([]propObj, int64) {
+func (o *propertyLoader) readRemote() ([]propObj, int64) {
 	response, err := o.client.Get(o.ctx, o.key, clientv3.WithPrefix())
 	if err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
@@ -88,7 +88,7 @@ func (o *observer) readRemote() ([]propObj, int64) {
 	return ret, response.Header.GetRevision()
 }
 
-func (o *observer) watchRemote() {
+func (o *propertyLoader) watchRemote() {
 	for {
 		if o.ctx.Err() != nil {
 			return
@@ -102,26 +102,26 @@ func (o *observer) watchRemote() {
 	}
 }
 
-func (o *observer) deleteKey(key string) {
+func (o *propertyLoader) deleteKey(key string) {
 	o.Lock()
 	defer o.Unlock()
 	delete(o.cache, key)
 }
 
-func (o *observer) putKey(key string, v *viper.Viper) {
+func (o *propertyLoader) putKey(key string, v *viper.Viper) {
 	o.Lock()
 	defer o.Unlock()
 	o.cache[key] = v
 }
 
-func (o *observer) getViper(key string) (*viper.Viper, bool) {
+func (o *propertyLoader) getViper(key string) (*viper.Viper, bool) {
 	o.RLock()
 	defer o.RUnlock()
 	ret, b := o.cache[key]
 	return ret, b
 }
 
-func (o *observer) dealChan(wchan clientv3.WatchChan) {
+func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
 	for {
 		select {
 		case <-o.ctx.Done():
@@ -168,7 +168,7 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *observer) newViper(key string, content []byte) (*viper.Viper, bool, error) {
+func (o *propertyLoader) newViper(key string, content []byte) (*viper.Viper, bool, error) {
 	v, b := o.getViper(key)
 	if !b {
 		v = viper.New()
@@ -193,7 +193,7 @@ func (o *observer) newViper(key string, content []byte) (*viper.Viper, bool, err
 	return v, b, nil
 }
 
-func (o *observer) init() {
+func (o *propertyLoader) init() {
 	objList, rev := o.readRemote()
 	o.rev = rev
 	for _, obj := range objList {
@@ -216,7 +216,7 @@ type contentVal struct {
 }
 
 func getViper(key string) (*viper.Viper, bool) {
-	v, b := ob.getViper(key)
+	v, b := loader.getViper(key)
 	if !b {
 		logger.Logger.Errorf("no dynamic viper: %s", key)
 	}

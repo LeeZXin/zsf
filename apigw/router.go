@@ -3,12 +3,16 @@ package apigw
 import (
 	"errors"
 	"github.com/LeeZXin/zsf-utils/httputil"
-	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/gin-gonic/gin"
 	"net/http"
+)
+
+const (
+	RoundRobinPolicy         = "round_robin"
+	WeightedRoundRobinPolicy = "weighted_round_robin"
 )
 
 // 路由策略
@@ -72,7 +76,7 @@ type RouterConfig struct {
 
 func (r *RouterConfig) FillDefaultVal() {
 	if r.TargetLbPolicy == "" {
-		r.TargetLbPolicy = selector.RoundRobinPolicy
+		r.TargetLbPolicy = RoundRobinPolicy
 	}
 	if r.RewriteType == "" {
 		r.RewriteType = CopyFullPathRewriteType
@@ -108,7 +112,7 @@ func (r *RouterConfig) Validate() error {
 	}
 	if r.TargetType != MockTargetType {
 		switch r.TargetLbPolicy {
-		case selector.RoundRobinPolicy, selector.WeightedRoundRobinPolicy:
+		case RoundRobinPolicy, WeightedRoundRobinPolicy:
 		default:
 			return errors.New("wrong lb policy")
 		}

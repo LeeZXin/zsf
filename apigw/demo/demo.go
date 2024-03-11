@@ -1,7 +1,6 @@
 package demo
 
 import (
-	"github.com/LeeZXin/zsf-utils/selector"
 	"github.com/LeeZXin/zsf/apigw"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
 
@@ -20,7 +19,7 @@ func init() {
 		ServiceName:    "my-runner-http",
 		Targets:        nil,
 		TargetType:     apigw.DiscoveryTargetType,
-		TargetLbPolicy: selector.RoundRobinPolicy,
+		TargetLbPolicy: apigw.RoundRobinPolicy,
 		RewriteType:    apigw.ReplaceAnyRewriteType,
 		ReplacePath:    "/header",
 		NeedAuth:       true,
@@ -82,7 +81,7 @@ func init() {
 			},
 		},
 		TargetType:     apigw.DomainTargetType,
-		TargetLbPolicy: selector.RoundRobinPolicy,
+		TargetLbPolicy: apigw.RoundRobinPolicy,
 		RewriteType:    apigw.CopyFullPathRewriteType,
 		ReplacePath:    "",
 	})

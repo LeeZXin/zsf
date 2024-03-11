@@ -2,7 +2,6 @@ package apigw
 
 import (
 	"github.com/LeeZXin/zsf-utils/listutil"
-	"github.com/LeeZXin/zsf-utils/selector"
 	"net/http"
 )
 
@@ -13,7 +12,7 @@ const (
 )
 
 func mockTarget(config RouterConfig, _ *http.Client) (hostSelector, rpcExecutor) {
-	return &emptySelector{}, &mockExecutor{
+	return new(nilSelector), &mockExecutor{
 		mockContent: config.MockContent,
 	}
 }
@@ -27,17 +26,29 @@ func discoveryTarget(config RouterConfig, httpClient *http.Client) (hostSelector
 }
 
 func domainTarget(config RouterConfig, httpClient *http.Client) (hostSelector, rpcExecutor) {
-	targets := config.Targets
-	nodes, _ := listutil.Map(targets, func(t Target) (selector.Node[string], error) {
-		return selector.Node[string]{
-			Data:   t.Target,
-			Weight: t.Weight,
-		}, nil
-	})
-	selectorFunc, _ := selector.FindNewSelectorFunc[string](config.TargetLbPolicy)
-	return &selectorWrapper{
-			Selector: selectorFunc(nodes),
-		}, &httpExecutor{
-			httpClient: httpClient,
-		}
+	var hs hostSelector
+	switch config.TargetLbPolicy {
+	case RoundRobinPolicy:
+		targets, _ := listutil.Map(config.Targets, func(t Target) (string, error) {
+			return t.Target, nil
+		})
+		hs = newRoundRobinSelector(targets)
+	case WeightedRoundRobinPolicy:
+		targets, _ := listutil.Map(config.Targets, func(t Target) (weightedTarget, error) {
+			weight := t.Weight
+			if weight <= 0 {
+				weight = 1
+			}
+			return weightedTarget{
+				weight: weight,
+				target: t.Target,
+			}, nil
+		})
+		hs = newWeightedRoundRobinSelector(targets)
+	default:
+		hs = new(emptyTargetsSelector)
+	}
+	return hs, &httpExecutor{
+		httpClient: httpClient,
+	}
 }
