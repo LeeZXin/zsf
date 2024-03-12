@@ -24,33 +24,40 @@ const (
 	JsonContentType = "application/json;charset=utf-8"
 )
 
-type dialOption struct {
-	header    map[string]string
-	zone      string
-	discovery discovery.Discovery
+type option struct {
+	header     map[string]string
+	zone       string
+	discovery  discovery.Discovery
+	httpClient *http.Client
 }
 
-type Option func(*dialOption)
+type Option func(*option)
 
 type headerOption struct {
 	header map[string]string
 }
 
 func WithHeader(header map[string]string) Option {
-	return func(o *dialOption) {
+	return func(o *option) {
 		o.header = header
 	}
 }
 
 func WithZone(zone string) Option {
-	return func(o *dialOption) {
+	return func(o *option) {
 		o.zone = zone
 	}
 }
 
 func WithDiscovery(dis discovery.Discovery) Option {
-	return func(o *dialOption) {
+	return func(o *option) {
 		o.discovery = dis
+	}
+}
+
+func WithHttpClient(client *http.Client) Option {
+	return func(o *option) {
+		o.httpClient = client
 	}
 }
 
@@ -75,45 +82,59 @@ func (c *clientImpl) Close() {
 }
 
 func (c *clientImpl) Get(ctx context.Context, path string, resp any, opts ...Option) error {
-	return c.send(ctx, path, http.MethodGet, "", nil, resp, opts...)
+	err := c.send(ctx, path, http.MethodGet, "", nil, resp, opts...)
+	if err != nil {
+		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
+	}
+	return err
 }
 func (c *clientImpl) Post(ctx context.Context, path string, req, resp any, opts ...Option) error {
-	return c.send(ctx, path, http.MethodPost, JsonContentType, req, resp, opts...)
+	err := c.send(ctx, path, http.MethodPost, JsonContentType, req, resp, opts...)
+	if err != nil {
+		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
+	}
+	return err
 }
 func (c *clientImpl) Put(ctx context.Context, path string, req, resp any, opts ...Option) error {
-	return c.send(ctx, path, http.MethodPut, JsonContentType, req, resp, opts...)
+	err := c.send(ctx, path, http.MethodPut, JsonContentType, req, resp, opts...)
+	if err != nil {
+		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
+	}
+	return err
 }
 func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opts ...Option) error {
-	return c.send(ctx, path, http.MethodDelete, JsonContentType, req, resp, opts...)
+	err := c.send(ctx, path, http.MethodDelete, JsonContentType, req, resp, opts...)
+	if err != nil {
+		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
+	}
+	return err
 }
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
 	// 加载选项
-	apply := &dialOption{}
-	if opts != nil {
-		for _, opt := range opts {
-			opt(apply)
-		}
+	opt := new(option)
+	for _, apply := range opts {
+		apply(opt)
 	}
 	// 获取服务ip
 	var (
 		server lb.Server
 		err    error
 	)
-	dis := apply.discovery
+	dis := opt.discovery
 	if dis == nil {
 		dis = discovery.GetDefaultDiscovery()
 	}
 	if dis == nil {
 		return errors.New("discovery is not set")
 	}
-	if apply.zone == "" {
+	if opt.zone == "" {
 		server, err = dis.ChooseServer(ctx, c.ServiceName)
 		if err != nil {
 			return err
 		}
 	} else {
-		server, err = dis.ChooseServerWithZone(ctx, apply.zone, c.ServiceName)
+		server, err = dis.ChooseServerWithZone(ctx, opt.zone, c.ServiceName)
 		if err != nil {
 			return err
 		}
@@ -138,7 +159,7 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		return err
 	}
 	// 塞header
-	h := apply.header
+	h := opt.header
 	if h != nil {
 		for k, v := range h {
 			request.Header.Set(k, v)
@@ -152,6 +173,9 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	// 去除默认User-Agent
 	request.Header.Set("User-Agent", "")
 	invoker := func(request *http.Request) (*http.Response, error) {
+		if opt.httpClient != nil {
+			return opt.httpClient.Do(request)
+		}
 		return c.httpClient.Do(request)
 	}
 	// 执行拦截器

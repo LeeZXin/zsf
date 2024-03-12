@@ -102,7 +102,7 @@ func (s *staticDiscovery) Discover(_ context.Context, name string) ([]lb.Server,
 	if ok {
 		return servers, nil
 	}
-	return []lb.Server{}, nil
+	return nil, lb.ServerNotFound
 }
 
 func (s *staticDiscovery) DiscoverWithZone(context.Context, string, string) ([]lb.Server, error) {

@@ -16,7 +16,7 @@ import (
 
 // 服务注册
 
-func NewEtcdRegistry() Registry {
+func NewDefaultEtcdRegistry() Registry {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:        strings.Split(static.GetString("discovery.etcd.endpoints"), ";"),
 		AutoSyncInterval: time.Minute,
@@ -56,7 +56,7 @@ func (r *defaultRegisterAction) Register() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.active {
-		r.deregister = r.registry.RegisterSelf(RegisterInfo{
+		r.deregister = r.registry.RegisterSelf(ServerInfo{
 			Port:   r.port,
 			Scheme: r.scheme,
 			Weight: r.weight,
@@ -79,7 +79,7 @@ func NewDefaultHttpAction(registry Registry) Action {
 		logger.Logger.Fatalf("default http action gets nil registry")
 	}
 	weight := static.GetInt("http.weight")
-	if weight == 0 {
+	if weight <= 0 {
 		weight = 1
 	}
 	return &defaultRegisterAction{
@@ -92,13 +92,13 @@ func NewDefaultHttpAction(registry Registry) Action {
 
 // Registry 插件式实现服务注册
 type Registry interface {
-	RegisterSelf(RegisterInfo) DeregisterAction
+	RegisterSelf(ServerInfo) DeregisterAction
 }
 
 type DeregisterAction func()
 
-// RegisterInfo 注册所需的信息
-type RegisterInfo struct {
+// ServerInfo 注册所需的信息
+type ServerInfo struct {
 	// Port 端口
 	Port int
 	// Scheme 服务协议
@@ -109,21 +109,21 @@ type RegisterInfo struct {
 	registerPath string
 }
 
-func (s *RegisterInfo) GetRegisterPath() string {
+func (s *ServerInfo) GetRegisterPath() string {
 	if s.registerPath == "" {
 		s.registerPath = common.ServicePrefix + s.GetRpcName() + "/" + common.GetInstanceId()
 	}
 	return s.registerPath
 }
 
-func (s *RegisterInfo) GetRpcName() string {
+func (s *ServerInfo) GetRpcName() string {
 	if s.rpcName == "" {
 		s.rpcName = common.GetApplicationName() + "-" + s.Scheme
 	}
 	return s.rpcName
 }
 
-func (s *RegisterInfo) GetServer() lb.Server {
+func (s *ServerInfo) GetServer() lb.Server {
 	return lb.Server{
 		Name:    s.GetRpcName(),
 		Host:    common.GetLocalIP(),

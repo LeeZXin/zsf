@@ -1,23 +1,23 @@
 {
   "static": [
     {
-      "serviceName": "my-runner-grpc",
+      "name": "my-runner-grpc",
       "targets": [
         {
-          "addr": "127.0.0.1",
+          "host": "127.0.0.1",
           "port": 8080,
           "weight": 1,
           "version": "default"
         },
         {
-          "addr": "127.0.0.1",
+          "host": "127.0.0.1",
           "port": 8099,
           "weight": 1,
           "version": "gray"
         }
       ,
         {
-          "addr": "127.0.0.1",
+          "host": "127.0.0.1",
           "port": 8022,
           "weight": 1,
           "version": "gray"
@@ -25,25 +25,25 @@
       ]
     },
     {
-      "serviceName": "my-runner-http",
+      "name": "meta-http",
       "targets": [
         {
-          "addr": "127.0.0.1",
-          "port": 8091,
+          "host": "www.baidu.com",
+          "port": 80,
           "weight": 1
         }
       ]
     },
     {
-      "serviceName": "fake-http",
+      "name": "fake-http",
       "targets": [
         {
-          "addr": "127.0.0.1",
+          "host": "127.0.0.1",
           "port": 8898,
           "weight": 1
         },
         {
-          "addr": "127.0.0.1",
+          "host": "127.0.0.1",
           "port": 8899,
           "weight": 1
         }

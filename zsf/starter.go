@@ -111,38 +111,38 @@ type option struct {
 type Option func(*option)
 
 func WithBanner(banner string) Option {
-	return func(o *option) {
-		o.Banner = banner
+	return func(opt *option) {
+		opt.Banner = banner
 	}
 }
 
 func WithVersion(version string) Option {
-	return func(o *option) {
-		o.Version = version
+	return func(opt *option) {
+		opt.Version = version
 	}
 }
 
 func WithPidFile(filePath string) Option {
-	return func(o *option) {
-		o.PidPath = filePath
+	return func(opt *option) {
+		opt.PidPath = filePath
 	}
 }
 
 func WithRunMode(runMode string) Option {
-	return func(o *option) {
-		o.RunMode = runMode
+	return func(opt *option) {
+		opt.RunMode = runMode
 	}
 }
 
 func WithDiscovery(d discovery.Discovery) Option {
-	return func(o *option) {
-		o.discovery = d
+	return func(opt *option) {
+		opt.discovery = d
 	}
 }
 
 func WithLifeCycles(lifeCycles ...LifeCycle) Option {
-	return func(o *option) {
-		o.LifeCycles = lifeCycles
+	return func(opt *option) {
+		opt.LifeCycles = lifeCycles
 	}
 }
 

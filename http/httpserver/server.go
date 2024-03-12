@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
-	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -24,122 +23,161 @@ var (
 )
 
 type Server struct {
-	action     registry.Action
-	noRoute    gin.HandlerFunc
-	noMethod   gin.HandlerFunc
+	opt        *option
 	httpServer *http.Server
 }
 
-type opts struct {
+type option struct {
 	action   registry.Action
 	noRoute  gin.HandlerFunc
 	noMethod gin.HandlerFunc
+
+	httpsEnabled bool
+	certFilePath string
+	keyFilePath  string
+
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	idleTimeout  time.Duration
+
+	disableUseH2C bool
 }
 
-type Opt func(*opts)
+type Option func(*option)
 
-func WithRegistryAction(action registry.Action) Opt {
-	return func(opts *opts) {
-		opts.action = action
+func WithRegistryAction(action registry.Action) Option {
+	return func(opt *option) {
+		opt.action = action
 	}
 }
 
-func WithNoRoute(f gin.HandlerFunc) Opt {
-	return func(opts *opts) {
-		opts.noRoute = f
+func WithNoRoute(f gin.HandlerFunc) Option {
+	return func(opt *option) {
+		opt.noRoute = f
 	}
 }
 
-func WithNoMethod(f gin.HandlerFunc) Opt {
-	return func(opts *opts) {
-		opts.noMethod = f
+func WithNoMethod(f gin.HandlerFunc) Option {
+	return func(opt *option) {
+		opt.noMethod = f
 	}
 }
 
-func NewServer(os ...Opt) *Server {
-	o := new(opts)
-	for _, opt := range os {
-		opt(o)
+func WithReadTimeout(t time.Duration) Option {
+	return func(opt *option) {
+		opt.readTimeout = t
+	}
+}
+
+func WithWriteTimeout(t time.Duration) Option {
+	return func(opt *option) {
+		opt.writeTimeout = t
+	}
+}
+
+func WithIdleTimeout(t time.Duration) Option {
+	return func(opt *option) {
+		opt.idleTimeout = t
+	}
+}
+
+func WithDisableUseH2C() Option {
+	return func(opt *option) {
+		opt.disableUseH2C = true
+	}
+}
+
+func WithHttpsEnabled(certFilePath, keyFilePath string) Option {
+	return func(opt *option) {
+		opt.httpsEnabled = true
+		opt.certFilePath = certFilePath
+		opt.keyFilePath = keyFilePath
+	}
+}
+
+func NewServer(opts ...Option) *Server {
+	opt := new(option)
+	for _, apply := range opts {
+		apply(opt)
 	}
 	server = &Server{
-		action:   o.action,
-		noRoute:  o.noRoute,
-		noMethod: o.noMethod,
+		opt: opt,
 	}
 	return server
 }
 
 func (s *Server) GetRegistryAction() registry.Action {
-	return s.action
+	return s.opt.action
 }
 
 func (s *Server) OnApplicationStart() {
 	//gin mode
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
-	e := gin.New()
-	e.ContextWithFallback = true
+	engine := gin.New()
+	if !s.opt.disableUseH2C {
+		engine.UseH2C = true
+	}
+	engine.ContextWithFallback = true
 	//静态资源文件路径
-	e.Static("/static", filepath.Join(common.ResourcesDir, "static"))
+	engine.Static("/static", filepath.Join(common.ResourcesDir, "static"))
 	// 404
-	if s.noRoute != nil {
-		e.NoRoute(s.noRoute)
+	if s.opt.noRoute != nil {
+		engine.NoRoute(s.opt.noRoute)
 	}
-	if s.noMethod != nil {
-		e.NoMethod(s.noMethod)
-	} else if s.noRoute != nil {
-		e.NoMethod(s.noMethod)
+	if s.opt.noMethod != nil {
+		engine.NoMethod(s.opt.noMethod)
+	} else if s.opt.noRoute != nil {
+		engine.NoMethod(s.opt.noRoute)
 	}
-	e.ContextWithFallback = true
+	engine.ContextWithFallback = true
 	//filter
-	e.Use(getFilters()...)
+	engine.Use(getFilters()...)
 	fnList := getRegisterFuncList()
 	for _, routerFunc := range fnList {
-		routerFunc(e)
+		routerFunc(engine)
 	}
-	readTimeoutSec := static.GetInt("http.readTimeoutSec")
-	if readTimeoutSec == 0 {
-		readTimeoutSec = 20
+	readTimeout := s.opt.readTimeout
+	if readTimeout == 0 {
+		readTimeout = 20 * time.Second
 	}
-	writeTimeoutSec := static.GetInt("http.writeTimeoutSec")
-	if writeTimeoutSec == 0 {
-		writeTimeoutSec = 20
+	writeTimeout := s.opt.writeTimeout
+	if writeTimeout == 0 {
+		writeTimeout = 20 * time.Second
 	}
-	idleTimeoutSec := static.GetInt("http.idleTimeoutSec")
-	if idleTimeoutSec == 0 {
-		idleTimeoutSec = 60
+	idleTimeout := s.opt.idleTimeout
+	if idleTimeout == 0 {
+		idleTimeout = 60 * time.Second
 	}
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", common.HttpServerPort()),
-		ReadTimeout:  time.Duration(readTimeoutSec) * time.Second,
-		WriteTimeout: time.Duration(writeTimeoutSec) * time.Second,
-		IdleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
-		Handler:      e,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+		Handler:      engine.Handler(),
 		ErrorLog:     log.New(io.Discard, "", 0),
 	}
-
 	var (
 		certFilePath string
 		keyFilePath  string
 	)
-	httpsEnabled := static.GetBool("https.enabled")
-	if httpsEnabled {
-		certFilePath = static.GetString("https.certFile")
-		keyFilePath = static.GetString("https.keyFile")
+	if s.opt.httpsEnabled {
+		certFilePath = s.opt.certFilePath
+		keyFilePath = s.opt.keyFilePath
 		if certFilePath == "" {
-			logger.Logger.Fatal("https.certFile config is empty")
+			logger.Logger.Fatal("https.certFile is empty")
 		} else {
 			certFilePath = filepath.Join(common.ResourcesDir, certFilePath)
 		}
 		if keyFilePath == "" {
-			logger.Logger.Fatal("https.keyFile config is empty")
+			logger.Logger.Fatal("https.keyFile is empty")
 		} else {
 			keyFilePath = filepath.Join(common.ResourcesDir, keyFilePath)
 		}
 	}
 	go func() {
 		var err error
-		if httpsEnabled {
+		if s.opt.httpsEnabled {
 			logger.Logger.Info("https server start:", common.HttpServerPort())
 			logger.Logger.Infof("https server certFile path: %s", certFilePath)
 			logger.Logger.Infof("https server keyFile path: %s", keyFilePath)
@@ -155,14 +193,14 @@ func (s *Server) OnApplicationStart() {
 }
 
 func (s *Server) AfterInitialize() {
-	if s.action != nil {
-		s.action.Register()
+	if s.opt.action != nil {
+		s.opt.action.Register()
 	}
 }
 
 func (s *Server) OnApplicationShutdown() {
-	if s.action != nil {
-		s.action.Deregister()
+	if s.opt.action != nil {
+		s.opt.action.Deregister()
 	}
 	if s.httpServer != nil {
 		logger.Logger.Info("http server shutdown")

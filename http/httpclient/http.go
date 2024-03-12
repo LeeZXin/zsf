@@ -8,8 +8,6 @@ import (
 )
 
 // 带服务发现的httpClient封装
-// 首次会加载服务ip数据，每10秒会尝试更新服务ip
-
 var (
 	clientCache = hashmap.NewConcurrentHashMap[string, Client]()
 )
@@ -38,7 +36,7 @@ func Dial(serviceName string) Client {
 		return &clientImpl{
 			ServiceName:  serviceName,
 			Interceptors: getInterceptors(),
-			httpClient:   httputil.NewRetryableHttpClient(),
+			httpClient:   httputil.NewRetryableHttp2Client(),
 		}, nil
 	})
 	return ret

@@ -17,7 +17,7 @@ type etcdRegistry struct {
 	client *clientv3.Client
 }
 
-func (r *etcdRegistry) RegisterSelf(info RegisterInfo) DeregisterAction {
+func (r *etcdRegistry) RegisterSelf(info ServerInfo) DeregisterAction {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	logger.Logger.Infof("register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
 	go func() {
@@ -48,7 +48,7 @@ func (r *etcdRegistry) RegisterSelf(info RegisterInfo) DeregisterAction {
 	}
 }
 
-func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info RegisterInfo) error {
+func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info ServerInfo) error {
 	grant, err := r.client.Grant(ctx, 10)
 	if err != nil {
 		return err
