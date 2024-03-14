@@ -20,7 +20,6 @@ func main() {
 						registry.NewDefaultEtcdRegistry(),
 					),
 				),
-				//httpserver.WithHttpsEnabled("sfu.key.ca", "sfu.key"),
 			),
 			actuator.NewServer(),
 			prom.NewServer(),

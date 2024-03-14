@@ -98,6 +98,10 @@ func (s *Server) OnApplicationStart() {
 	}()
 }
 
+func (s *Server) Order() int {
+	return 0
+}
+
 func (s *Server) OnApplicationShutdown() {
 	if s.httpServer != nil {
 		logger.Logger.Info("actuator server shutdown")

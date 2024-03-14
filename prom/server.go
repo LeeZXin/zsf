@@ -24,6 +24,10 @@ func NewServer() *Server {
 	return new(Server)
 }
 
+func (s *Server) Order() int {
+	return 0
+}
+
 func (s *Server) OnApplicationStart() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()

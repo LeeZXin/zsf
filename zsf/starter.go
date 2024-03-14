@@ -9,6 +9,7 @@ import (
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -23,8 +24,6 @@ var (
 	runMode = atomic.Value{}
 	// 版本
 	version = atomic.Value{}
-
-	lifeCycles []LifeCycle
 )
 
 func init() {
@@ -60,7 +59,12 @@ func Run(options ...Option) {
 		if o.discovery != nil {
 			discovery.SetDefaultDiscovery(o.discovery)
 		}
-		lifeCycles = o.LifeCycles
+		lifeCycles := o.LifeCycles
+		if lifeCycles != nil {
+			sort.SliceStable(lifeCycles, func(i, j int) bool {
+				return lifeCycles[i].Order() < lifeCycles[j].Order()
+			})
+		}
 		if o.Banner != "" {
 			logger.Logger.Info(o.Banner)
 		} else {

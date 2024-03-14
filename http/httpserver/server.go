@@ -106,6 +106,10 @@ func NewServer(opts ...Option) *Server {
 	return server
 }
 
+func (s *Server) Order() int {
+	return 0
+}
+
 func (s *Server) GetRegistryAction() registry.Action {
 	return s.opt.action
 }

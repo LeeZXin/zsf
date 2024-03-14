@@ -20,6 +20,10 @@ func NewServer() *Server {
 	return new(Server)
 }
 
+func (s *Server) Order() int {
+	return 0
+}
+
 func (s *Server) OnApplicationStart() {
 	s.httpServer = &http.Server{
 		Addr: fmt.Sprintf("127.0.0.1:%d", DefaultServerPort),
