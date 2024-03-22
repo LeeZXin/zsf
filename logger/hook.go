@@ -35,9 +35,10 @@ type LogContent struct {
 	SourceIp   string `json:"sourceIp"`
 	SourceType string `json:"sourceType"`
 
-	App     string `json:"app"`
-	Content string `json:"content"`
-	TraceId string `json:"traceId"`
+	App        string `json:"app"`
+	Content    string `json:"content"`
+	TraceId    string `json:"traceId"`
+	InstanceId string `json:"instanceId"`
 }
 
 func newKafkaHook() logrus.Hook {
@@ -230,5 +231,6 @@ func newLogContent(content, sourceType string, entry *logrus.Entry) LogContent {
 		App:        common.GetApplicationName(),
 		Content:    content,
 		TraceId:    GetTraceId(entry.Context),
+		InstanceId: common.GetInstanceId(),
 	}
 }
