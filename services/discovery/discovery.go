@@ -6,6 +6,7 @@ import (
 	_ "github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/lb"
+	"math/rand"
 )
 
 var (
@@ -83,4 +84,14 @@ func ChooseServerWithZone(ctx context.Context, zone string, name string) (lb.Ser
 		return lb.Server{}, errors.New("nil discovery")
 	}
 	return defaultDiscovery.ChooseServerWithZone(ctx, zone, name)
+}
+
+func ChooseRandomServer(servers []lb.Server) lb.Server {
+	if len(servers) == 0 {
+		return lb.Server{}
+	}
+	if len(servers) == 1 {
+		return servers[0]
+	}
+	return servers[rand.Int()%len(servers)]
 }
