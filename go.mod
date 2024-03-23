@@ -3,7 +3,7 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.44
+	github.com/LeeZXin/zsf-utils v1.0.45
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/blevesearch/bleve v1.0.14
 	github.com/bwmarrin/snowflake v0.3.0
