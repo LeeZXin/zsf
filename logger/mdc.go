@@ -25,9 +25,11 @@ const (
 )
 
 func GetMDC(ctx context.Context) MDC {
-	value := ctx.Value(MDCKey{})
-	if value != nil {
-		return value.(MDC)
+	if ctx != nil {
+		value := ctx.Value(MDCKey{})
+		if value != nil {
+			return value.(MDC)
+		}
 	}
 	return make(MDC)
 }

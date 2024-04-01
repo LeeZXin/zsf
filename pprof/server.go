@@ -26,7 +26,7 @@ func (s *Server) Order() int {
 
 func (s *Server) OnApplicationStart() {
 	s.httpServer = &http.Server{
-		Addr: fmt.Sprintf("127.0.0.1:%d", DefaultServerPort),
+		Addr: fmt.Sprintf(":%d", DefaultServerPort),
 	}
 	//启动pprof server
 	go func() {
