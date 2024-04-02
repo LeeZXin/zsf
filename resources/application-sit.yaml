@@ -16,13 +16,10 @@ logger:
     host: 127.0.0.1:4105
     topic: log-wiwi-kalksj
     authSecret: xxx
-  bleve:
+  loki:
     enabled: true
-    http:
-      enabled: true
-      token: fuck
-    clean:
-      enabled: true
+    orgId: local
+    pushUrl: http://127.0.0.1:3100/loki/api/v1/push
 
 https:
   certFile: zsh.rsa.ca

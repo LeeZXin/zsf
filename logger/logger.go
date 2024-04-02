@@ -20,15 +20,15 @@ import (
 var (
 	Logger *logrus.Logger
 
-	defaultFormatter  = &logFormatter{}
+	defaultFormatter  = &defaultLogFormatter{}
 	defaultTimeFormat = "2006-01-02 15:04:05.000"
 )
 
-type logFormatter struct {
+type defaultLogFormatter struct {
 }
 
 // Format 格式化
-func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (l *defaultLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	buffer := entry.Buffer
 	if buffer == nil {
 		buffer = &bytes.Buffer{}
@@ -43,6 +43,29 @@ func (l *logFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 	ts := entry.Time.Format(defaultTimeFormat)
 	logStr := fmt.Sprintf("%s [%s] [%s:%d] [%s] %s\n", ts, entry.Level, splitFilePath(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
+	buffer.WriteString(logStr)
+	return buffer.Bytes(), nil
+}
+
+type lokiLogFormatter struct {
+}
+
+// Format 格式化
+func (l *lokiLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	buffer := entry.Buffer
+	if buffer == nil {
+		buffer = &bytes.Buffer{}
+	}
+	traceId := "-"
+	if entry.Context != nil {
+		mdc := GetMDC(entry.Context)
+		t := mdc.Get(TraceId)
+		if t != "" {
+			traceId = t
+		}
+	}
+	// 去掉时间戳 loki默认展示时间戳
+	logStr := fmt.Sprintf("[%s] [%s:%d] [%s] %s\n", entry.Level, splitFilePath(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
 	buffer.WriteString(logStr)
 	return buffer.Bytes(), nil
 }
@@ -67,8 +90,8 @@ func init() {
 	if static.GetBool("logger.nsq.enabled") {
 		Logger.AddHook(newNsqHook())
 	}
-	if static.GetBool("logger.bleve.enabled") {
-		Logger.AddHook(newBleveHook())
+	if static.GetBool("logger.loki.enabled") {
+		Logger.AddHook(newLokiHook())
 	}
 	switch env.GetEnv() {
 	case "prd":
@@ -91,7 +114,7 @@ func (w *asyncWrapper) Write(p []byte) (int, error) {
 }
 
 func newLogWriter() io.Writer {
-	if static.GetBool("logger.bleve.enabled") {
+	if static.GetBool("logger.loki.enabled") {
 		return io.Discard
 	}
 	if static.GetBool("logger.async.enabled") {

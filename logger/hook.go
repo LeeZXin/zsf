@@ -3,19 +3,20 @@ package logger
 import (
 	"context"
 	"encoding/json"
+	"github.com/LeeZXin/zsf-utils/executor"
+	"github.com/LeeZXin/zsf-utils/httputil"
+	"github.com/LeeZXin/zsf-utils/listutil"
 	"github.com/LeeZXin/zsf-utils/quit"
-	"github.com/LeeZXin/zsf-utils/randutil"
 	"github.com/LeeZXin/zsf-utils/taskutil"
-	"github.com/LeeZXin/zsf/bleve/index"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/property/static"
-	_ "github.com/blevesearch/bleve/index/store/goleveldb"
-	"github.com/bwmarrin/snowflake"
 	"github.com/nsqio/go-nsq"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/sirupsen/logrus"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,17 +26,18 @@ const (
 )
 
 type LogContent struct {
-	Timestamp int64  `json:"timestamp"`
-	Version   string `json:"version"`
-	Level     string `json:"level"`
-	Env       string `json:"env"`
-	Region    string `json:"region"`
-	Zone      string `json:"zone"`
+	Timestamp int64     `json:"timestamp"`
+	Time      time.Time `json:"-"`
+	Version   string    `json:"version"`
+	Level     string    `json:"level"`
+	Env       string    `json:"env"`
+	Region    string    `json:"region"`
+	Zone      string    `json:"zone"`
 
 	SourceIp   string `json:"sourceIp"`
 	SourceType string `json:"sourceType"`
 
-	App        string `json:"app"`
+	AppId      string `json:"appId"`
 	Content    string `json:"content"`
 	TraceId    string `json:"traceId"`
 	InstanceId string `json:"instanceId"`
@@ -172,27 +174,50 @@ func (l *nsqLogger) Output(int, string) error {
 	return nil
 }
 
-type bleveHook struct {
-	formatter logrus.Formatter
-	idn       *snowflake.Node
-	chunkTask *taskutil.ChunkTask[LogContent]
+type lokiHook struct {
+	pushUrl    string
+	httpClient *http.Client
+	formatter  logrus.Formatter
+	chunkTask  *taskutil.ChunkTask[LogContent]
+	flusher    *executor.Executor
 }
 
-func newBleveHook() logrus.Hook {
-	idn, err := snowflake.NewNode(randutil.Int63n(1024))
-	if err != nil {
-		panic(err)
+type lokiStream struct {
+	Stream map[string]string `json:"stream"`
+	Values [][]string        `json:"values"`
+}
+
+type lokiHttpRequest struct {
+	Streams []lokiStream `json:"streams"`
+}
+
+func newLokiHook() logrus.Hook {
+	pushUrl := static.GetString("logger.loki.pushUrl")
+	if pushUrl == "" {
+		panic("empty logger.loki.pushUrl")
 	}
-	h := &bleveHook{
-		formatter: defaultFormatter,
-		idn:       idn,
+	orgId := static.GetString("logger.loki.orgId")
+	flusher, _ := executor.NewExecutor(3, 1024, time.Minute, executor.CallerRunsStrategy)
+	h := &lokiHook{
+		pushUrl:    pushUrl,
+		formatter:  &lokiLogFormatter{},
+		httpClient: httputil.NewRetryableHttpClient(),
+		flusher:    flusher,
 	}
-	chunkTask, _ := taskutil.NewChunkTask[LogContent](1024, func(data []taskutil.Chunk[LogContent]) {
-		batch := index.LogIndex.NewBatch()
-		for _, log := range data {
-			batch.Index(h.idn.Generate().String(), log.Data)
-		}
-		index.LogIndex.Batch(batch)
+	chunkTask, _ := taskutil.NewChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
+		h.flusher.Execute(func() {
+			for _, stream := range h.splitByLevel(logList) {
+				ctx, cancelFunc := context.WithTimeout(context.Background(), 3*time.Second)
+				httputil.Post(ctx, h.httpClient, h.pushUrl, map[string]string{
+					"X-Scope-OrgID": orgId,
+				}, lokiHttpRequest{
+					Streams: []lokiStream{
+						stream,
+					},
+				}, nil)
+				cancelFunc()
+			}
+		})
 	}, 3*time.Second)
 	chunkTask.Start()
 	quit.AddShutdownHook(func() {
@@ -202,25 +227,63 @@ func newBleveHook() logrus.Hook {
 	return h
 }
 
-func (*bleveHook) Levels() []logrus.Level {
+func (k *lokiHook) splitByLevel(data []taskutil.Chunk[LogContent]) []lokiStream {
+	lastLevel := data[0].Data.Level
+	ret := make([]lokiStream, 0)
+	list := make([]LogContent, 0)
+	for _, item := range data {
+		if item.Data.Level != lastLevel {
+			ret = append(ret, k.convert2Stream(list))
+			list = make([]LogContent, 0)
+			lastLevel = item.Data.Level
+		}
+		list = append(list, item.Data)
+	}
+	if len(list) > 0 {
+		ret = append(ret, k.convert2Stream(list))
+	}
+	return ret
+}
+
+func (*lokiHook) convert2Stream(logs []LogContent) lokiStream {
+	stream := map[string]string{
+		"version":    logs[0].Version,
+		"level":      logs[0].Level,
+		"env":        logs[0].Env,
+		"region":     logs[0].Region,
+		"zone":       logs[0].Zone,
+		"sourceIp":   logs[0].SourceIp,
+		"sourceType": logs[0].SourceType,
+		"appId":      logs[0].AppId,
+		"traceId":    logs[0].TraceId,
+		"instanceId": logs[0].InstanceId,
+	}
+	values, _ := listutil.Map(logs, func(t LogContent) ([]string, error) {
+		return []string{strconv.FormatInt(t.Time.UnixNano(), 10), t.Content}, nil
+	})
+	return lokiStream{
+		Stream: stream,
+		Values: values,
+	}
+}
+
+func (*lokiHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
-func (k *bleveHook) Fire(entry *logrus.Entry) error {
-	if index.LogIndex == nil {
-		return nil
-	}
+func (k *lokiHook) Fire(entry *logrus.Entry) error {
 	content, err := k.formatter.Format(entry)
 	if err != nil {
 		return err
 	}
-	k.chunkTask.Execute(newLogContent(string(content), "bleve", entry), 1)
+	k.chunkTask.Execute(newLogContent(string(content), "loki", entry), 1)
 	return nil
 }
 
 func newLogContent(content, sourceType string, entry *logrus.Entry) LogContent {
 	return LogContent{
-		Timestamp:  time.Now().UnixMilli(),
+		Timestamp:  entry.Time.UnixMilli(),
+		Time:       entry.Time,
 		Version:    LogVersion,
 		Level:      entry.Level.String(),
 		Env:        env.GetEnv(),
@@ -228,7 +291,7 @@ func newLogContent(content, sourceType string, entry *logrus.Entry) LogContent {
 		Zone:       common.GetZone(),
 		SourceIp:   common.GetLocalIP(),
 		SourceType: sourceType,
-		App:        common.GetApplicationName(),
+		AppId:      common.GetApplicationName(),
 		Content:    content,
 		TraceId:    GetTraceId(entry.Context),
 		InstanceId: common.GetInstanceId(),

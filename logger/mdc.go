@@ -64,5 +64,9 @@ func CopyMDC(ctx context.Context) context.Context {
 }
 
 func GetTraceId(ctx context.Context) string {
-	return GetMDC(ctx).Get(TraceId)
+	ret := GetMDC(ctx).Get(TraceId)
+	if ret == "" {
+		return "-"
+	}
+	return ret
 }
