@@ -17,6 +17,7 @@ var (
 func init() {
 	var err error
 	engine, err = xormutil.NewEngine(xormutil.Config{
+		DriverName:      static.GetString("xorm.driverName"),
 		DataSourceName:  static.GetString("xorm.dataSourceName"),
 		MaxIdleConns:    static.GetInt("xorm.maxIdleConns"),
 		ConnMaxLifetime: static.GetInt("xorm.connMaxLifetime"),

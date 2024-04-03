@@ -7,6 +7,7 @@ import (
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/xorm/xormlog"
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
 	"strings"
 	"time"
 	"xorm.io/xorm"
@@ -74,11 +75,12 @@ func (c *discardCloser) Close() error {
 }
 
 type Config struct {
-	DataSourceName  string `json:"dataSourceName"`
-	MaxIdleConns    int    `json:"maxIdleConns"`
-	ConnMaxLifetime int    `json:"connMaxLifetime"`
-	MaxOpenConns    int    `json:"maxOpenConns"`
-	ShowSql         bool   `json:"showSql"`
+	DriverName      string
+	DataSourceName  string
+	MaxIdleConns    int
+	ConnMaxLifetime int
+	MaxOpenConns    int
+	ShowSql         bool
 	SlowSqlDuration time.Duration
 }
 
@@ -87,7 +89,11 @@ type Engine struct {
 }
 
 func NewEngine(config Config) (*Engine, error) {
-	engine, err := xorm.NewEngine("mysql", config.DataSourceName)
+	driverName := config.DriverName
+	if driverName == "" {
+		driverName = "mysql"
+	}
+	engine, err := xorm.NewEngine(driverName, config.DataSourceName)
 	if err != nil {
 		return nil, err
 	}
