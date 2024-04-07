@@ -49,6 +49,14 @@ func init() {
 	_ = v.ReadInConfig()
 }
 
+func GetIntSlice(key string) []int {
+	return v.GetIntSlice(key)
+}
+
+func GetStringSlice(key string) []string {
+	return v.GetStringSlice(key)
+}
+
 func GetString(key string) string {
 	return v.GetString(key)
 }

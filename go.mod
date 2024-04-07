@@ -3,10 +3,11 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.47
+	github.com/LeeZXin/zsf-utils v1.0.48
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/lib/pq v1.10.9
 	github.com/nsqio/go-nsq v1.1.0
 	github.com/prometheus/client_golang v1.11.1
 	github.com/segmentio/kafka-go v0.4.42
@@ -45,7 +46,6 @@ require (
 	github.com/klauspost/compress v1.16.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
-	github.com/lib/pq v1.10.9 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect

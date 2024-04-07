@@ -223,6 +223,22 @@ func getViper(key string) (*viper.Viper, bool) {
 	return v, b
 }
 
+func GetIntSlice(key, path string) []int {
+	v, b := getViper(key)
+	if !b {
+		return nil
+	}
+	return v.GetIntSlice(path)
+}
+
+func GetStringSlice(key, path string) []string {
+	v, b := getViper(key)
+	if !b {
+		return nil
+	}
+	return v.GetStringSlice(path)
+}
+
 func GetString(key, path string) string {
 	v, b := getViper(key)
 	if !b {
