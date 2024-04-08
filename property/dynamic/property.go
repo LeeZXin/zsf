@@ -8,6 +8,9 @@ import (
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
+	"github.com/alibaba/sentinel-golang/core/circuitbreaker"
+	"github.com/alibaba/sentinel-golang/core/flow"
+	"github.com/alibaba/sentinel-golang/ext/datasource"
 	"github.com/spf13/viper"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -16,6 +19,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	flowJsonPath           = "sentinel-flow.json"
+	circuitBreakerJsonPath = "sentinel-circuitbreaker.json"
 )
 
 var (
@@ -30,6 +38,9 @@ type propertyLoader struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	rev        int64
+
+	sentinelFlowBase           datasource.PropertyHandler
+	sentinelCircuitBreakerBase datasource.PropertyHandler
 }
 
 func (o *propertyLoader) Close() {
@@ -43,6 +54,9 @@ func (o *propertyLoader) Close() {
 
 func newPropertyLoader() *propertyLoader {
 	o := new(propertyLoader)
+	// for sentinel
+	o.sentinelFlowBase = datasource.NewFlowRulesHandler(datasource.FlowRuleJsonArrayParser)
+	o.sentinelCircuitBreakerBase = datasource.NewCircuitBreakerRulesHandler(datasource.CircuitBreakerRuleJsonArrayParser)
 	o.cache = make(map[string]*viper.Viper, 8)
 	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
 	var err error
@@ -140,17 +154,33 @@ func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
 				case clientv3.EventTypeDelete:
 					if event.Kv != nil {
 						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						logger.Logger.Infof("delete dynamic key: %s", key)
-						o.deleteKey(key)
+						// sentinel是特殊文件
+						switch key {
+						case flowJsonPath:
+							flow.LoadRules(nil)
+						case circuitBreakerJsonPath:
+							circuitbreaker.LoadRules(nil)
+						default:
+							logger.Logger.Infof("delete dynamic key: %s", key)
+							o.deleteKey(key)
+						}
 					}
 				case clientv3.EventTypePut:
 					if event.Kv != nil {
 						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						v, b, err := o.newViper(key, event.Kv.Value)
-						if err == nil {
-							logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
-							if !b {
-								o.putKey(key, v)
+						// sentinel是特殊文件
+						switch key {
+						case flowJsonPath:
+							o.sentinelFlowBase.Handle(event.Kv.Value)
+						case circuitBreakerJsonPath:
+							o.sentinelCircuitBreakerBase.Handle(event.Kv.Value)
+						default:
+							v, b, err := o.loadOrNewViper(key, event.Kv.Value)
+							if err == nil {
+								logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
+								if !b {
+									o.putKey(key, v)
+								}
 							}
 						}
 					}
@@ -168,7 +198,7 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *propertyLoader) newViper(key string, content []byte) (*viper.Viper, bool, error) {
+func (o *propertyLoader) loadOrNewViper(key string, content []byte) (*viper.Viper, bool, error) {
 	v, b := o.getViper(key)
 	if !b {
 		v = viper.New()
@@ -201,11 +231,18 @@ func (o *propertyLoader) init() {
 			continue
 		}
 		key := obj.Key
-		v, _, err := o.newViper(key, obj.Content)
-		if err != nil {
-			continue
+		switch key {
+		case flowJsonPath:
+			o.sentinelFlowBase.Handle(obj.Content)
+		case circuitBreakerJsonPath:
+			o.sentinelCircuitBreakerBase.Handle(obj.Content)
+		default:
+			v, _, err := o.loadOrNewViper(key, obj.Content)
+			if err != nil {
+				continue
+			}
+			o.cache[key] = v
 		}
-		o.cache[key] = v
 	}
 	go o.watchRemote()
 }
