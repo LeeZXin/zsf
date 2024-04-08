@@ -12,6 +12,7 @@ import (
 	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -39,8 +40,8 @@ func recoverFilter() gin.HandlerFunc {
 			c.Next()
 		})
 		if err != nil {
-			logger.Logger.WithContext(c.Request.Context()).Error(err.Error())
-			c.String(500, "系统异常,稍后重试")
+			logger.Logger.WithContext(c).Error(err.Error())
+			c.String(http.StatusInternalServerError, "internal error")
 			c.Abort()
 		}
 	}
@@ -53,7 +54,7 @@ func promFilter() gin.HandlerFunc {
 		c.Next()
 		//耗时和频率
 		prom.HttpServerRequestTotal.
-			WithLabelValues(c.Request.URL.Path).
+			WithLabelValues(c.Request.URL.Path, strconv.Itoa(c.Writer.Status())).
 			Observe(float64(time.Since(begin).Milliseconds()))
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,9 +27,15 @@ func headerInterceptor() Interceptor {
 func promInterceptor() Interceptor {
 	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
 		begin := time.Now()
-		defer prom.HttpClientRequestTotal.
-			WithLabelValues("http://" + request.Host + request.URL.Path).
-			Observe(float64(time.Since(begin).Milliseconds()))
-		return invoker(request)
+		response, err := invoker(request)
+		if err == nil {
+			target := request.Header.Get(rpcheader.Target)
+			if target != "" {
+				prom.HttpClientRequestTotal.
+					WithLabelValues(target, request.URL.Path, strconv.Itoa(response.StatusCode)).
+					Observe(float64(time.Since(begin).Milliseconds()))
+			}
+		}
+		return response, err
 	}
 }
