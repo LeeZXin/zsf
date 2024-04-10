@@ -3,10 +3,10 @@ package zsf
 import (
 	"fmt"
 	"github.com/LeeZXin/zsf-utils/quit"
+	_ "github.com/LeeZXin/zsf-utils/sentinelutil"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/services/discovery"
-	sentinel "github.com/alibaba/sentinel-golang/api"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,10 +25,6 @@ var (
 	// 版本
 	version = atomic.Value{}
 )
-
-func init() {
-	_ = sentinel.InitDefault()
-}
 
 func GetStartTime() time.Time {
 	return startTime

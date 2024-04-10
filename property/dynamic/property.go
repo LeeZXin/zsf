@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/LeeZXin/zsf-utils/quit"
+	_ "github.com/LeeZXin/zsf-utils/sentinelutil"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/property/static"
@@ -87,7 +88,7 @@ func (o *propertyLoader) readRemote() ([]propObj, int64) {
 	response, err := o.client.Get(o.ctx, o.key, clientv3.WithPrefix())
 	if err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
-			logger.Logger.Fatalf("dynamic property permission denied")
+			logger.Logger.Fatalf("etcd dynamic property permission denied")
 		}
 		logger.Logger.Error(err)
 		return nil, 0
