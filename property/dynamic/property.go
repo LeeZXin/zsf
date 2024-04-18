@@ -13,6 +13,7 @@ import (
 	"github.com/alibaba/sentinel-golang/core/flow"
 	"github.com/alibaba/sentinel-golang/ext/datasource"
 	"github.com/spf13/viper"
+	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"path"
@@ -31,9 +32,14 @@ var (
 	loader = newPropertyLoader()
 )
 
+type container struct {
+	*viper.Viper
+	Raw []byte
+}
+
 type propertyLoader struct {
 	sync.RWMutex
-	cache      map[string]*viper.Viper
+	cache      map[string]*container
 	client     *clientv3.Client
 	key        string
 	ctx        context.Context
@@ -58,7 +64,7 @@ func newPropertyLoader() *propertyLoader {
 	// for sentinel
 	o.sentinelFlowBase = datasource.NewFlowRulesHandler(datasource.FlowRuleJsonArrayParser)
 	o.sentinelCircuitBreakerBase = datasource.NewCircuitBreakerRulesHandler(datasource.CircuitBreakerRuleJsonArrayParser)
-	o.cache = make(map[string]*viper.Viper, 8)
+	o.cache = make(map[string]*container, 8)
 	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
 	var err error
 	o.client, err = clientv3.New(clientv3.Config{
@@ -79,12 +85,7 @@ func newPropertyLoader() *propertyLoader {
 	return o
 }
 
-type propObj struct {
-	Key     string
-	Content []byte
-}
-
-func (o *propertyLoader) readRemote() ([]propObj, int64) {
+func (o *propertyLoader) readRemote() ([]*mvccpb.KeyValue, int64) {
 	response, err := o.client.Get(o.ctx, o.key, clientv3.WithPrefix())
 	if err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
@@ -93,14 +94,7 @@ func (o *propertyLoader) readRemote() ([]propObj, int64) {
 		logger.Logger.Error(err)
 		return nil, 0
 	}
-	ret := make([]propObj, 0, len(response.Kvs))
-	for _, kv := range response.Kvs {
-		ret = append(ret, propObj{
-			Key:     strings.TrimPrefix(string(kv.Key), o.key),
-			Content: kv.Value,
-		})
-	}
-	return ret, response.Header.GetRevision()
+	return response.Kvs, response.Header.GetRevision()
 }
 
 func (o *propertyLoader) watchRemote() {
@@ -123,13 +117,13 @@ func (o *propertyLoader) deleteKey(key string) {
 	delete(o.cache, key)
 }
 
-func (o *propertyLoader) putKey(key string, v *viper.Viper) {
+func (o *propertyLoader) putKey(key string, v *container) {
 	o.Lock()
 	defer o.Unlock()
 	o.cache[key] = v
 }
 
-func (o *propertyLoader) getViper(key string) (*viper.Viper, bool) {
+func (o *propertyLoader) getViper(key string) (*container, bool) {
 	o.RLock()
 	defer o.RUnlock()
 	ret, b := o.cache[key]
@@ -155,35 +149,17 @@ func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
 				case clientv3.EventTypeDelete:
 					if event.Kv != nil {
 						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						// sentinel是特殊文件
-						switch key {
-						case flowJsonPath:
-							flow.LoadRules(nil)
-						case circuitBreakerJsonPath:
-							circuitbreaker.LoadRules(nil)
-						default:
-							logger.Logger.Infof("delete dynamic key: %s", key)
-							o.deleteKey(key)
-						}
+						// 通知监听
+						notifyListener(key, nil, DeleteEventType)
+						o.handleDelete(key)
 					}
 				case clientv3.EventTypePut:
 					if event.Kv != nil {
 						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						// sentinel是特殊文件
-						switch key {
-						case flowJsonPath:
-							o.sentinelFlowBase.Handle(event.Kv.Value)
-						case circuitBreakerJsonPath:
-							o.sentinelCircuitBreakerBase.Handle(event.Kv.Value)
-						default:
-							v, b, err := o.loadOrNewViper(key, event.Kv.Value)
-							if err == nil {
-								logger.Logger.Infof("reset dynamic key: %s revision: %v", key, o.rev)
-								if !b {
-									o.putKey(key, v)
-								}
-							}
-						}
+						val := event.Kv.Value
+						// 通知监听
+						notifyListener(key, val, PutEventType)
+						o.handlePut(key, val)
 					}
 				}
 			}
@@ -199,14 +175,19 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *propertyLoader) loadOrNewViper(key string, content []byte) (*viper.Viper, bool, error) {
+func (o *propertyLoader) loadOrNewContainer(key string, raw []byte) (*container, bool, error) {
 	v, b := o.getViper(key)
 	if !b {
-		v = viper.New()
+		v = &container{
+			Viper: viper.New(),
+			Raw:   raw,
+		}
 		v.SetConfigType(ext(key))
+	} else {
+		v.Raw = raw
 	}
 	var val contentVal
-	err := json.Unmarshal(content, &val)
+	err := json.Unmarshal(raw, &val)
 	if err != nil {
 		logger.Logger.Errorf("read remote config is not json format: %s", key)
 		return nil, false, err
@@ -225,27 +206,42 @@ func (o *propertyLoader) loadOrNewViper(key string, content []byte) (*viper.Vipe
 }
 
 func (o *propertyLoader) init() {
-	objList, rev := o.readRemote()
+	kvs, rev := o.readRemote()
 	o.rev = rev
-	for _, obj := range objList {
-		if obj.Key == "" {
-			continue
-		}
-		key := obj.Key
-		switch key {
-		case flowJsonPath:
-			o.sentinelFlowBase.Handle(obj.Content)
-		case circuitBreakerJsonPath:
-			o.sentinelCircuitBreakerBase.Handle(obj.Content)
-		default:
-			v, _, err := o.loadOrNewViper(key, obj.Content)
-			if err != nil {
-				continue
-			}
-			o.cache[key] = v
-		}
+	for _, kv := range kvs {
+		key := strings.TrimPrefix(string(kv.Key), o.key)
+		val := kv.Value
+		o.handlePut(key, val)
 	}
 	go o.watchRemote()
+}
+
+func (o *propertyLoader) handlePut(key string, raw []byte) {
+	switch key {
+	case flowJsonPath:
+		o.sentinelFlowBase.Handle(raw)
+	case circuitBreakerJsonPath:
+		o.sentinelCircuitBreakerBase.Handle(raw)
+	default:
+		v, b, err := o.loadOrNewContainer(key, raw)
+		if err == nil {
+			if !b {
+				o.putKey(key, v)
+			}
+		}
+	}
+}
+
+func (o *propertyLoader) handleDelete(key string) {
+	switch key {
+	case flowJsonPath:
+		flow.LoadRules(nil)
+	case circuitBreakerJsonPath:
+		circuitbreaker.LoadRules(nil)
+	default:
+		logger.Logger.Infof("delete dynamic key: %s", key)
+		o.deleteKey(key)
+	}
 }
 
 type contentVal struct {
@@ -253,7 +249,7 @@ type contentVal struct {
 	Content string `json:"content"`
 }
 
-func getViper(key string) (*viper.Viper, bool) {
+func getContainer(key string) (*container, bool) {
 	v, b := loader.getViper(key)
 	if !b {
 		logger.Logger.Errorf("no dynamic viper: %s", key)
@@ -262,7 +258,7 @@ func getViper(key string) (*viper.Viper, bool) {
 }
 
 func GetIntSlice(key, path string) []int {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return nil
 	}
@@ -270,7 +266,7 @@ func GetIntSlice(key, path string) []int {
 }
 
 func GetStringSlice(key, path string) []string {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return nil
 	}
@@ -278,7 +274,7 @@ func GetStringSlice(key, path string) []string {
 }
 
 func GetString(key, path string) string {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return ""
 	}
@@ -286,15 +282,25 @@ func GetString(key, path string) string {
 }
 
 func GetInt(key, path string) int {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return 0
 	}
 	return v.GetInt(path)
 }
 
+func GetRaw(key string) []byte {
+	v, b := getContainer(key)
+	if !b {
+		return nil
+	}
+	ret := make([]byte, len(v.Raw))
+	copy(ret, v.Raw)
+	return ret
+}
+
 func Get(key, path string) any {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return nil
 	}
@@ -302,7 +308,7 @@ func Get(key, path string) any {
 }
 
 func GetBool(key, path string) bool {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return false
 	}
@@ -310,7 +316,7 @@ func GetBool(key, path string) bool {
 }
 
 func GetFloat64(key, path string) float64 {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return 0
 	}
@@ -318,7 +324,7 @@ func GetFloat64(key, path string) float64 {
 }
 
 func GetStringMapString(key, path string) map[string]string {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return make(map[string]string)
 	}
@@ -326,7 +332,7 @@ func GetStringMapString(key, path string) map[string]string {
 }
 
 func GetStringMap(key, path string) map[string]any {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return make(map[string]any)
 	}
@@ -334,7 +340,7 @@ func GetStringMap(key, path string) map[string]any {
 }
 
 func Exists(key, path string) bool {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return false
 	}
@@ -342,7 +348,7 @@ func Exists(key, path string) bool {
 }
 
 func GetInt64(key, path string) int64 {
-	v, b := getViper(key)
+	v, b := getContainer(key)
 	if !b {
 		return 0
 	}
