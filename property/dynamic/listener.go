@@ -9,7 +9,7 @@ const (
 	DeleteEventType
 )
 
-type Listener func(EventType, []byte)
+type Listener func(EventType, Content)
 
 var (
 	listenerMap = make(map[string]Listener)
@@ -27,7 +27,7 @@ func RegisterListener(key string, listener Listener) {
 }
 
 // notifyListener 通知监听
-func notifyListener(key string, val []byte, eventType EventType) {
+func notifyListener(key string, val Content, eventType EventType) {
 	listener, b := listenerMap[key]
 	if b {
 		go listener(eventType, val)

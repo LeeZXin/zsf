@@ -3,7 +3,6 @@ package dynamic
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/LeeZXin/zsf-utils/quit"
 	_ "github.com/LeeZXin/zsf-utils/sentinelutil"
 	"github.com/LeeZXin/zsf/common"
@@ -29,12 +28,17 @@ const (
 )
 
 var (
-	loader = newPropertyLoader()
+	loader *propertyLoader
 )
+
+// Init 初始化 not thread safe
+func Init() {
+	loader = newPropertyLoader()
+}
 
 type container struct {
 	*viper.Viper
-	Raw []byte
+	Raw Content
 }
 
 type propertyLoader struct {
@@ -123,7 +127,7 @@ func (o *propertyLoader) putKey(key string, v *container) {
 	o.cache[key] = v
 }
 
-func (o *propertyLoader) getViper(key string) (*container, bool) {
+func (o *propertyLoader) getContainer(key string) (*container, bool) {
 	o.RLock()
 	defer o.RUnlock()
 	ret, b := o.cache[key]
@@ -147,20 +151,9 @@ func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
 			for _, event := range data.Events {
 				switch event.Type {
 				case clientv3.EventTypeDelete:
-					if event.Kv != nil {
-						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						// 通知监听
-						notifyListener(key, nil, DeleteEventType)
-						o.handleDelete(key)
-					}
+					o.convertAndHandleDelete(event.Kv)
 				case clientv3.EventTypePut:
-					if event.Kv != nil {
-						key := strings.TrimPrefix(string(event.Kv.Key), o.key)
-						val := event.Kv.Value
-						// 通知监听
-						notifyListener(key, val, PutEventType)
-						o.handlePut(key, val)
-					}
+					o.convertAndHandlePut(event.Kv)
 				}
 			}
 		}
@@ -175,59 +168,70 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *propertyLoader) loadOrNewContainer(key string, raw []byte) (*container, bool, error) {
-	v, b := o.getViper(key)
+func (o *propertyLoader) loadOrNewContainer(key string, val Content) (*container, bool) {
+	v, b := o.getContainer(key)
 	if !b {
 		v = &container{
 			Viper: viper.New(),
-			Raw:   raw,
+			Raw:   val,
 		}
 		v.SetConfigType(ext(key))
 	} else {
-		v.Raw = raw
+		v.Raw = val
 	}
-	var val contentVal
-	err := json.Unmarshal(raw, &val)
-	if err != nil {
-		logger.Logger.Errorf("read remote config is not json format: %s", key)
-		return nil, false, err
-	}
-	if val.Version == "" {
-		logger.Logger.Errorf("read remote config version is empty: %s", key)
-		return nil, false, errors.New("empty version")
-	}
-	err = v.MergeConfig(strings.NewReader(val.Content))
-	if err != nil {
-		logger.Logger.Errorf("merge remote config err, key: %s, err: %v", key, err)
-		return nil, false, err
-	}
+	// 忽略转化异常
+	v.MergeConfig(strings.NewReader(val.Content))
 	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, val.Version)
-	return v, b, nil
+	return v, b
 }
 
 func (o *propertyLoader) init() {
 	kvs, rev := o.readRemote()
 	o.rev = rev
 	for _, kv := range kvs {
-		key := strings.TrimPrefix(string(kv.Key), o.key)
-		val := kv.Value
-		o.handlePut(key, val)
+		o.convertAndHandlePut(kv)
 	}
 	go o.watchRemote()
 }
 
-func (o *propertyLoader) handlePut(key string, raw []byte) {
+func (o *propertyLoader) convertAndHandlePut(kv *mvccpb.KeyValue) {
+	if kv == nil {
+		return
+	}
+	key := strings.TrimPrefix(string(kv.Key), o.key)
+	var val Content
+	err := json.Unmarshal(kv.Value, &val)
+	if err != nil {
+		logger.Logger.Errorf("read remote config is not json format: %s", key)
+	} else if val.Version == "" {
+		logger.Logger.Errorf("read remote config version is empty: %s %v", key, val)
+	} else {
+		o.handlePut(key, val)
+		// 通知监听
+		notifyListener(key, val, PutEventType)
+	}
+}
+
+func (o *propertyLoader) convertAndHandleDelete(kv *mvccpb.KeyValue) {
+	if kv == nil {
+		return
+	}
+	key := strings.TrimPrefix(string(kv.Key), o.key)
+	o.handleDelete(key)
+	// 通知监听
+	notifyListener(key, Content{}, DeleteEventType)
+}
+
+func (o *propertyLoader) handlePut(key string, val Content) {
 	switch key {
 	case flowJsonPath:
-		o.sentinelFlowBase.Handle(raw)
+		o.sentinelFlowBase.Handle([]byte(val.Content))
 	case circuitBreakerJsonPath:
-		o.sentinelCircuitBreakerBase.Handle(raw)
+		o.sentinelCircuitBreakerBase.Handle([]byte(val.Content))
 	default:
-		v, b, err := o.loadOrNewContainer(key, raw)
-		if err == nil {
-			if !b {
-				o.putKey(key, v)
-			}
+		v, b := o.loadOrNewContainer(key, val)
+		if !b {
+			o.putKey(key, v)
 		}
 	}
 }
@@ -244,13 +248,13 @@ func (o *propertyLoader) handleDelete(key string) {
 	}
 }
 
-type contentVal struct {
+type Content struct {
 	Version string `json:"version"`
 	Content string `json:"content"`
 }
 
 func getContainer(key string) (*container, bool) {
-	v, b := loader.getViper(key)
+	v, b := loader.getContainer(key)
 	if !b {
 		logger.Logger.Errorf("no dynamic viper: %s", key)
 	}
@@ -289,14 +293,12 @@ func GetInt(key, path string) int {
 	return v.GetInt(path)
 }
 
-func GetRaw(key string) []byte {
+func GetRawContent(key string) (Content, bool) {
 	v, b := getContainer(key)
 	if !b {
-		return nil
+		return Content{}, false
 	}
-	ret := make([]byte, len(v.Raw))
-	copy(ret, v.Raw)
-	return ret
+	return v.Raw, true
 }
 
 func Get(key, path string) any {
