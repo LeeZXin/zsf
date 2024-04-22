@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"github.com/LeeZXin/zsf-utils/collections/hashset"
+	"github.com/LeeZXin/zsf-utils/ginutil"
 	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/LeeZXin/zsf/logger"
@@ -21,10 +22,12 @@ import (
 
 var (
 	acceptedHeaders = hashset.NewHashSet[string]()
+	// 白名单ip
+	whiteIps = hashset.NewHashSet[string]()
 )
 
 func init() {
-	h := static.GetString("http.server.acceptedHeaders")
+	h := static.GetString("http.acceptedHeaders")
 	if h != "" {
 		sp := strings.Split(h, ";")
 		for _, s := range sp {
@@ -69,6 +72,24 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 			c.String(http.StatusTooManyRequests, "request limit")
 			c.Abort()
 		}
+	}
+}
+
+func WithWhiteIps(ips []string) gin.HandlerFunc {
+	if len(ips) > 0 {
+		whiteIps.Add(ips...)
+		return func(c *gin.Context) {
+			ip := ginutil.GetClientIp(c)
+			if whiteIps.Contains(ip) {
+				c.Next()
+			} else {
+				c.String(http.StatusForbidden, "blocked by white ips")
+				c.Abort()
+			}
+		}
+	}
+	return func(c *gin.Context) {
+		c.Next()
 	}
 }
 
