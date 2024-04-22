@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
+	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/gin-gonic/gin"
 	"io"
@@ -153,8 +154,15 @@ func (s *Server) OnApplicationStart() {
 	if idleTimeout == 0 {
 		idleTimeout = 60 * time.Second
 	}
+	var addr string
+	host := static.GetString("http.host")
+	if host != "" {
+		addr = fmt.Sprintf("%s:%d", host, common.HttpServerPort())
+	} else {
+		addr = fmt.Sprintf(":%d", common.HttpServerPort())
+	}
 	s.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", common.HttpServerPort()),
+		Addr:         addr,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
