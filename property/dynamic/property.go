@@ -28,12 +28,15 @@ const (
 )
 
 var (
-	loader *propertyLoader
+	loader   *propertyLoader
+	initOnce = sync.Once{}
 )
 
-// Init 初始化 not thread safe
+// Init 初始化
 func Init() {
-	loader = newPropertyLoader()
+	initOnce.Do(func() {
+		loader = newPropertyLoader()
+	})
 }
 
 type container struct {
@@ -254,6 +257,9 @@ type Content struct {
 }
 
 func getContainer(key string) (*container, bool) {
+	if loader == nil {
+		return nil, false
+	}
 	v, b := loader.getContainer(key)
 	if !b {
 		logger.Logger.Errorf("no dynamic viper: %s", key)

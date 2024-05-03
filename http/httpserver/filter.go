@@ -7,6 +7,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
+	"github.com/LeeZXin/zsf/property/dynamic"
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/rpcheader"
 	sentinel "github.com/alibaba/sentinel-golang/api"
@@ -23,7 +24,9 @@ import (
 var (
 	acceptedHeaders = hashset.NewHashSet[string]()
 	// 白名单ip
-	whiteIps = hashset.NewHashSet[string]()
+	whiteIps hashset.Set[string]
+	// api开关配置文件
+	apiSwitchFile string
 )
 
 func init() {
@@ -76,6 +79,9 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 }
 
 func WithWhiteIps(ips []string) gin.HandlerFunc {
+	if whiteIps == nil {
+		whiteIps = hashset.NewHashSet[string]()
+	}
 	if len(ips) > 0 {
 		whiteIps.Add(ips...)
 		return func(c *gin.Context) {
@@ -90,6 +96,29 @@ func WithWhiteIps(ips []string) gin.HandlerFunc {
 	}
 	return func(c *gin.Context) {
 		c.Next()
+	}
+}
+
+// WithApiSwitch 功能开关
+func WithApiSwitch(key string, after gin.HandlerFunc) gin.HandlerFunc {
+	if apiSwitchFile == "" {
+		apiSwitchFile = static.GetString("api.switch.file")
+		if apiSwitchFile == "" {
+			apiSwitchFile = "api-switch.yaml"
+		}
+	}
+	dynamic.Init()
+	return func(c *gin.Context) {
+		if dynamic.GetBool(apiSwitchFile, key) {
+			c.Next()
+		} else {
+			if after != nil {
+				after(c)
+			} else {
+				c.String(http.StatusLocked, "api locked")
+			}
+			c.Abort()
+		}
 	}
 }
 
