@@ -197,7 +197,15 @@ func newLokiHook() logrus.Hook {
 		panic("empty logger.loki.pushUrl")
 	}
 	orgId := static.GetString("logger.loki.orgId")
-	flusher, _ := executor.NewExecutor(3, 1024, time.Minute, executor.CallerRunsStrategy)
+	poolSize := static.GetInt("logger.loki.poolSize")
+	if poolSize <= 0 {
+		poolSize = 3
+	}
+	queueSize := static.GetInt("logger.loki.queueSize")
+	if queueSize <= 0 {
+		queueSize = 1024
+	}
+	flusher, _ := executor.NewExecutor(poolSize, queueSize, time.Minute, executor.CallerRunsStrategy)
 	h := &lokiHook{
 		pushUrl:    pushUrl,
 		formatter:  &lokiLogFormatter{},
@@ -220,9 +228,7 @@ func newLokiHook() logrus.Hook {
 		})
 	}, 3*time.Second)
 	chunkTask.Start()
-	quit.AddShutdownHook(func() {
-		chunkTask.Stop()
-	})
+	quit.AddShutdownHook(chunkTask.Stop)
 	h.chunkTask = chunkTask
 	return h
 }
