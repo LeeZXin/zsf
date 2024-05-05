@@ -51,6 +51,8 @@ func (v *VersionLoadBalancer) SetServers(servers []Server) {
 }
 
 func (v *VersionLoadBalancer) GetServers() []Server {
+	v.smu.RLock()
+	defer v.smu.RUnlock()
 	return v.allServers
 }
 

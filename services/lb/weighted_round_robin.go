@@ -11,7 +11,7 @@ type WeightRoundRobinLoadBalancer struct {
 	current    int
 	gcd        int
 	max        int
-	smu        sync.Mutex
+	smu        sync.RWMutex
 }
 
 func (w *WeightRoundRobinLoadBalancer) SetServers(servers []Server) {
@@ -37,6 +37,8 @@ func (w *WeightRoundRobinLoadBalancer) SetServers(servers []Server) {
 }
 
 func (w *WeightRoundRobinLoadBalancer) GetServers() []Server {
+	w.smu.RLock()
+	defer w.smu.RUnlock()
 	return w.allServers
 }
 

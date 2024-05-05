@@ -52,18 +52,15 @@ func (d *etcdDiscovery) ChooseServer(ctx context.Context, name string) (lb.Serve
 		return loadBalancer.ChooseServer(ctx)
 	}
 	d.cmu.Lock()
-	loadBalancer, err := d.getLoadBalancer(ctx, name)
 	loadBalancer, b = d.cache[name]
-	if b {
-		d.cmu.Unlock()
-		return loadBalancer.ChooseServer(ctx)
+	if !b {
+		loadBalancer, err := d.newLoadBalancer(ctx, name)
+		if err != nil {
+			d.cmu.Unlock()
+			return lb.Server{}, err
+		}
+		d.cache[name] = loadBalancer
 	}
-	loadBalancer, err = d.getLoadBalancer(ctx, name)
-	if err != nil {
-		d.cmu.Unlock()
-		return lb.Server{}, err
-	}
-	d.cache[name] = loadBalancer
 	d.cmu.Unlock()
 	return loadBalancer.ChooseServer(ctx)
 }
@@ -72,7 +69,7 @@ func (d *etcdDiscovery) ChooseServerWithZone(context.Context, string, string) (l
 	return lb.Server{}, lb.ServerNotFound
 }
 
-func (d *etcdDiscovery) getLoadBalancer(ctx context.Context, name string) (lb.LoadBalancer, error) {
+func (d *etcdDiscovery) newLoadBalancer(ctx context.Context, name string) (lb.LoadBalancer, error) {
 	servers, err := d.Discover(ctx, name)
 	if err != nil {
 		logger.Logger.WithContext(ctx).Error(err)
@@ -196,7 +193,7 @@ func newMultiEtcdDiscovery(cfgList []EtcdConfig) Discovery {
 	}
 	multiEtcd := make(map[string]Discovery, 8)
 	for _, etcdCfg := range cfgList {
-		zone := cast.ToString(etcdCfg.Zone)
+		zone := etcdCfg.Zone
 		if zone == "" {
 			continue
 		}

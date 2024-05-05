@@ -87,11 +87,12 @@ func ChooseServerWithZone(ctx context.Context, zone string, name string) (lb.Ser
 }
 
 func ChooseRandomServer(servers []lb.Server) lb.Server {
-	if len(servers) == 0 {
+	l := len(servers)
+	if l == 0 {
 		return lb.Server{}
 	}
-	if len(servers) == 1 {
+	if l == 1 {
 		return servers[0]
 	}
-	return servers[rand.Int()%len(servers)]
+	return servers[rand.Int()%l]
 }

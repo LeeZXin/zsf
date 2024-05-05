@@ -27,6 +27,9 @@ type NearbyLoadBalancer struct {
 }
 
 func (r *NearbyLoadBalancer) SetServers(servers []Server) {
+	if len(servers) == 0 {
+		return
+	}
 	r.smu.Lock()
 	defer r.smu.Unlock()
 	r.allServers = servers
@@ -34,6 +37,8 @@ func (r *NearbyLoadBalancer) SetServers(servers []Server) {
 }
 
 func (r *NearbyLoadBalancer) GetServers() []Server {
+	r.smu.RLock()
+	defer r.smu.RUnlock()
 	return r.allServers
 }
 
@@ -72,7 +77,7 @@ func (r *NearbyLoadBalancer) initNearbyLb(servers []Server) nearbyLb {
 	}
 	for region, zoneServers := range serverMap {
 		lb := regionLb{
-			zlb: make(map[string]LoadBalancer),
+			zlb: make(map[string]LoadBalancer, 8),
 		}
 		rServers := make([]Server, 0)
 		for zone, zServers := range zoneServers {
