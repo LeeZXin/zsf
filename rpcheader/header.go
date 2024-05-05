@@ -81,10 +81,20 @@ func GenTraceIdIfAbsent(ctx context.Context) (context.Context, string) {
 	}), uuid
 }
 
-func AppendTraceId(ctx context.Context) (context.Context, string) {
-	ctx, id := GenTraceIdIfAbsent(ctx)
-	ctx = logger.AppendToMDC(ctx, map[string]string{
-		logger.TraceId: id,
+func NewCtxFromOldCtx(ctx context.Context) (context.Context, string) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	headers := GetHeaders(ctx)
+	uuid := headers.Get(TraceId)
+	if uuid == "" {
+		uuid = idutil.RandomUuid()
+	}
+	ctx = logger.AppendToMDC(context.Background(), map[string]string{
+		logger.TraceId: uuid,
 	})
-	return ctx, id
+	ctx = AppendToHeaders(ctx, map[string]string{
+		TraceId: uuid,
+	})
+	return ctx, uuid
 }
