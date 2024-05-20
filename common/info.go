@@ -47,9 +47,6 @@ func init() {
 	}
 	//获取本地ip
 	localIP = iputil.GetIPV4()
-	if localIP == "" {
-		panic("can not get local ipv4")
-	}
 	httpServerPort = static.GetInt("http.port")
 	if httpServerPort <= 0 {
 		httpServerPort = DefaultHttpServerPort
