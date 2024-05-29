@@ -123,7 +123,7 @@ func newNsqHook() logrus.Hook {
 	if err != nil {
 		panic(err)
 	}
-	task, _ := taskutil.NewChunkTask[[]byte](10e6, func(content []taskutil.Chunk[[]byte]) {
+	chunkExecuteFunc, _, chunkStopFunc, _ := taskutil.RunChunkTask[[]byte](10e6, func(content []taskutil.Chunk[[]byte]) {
 		if content == nil || len(content) == 0 {
 			return
 		}
@@ -133,23 +133,22 @@ func newNsqHook() logrus.Hook {
 		}
 		_ = producer.MultiPublish(topic, send)
 	}, 3*time.Second)
-	task.Start()
 	quit.AddShutdownHook(func() {
-		task.Stop()
+		chunkStopFunc()
 		producer.Stop()
 	})
 	ret := &nsqHook{
-		topic:     topic,
-		task:      task,
-		formatter: defaultFormatter,
+		topic:            topic,
+		chunkExecuteFunc: chunkExecuteFunc,
+		formatter:        defaultFormatter,
 	}
 	return ret
 }
 
 type nsqHook struct {
-	topic     string
-	formatter logrus.Formatter
-	task      *taskutil.ChunkTask[[]byte]
+	topic            string
+	formatter        logrus.Formatter
+	chunkExecuteFunc taskutil.ChunkTaskExecuteFunc[[]byte]
 }
 
 func (*nsqHook) Levels() []logrus.Level {
@@ -163,7 +162,7 @@ func (k *nsqHook) Fire(entry *logrus.Entry) error {
 	}
 	v := newLogContent(string(content), "nsq", entry)
 	value, _ := json.Marshal(v)
-	k.task.Execute(value, len(value))
+	k.chunkExecuteFunc(value, len(value))
 	return nil
 }
 
@@ -175,11 +174,11 @@ func (l *nsqLogger) Output(int, string) error {
 }
 
 type lokiHook struct {
-	pushUrl    string
-	httpClient *http.Client
-	formatter  logrus.Formatter
-	chunkTask  *taskutil.ChunkTask[LogContent]
-	flusher    *executor.Executor
+	pushUrl          string
+	httpClient       *http.Client
+	formatter        logrus.Formatter
+	chunkExecuteFunc taskutil.ChunkTaskExecuteFunc[LogContent]
+	flusher          *executor.Executor
 }
 
 type lokiStream struct {
@@ -212,7 +211,7 @@ func newLokiHook() logrus.Hook {
 		httpClient: httputil.NewRetryableHttpClient(),
 		flusher:    flusher,
 	}
-	chunkTask, _ := taskutil.NewChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
+	chunkExecuteFunc, _, chunkStopFunc, _ := taskutil.RunChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
 		h.flusher.Execute(func() {
 			for _, stream := range h.splitByLevel(logList) {
 				ctx, cancelFunc := context.WithTimeout(context.Background(), 3*time.Second)
@@ -227,9 +226,8 @@ func newLokiHook() logrus.Hook {
 			}
 		})
 	}, 3*time.Second)
-	chunkTask.Start()
-	quit.AddShutdownHook(chunkTask.Stop)
-	h.chunkTask = chunkTask
+	quit.AddShutdownHook(quit.ShutdownHook(chunkStopFunc))
+	h.chunkExecuteFunc = chunkExecuteFunc
 	return h
 }
 
@@ -282,7 +280,7 @@ func (k *lokiHook) Fire(entry *logrus.Entry) error {
 	if err != nil {
 		return err
 	}
-	k.chunkTask.Execute(newLogContent(string(content), "loki", entry), 1)
+	k.chunkExecuteFunc(newLogContent(string(content), "loki", entry), 1)
 	return nil
 }
 

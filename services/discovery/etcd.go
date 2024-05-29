@@ -83,14 +83,13 @@ func (d *etcdDiscovery) newLoadBalancer(ctx context.Context, name string) (lb.Lo
 	return balancer, nil
 }
 
-func (d *etcdDiscovery) watch() {
+func (d *etcdDiscovery) watch(ctx context.Context) {
 	d.cmu.RLock()
 	cpy := make(map[string][]lb.Server, len(d.cache))
 	for name, loadBalancer := range d.cache {
 		cpy[name] = loadBalancer.GetServers()
 	}
 	d.cmu.RUnlock()
-	ctx := context.Background()
 	for name, servers := range cpy {
 		newServers, err := d.Discover(ctx, name)
 		if err != nil {
@@ -134,9 +133,8 @@ func newEtcdDiscovery(cfg EtcdConfig) Discovery {
 	})
 	d.client = clientv3.NewKV(client)
 	d.cache = make(map[string]lb.LoadBalancer)
-	watchTask, _ := taskutil.NewPeriodicalTask(10*time.Second, d.watch)
-	watchTask.Start()
-	quit.AddShutdownHook(watchTask.Stop)
+	stopFunc, _ := taskutil.RunPeriodicalTask(10*time.Second, 10*time.Second, d.watch)
+	quit.AddShutdownHook(quit.ShutdownHook(stopFunc))
 	return d
 }
 
