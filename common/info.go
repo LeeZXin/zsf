@@ -46,7 +46,10 @@ func init() {
 		zone = "#"
 	}
 	//获取本地ip
-	localIP = iputil.GetIPV4()
+	localIP = static.GetString("application.ip")
+	if localIP == "" {
+		localIP = iputil.GetIPV4()
+	}
 	httpServerPort = static.GetInt("http.port")
 	if httpServerPort <= 0 {
 		httpServerPort = DefaultHttpServerPort

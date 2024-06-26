@@ -135,7 +135,6 @@ func (s *Server) OnApplicationStart() {
 	} else if s.opt.noRoute != nil {
 		engine.NoMethod(s.opt.noRoute)
 	}
-	engine.ContextWithFallback = true
 	//filter
 	engine.Use(getFilters()...)
 	fnList := getRegisterFuncList()
