@@ -1,19 +1,17 @@
 package xormutil
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type Conversion[T any] struct {
 	Data T `json:"data" yaml:"data"`
 }
 
 func (c *Conversion[T]) FromDB(content []byte) error {
-	if c == nil {
-		var t Conversion[T]
-		*c = t
-	}
-	return json.Unmarshal(content, c)
+	return json.Unmarshal(content, &c.Data)
 }
 
 func (c *Conversion[T]) ToDB() ([]byte, error) {
-	return json.Marshal(c)
+	return json.Marshal(c.Data)
 }
