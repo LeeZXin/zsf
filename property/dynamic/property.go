@@ -74,11 +74,11 @@ func newPropertyLoader() *propertyLoader {
 	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
 	var err error
 	o.client, err = clientv3.New(clientv3.Config{
-		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.hosts"), ";"),
+		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.endpoints"), ";"),
 		AutoSyncInterval: time.Minute,
 		DialTimeout:      10 * time.Second,
 		Username:         static.GetString("property.dynamic.etcd.username"),
-		Password:         static.GetString("property.dynamic.etcd.dyna"),
+		Password:         static.GetString("property.dynamic.etcd.password"),
 		Logger:           zap.NewNop(),
 	})
 	if err != nil {
