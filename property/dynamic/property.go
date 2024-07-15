@@ -183,7 +183,6 @@ func (o *propertyLoader) loadOrNewContainer(key string, val Content) (*container
 	}
 	// 忽略转化异常
 	v.MergeConfig(strings.NewReader(val.Content))
-	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, val.Version)
 	return v, b
 }
 
@@ -225,11 +224,18 @@ func (o *propertyLoader) convertAndHandleDelete(kv *mvccpb.KeyValue) {
 }
 
 func (o *propertyLoader) handlePut(key string, val Content) {
+	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, val.Version)
 	switch key {
 	case flowJsonPath:
-		o.sentinelFlowBase.Handle([]byte(val.Content))
+		err := o.sentinelFlowBase.Handle([]byte(val.Content))
+		if err != nil {
+			logger.Logger.Errorf("handle put %s failed with err: %v", flowJsonPath, err)
+		}
 	case circuitBreakerJsonPath:
-		o.sentinelCircuitBreakerBase.Handle([]byte(val.Content))
+		err := o.sentinelCircuitBreakerBase.Handle([]byte(val.Content))
+		if err != nil {
+			logger.Logger.Errorf("handle put %s failed with err: %v", circuitBreakerJsonPath, err)
+		}
 	default:
 		v, b := o.loadOrNewContainer(key, val)
 		if !b {
