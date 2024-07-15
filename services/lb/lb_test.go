@@ -7,7 +7,7 @@ import (
 )
 
 func TestRoundRobinLoadBalancer_ChooseServer(t *testing.T) {
-	lb := new(RoundRobinLoadBalancer)
+	lb := new(roundRobinLoadBalancer)
 	lb.SetServers([]Server{
 		{
 			Name: "1",
@@ -25,7 +25,7 @@ func TestRoundRobinLoadBalancer_ChooseServer(t *testing.T) {
 }
 
 func TestWeightedRoundRobinLoadBalancer_ChooseServer(t *testing.T) {
-	lb := new(WeightRoundRobinLoadBalancer)
+	lb := new(weightRoundRobinLoadBalancer)
 	lb.SetServers([]Server{
 		{
 			Name:   "1",
@@ -46,7 +46,7 @@ func TestWeightedRoundRobinLoadBalancer_ChooseServer(t *testing.T) {
 }
 
 func TestVersionRoundRobinLoadBalancer_ChooseServer(t *testing.T) {
-	lb := &VersionLoadBalancer{
+	lb := &versionLoadBalancer{
 		LbPolicy: WeightRoundRobin,
 	}
 	lb.SetServers([]Server{

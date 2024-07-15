@@ -47,7 +47,7 @@ func (r *NearbyLoadBalancer) initNearbyLb(servers []Server) nearbyLb {
 		rlb: make(map[string]regionLb, 8),
 	}
 	// 全局列表
-	balancer := &VersionLoadBalancer{
+	balancer := &versionLoadBalancer{
 		LbPolicy: r.LbPolicy,
 	}
 	balancer.SetServers(servers)
@@ -84,14 +84,14 @@ func (r *NearbyLoadBalancer) initNearbyLb(servers []Server) nearbyLb {
 			// region全量
 			rServers = append(rServers, zServers...)
 			// zone 列表
-			balancer = &VersionLoadBalancer{
+			balancer = &versionLoadBalancer{
 				LbPolicy: r.LbPolicy,
 			}
 			balancer.SetServers(zServers)
 			lb.zlb[zone] = balancer
 		}
 		// region全量列表
-		balancer = &VersionLoadBalancer{
+		balancer = &versionLoadBalancer{
 			LbPolicy: r.LbPolicy,
 		}
 		balancer.SetServers(rServers)

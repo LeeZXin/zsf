@@ -4,26 +4,22 @@ import (
 	"context"
 	"github.com/LeeZXin/zsf/env"
 	"github.com/LeeZXin/zsf/rpcheader"
-	"sync"
 )
 
 const (
 	DefaultVersion = "default"
 )
 
-type VersionLoadBalancer struct {
-	smu        sync.RWMutex
+type versionLoadBalancer struct {
 	allServers []Server
 	serversMap map[string]LoadBalancer
 	LbPolicy   Policy
 }
 
-func (v *VersionLoadBalancer) SetServers(servers []Server) {
+func (v *versionLoadBalancer) SetServers(servers []Server) {
 	if len(servers) == 0 {
 		return
 	}
-	v.smu.Lock()
-	defer v.smu.Unlock()
 	v.allServers = servers
 	v.serversMap = make(map[string]LoadBalancer, 8)
 	vServersMap := make(map[string][]Server, 8)
@@ -50,13 +46,11 @@ func (v *VersionLoadBalancer) SetServers(servers []Server) {
 	}
 }
 
-func (v *VersionLoadBalancer) GetServers() []Server {
-	v.smu.RLock()
-	defer v.smu.RUnlock()
+func (v *versionLoadBalancer) GetServers() []Server {
 	return v.allServers
 }
 
-func (v *VersionLoadBalancer) ChooseServer(ctx context.Context) (Server, error) {
+func (v *versionLoadBalancer) ChooseServer(ctx context.Context) (Server, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -64,8 +58,6 @@ func (v *VersionLoadBalancer) ChooseServer(ctx context.Context) (Server, error) 
 	if version == "" {
 		version = env.GetVersion()
 	}
-	v.smu.RLock()
-	defer v.smu.RUnlock()
 	if len(v.serversMap) == 0 {
 		return Server{}, ServerNotFound
 	}
@@ -80,13 +72,13 @@ func (v *VersionLoadBalancer) ChooseServer(ctx context.Context) (Server, error) 
 	return ret, nil
 }
 
-func (v *VersionLoadBalancer) getLoadBalancer() LoadBalancer {
+func (v *versionLoadBalancer) getLoadBalancer() LoadBalancer {
 	switch v.LbPolicy {
 	case RoundRobin:
-		return new(RoundRobinLoadBalancer)
+		return new(roundRobinLoadBalancer)
 	case WeightRoundRobin:
-		return new(WeightRoundRobinLoadBalancer)
+		return new(weightRoundRobinLoadBalancer)
 	default:
-		return new(RoundRobinLoadBalancer)
+		return new(roundRobinLoadBalancer)
 	}
 }

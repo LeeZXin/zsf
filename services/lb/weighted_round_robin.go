@@ -2,24 +2,20 @@ package lb
 
 import (
 	"context"
-	"sync"
 )
 
-type WeightRoundRobinLoadBalancer struct {
+type weightRoundRobinLoadBalancer struct {
 	allServers []Server
 	maxWeight  int
 	current    int
 	gcd        int
 	max        int
-	smu        sync.RWMutex
 }
 
-func (w *WeightRoundRobinLoadBalancer) SetServers(servers []Server) {
+func (w *weightRoundRobinLoadBalancer) SetServers(servers []Server) {
 	if len(servers) == 0 {
 		return
 	}
-	w.smu.Lock()
-	defer w.smu.Unlock()
 	w.allServers = servers
 	weights := make([]int, len(w.allServers))
 	for i := range w.allServers {
@@ -36,15 +32,11 @@ func (w *WeightRoundRobinLoadBalancer) SetServers(servers []Server) {
 	w.max = max(weights)
 }
 
-func (w *WeightRoundRobinLoadBalancer) GetServers() []Server {
-	w.smu.RLock()
-	defer w.smu.RUnlock()
+func (w *weightRoundRobinLoadBalancer) GetServers() []Server {
 	return w.allServers
 }
 
-func (w *WeightRoundRobinLoadBalancer) ChooseServer(_ context.Context) (Server, error) {
-	w.smu.Lock()
-	defer w.smu.Unlock()
+func (w *weightRoundRobinLoadBalancer) ChooseServer(_ context.Context) (Server, error) {
 	if len(w.allServers) == 0 {
 		return Server{}, ServerNotFound
 	}
