@@ -21,16 +21,12 @@ func (r *etcdRegistry) RegisterSelf(info ServerInfo) DeregisterAction {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	logger.Logger.Infof("register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
 	go func() {
-		for {
-			if ctx.Err() != nil {
-				return
-			}
+		for ctx.Err() == nil {
 			// 一直续约
 			err := r.grantAndKeepalive(ctx, info)
 			if err == nil || ctx.Err() != nil {
 				return
 			}
-			logger.Logger.Error(err)
 			// 续约异常 重新注册
 			time.Sleep(5 * time.Second)
 			logger.Logger.Infof("try to re-register %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
@@ -39,9 +35,7 @@ func (r *etcdRegistry) RegisterSelf(info ServerInfo) DeregisterAction {
 	return func() {
 		cancelFunc()
 		logger.Logger.Infof("deregister %s, path: %s", info.GetRpcName(), info.GetRegisterPath())
-		timeoutCtx, timeoutFunc := context.WithTimeout(context.Background(), 2*time.Second)
-		defer timeoutFunc()
-		_, err := r.client.Delete(timeoutCtx, info.GetRegisterPath())
+		_, err := r.client.Delete(context.Background(), info.GetRegisterPath())
 		if err != nil {
 			logger.Logger.Error(err)
 		}
@@ -60,12 +54,13 @@ func (r *etcdRegistry) grantAndKeepalive(ctx context.Context, info ServerInfo) e
 	}
 	ch, err := r.client.KeepAlive(ctx, grant.ID)
 	if err != nil {
+		logger.Logger.Error(err)
 		return err
 	}
 	defer func() {
 		if ctx.Err() != nil {
 			// 如果是cancelFunc触发的 手动释放租约
-			_, err := r.client.Revoke(ctx, grant.ID)
+			_, err := r.client.Revoke(context.Background(), grant.ID)
 			if err != nil {
 				logger.Logger.Error(err)
 			}

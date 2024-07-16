@@ -14,7 +14,7 @@ import (
 func main() {
 	dynamic.Init()
 	zsf.Run(
-		zsf.WithDiscovery(discovery.NewStaticDiscovery()),
+		zsf.WithDiscovery(discovery.NewEtcdDiscovery()),
 		zsf.WithLifeCycles(
 			httpserver.NewServer(
 				httpserver.WithRegistryAction(

@@ -91,7 +91,7 @@ func Run(options ...Option) {
 			for _, l := range lifeCycles {
 				l.OnApplicationShutdown()
 			}
-		})
+		}, true)
 		for _, l := range lifeCycles {
 			l.AfterInitialize()
 		}
