@@ -128,13 +128,13 @@ func newEtcdDiscovery(cfg EtcdConfig) Discovery {
 	if err != nil {
 		logger.Logger.Fatalf("etcd client starts failed: %v", err)
 	}
+	stopFunc, _ := taskutil.RunPeriodicalTask(10*time.Second, 10*time.Second, d.watch)
 	quit.AddShutdownHook(func() {
 		client.Close()
+		stopFunc()
 	})
 	d.client = clientv3.NewKV(client)
 	d.cache = make(map[string]lb.LoadBalancer)
-	stopFunc, _ := taskutil.RunPeriodicalTask(10*time.Second, 10*time.Second, d.watch)
-	quit.AddShutdownHook(quit.ShutdownHook(stopFunc))
 	return d
 }
 
