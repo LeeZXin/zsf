@@ -5,13 +5,14 @@ import (
 )
 
 type Server struct {
-	Name    string `json:"name"`
-	Host    string `json:"host"`
-	Port    int    `json:"port"`
-	Weight  int    `json:"weight"`
-	Version string `json:"version"`
-	Region  string `json:"region"`
-	Zone    string `json:"zone"`
+	Protocol string `json:"protocol"`
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Weight   int    `json:"weight"`
+	Version  string `json:"version"`
+	Region   string `json:"region"`
+	Zone     string `json:"zone"`
 }
 
 func (s *Server) IsSameAs(s2 Server) bool {

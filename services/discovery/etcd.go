@@ -24,7 +24,7 @@ type etcdDiscovery struct {
 }
 
 func (d *etcdDiscovery) Discover(ctx context.Context, name string) ([]lb.Server, error) {
-	response, err := d.client.Get(ctx, common.ServicePrefix+name, clientv3.WithPrefix())
+	response, err := d.client.Get(ctx, common.ServicePrefix+name+"/", clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

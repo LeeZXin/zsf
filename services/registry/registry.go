@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-// 服务注册
-
 func NewDefaultEtcdRegistry() Registry {
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:        strings.Split(static.GetString("discovery.etcd.endpoints"), ";"),
@@ -48,7 +46,7 @@ type defaultRegisterAction struct {
 	mu         sync.Mutex
 	weight     int
 	port       int
-	scheme     string
+	protocol   string
 }
 
 func (r *defaultRegisterAction) Register() {
@@ -57,9 +55,9 @@ func (r *defaultRegisterAction) Register() {
 	defer r.mu.Unlock()
 	if !r.active {
 		r.deregister = r.registry.RegisterSelf(ServerInfo{
-			Port:   r.port,
-			Scheme: r.scheme,
-			Weight: r.weight,
+			Port:     r.port,
+			Protocol: r.protocol,
+			Weight:   r.weight,
 		})
 		r.active = true
 	}
@@ -86,7 +84,7 @@ func NewDefaultHttpAction(registry Registry) Action {
 		registry: registry,
 		weight:   weight,
 		port:     common.HttpServerPort(),
-		scheme:   common.HttpProtocol,
+		protocol: common.HttpProtocol,
 	}
 }
 
@@ -101,8 +99,8 @@ type DeregisterAction func()
 type ServerInfo struct {
 	// Port 端口
 	Port int
-	// Scheme 服务协议
-	Scheme string
+	// Protocol 服务协议
+	Protocol string
 	// Weight 权重
 	Weight       int
 	rpcName      string
@@ -118,29 +116,20 @@ func (s *ServerInfo) GetRegisterPath() string {
 
 func (s *ServerInfo) GetRpcName() string {
 	if s.rpcName == "" {
-		s.rpcName = common.GetApplicationName() + "-" + s.Scheme
+		s.rpcName = common.GetApplicationName() + "-" + s.Protocol
 	}
 	return s.rpcName
 }
 
 func (s *ServerInfo) GetServer() lb.Server {
 	return lb.Server{
-		Name:    s.GetRpcName(),
-		Host:    common.GetLocalIP(),
-		Port:    s.Port,
-		Weight:  s.Weight,
-		Version: env.GetVersion(),
-		Region:  common.GetRegion(),
-		Zone:    common.GetZone(),
+		Protocol: s.Protocol,
+		Name:     s.GetRpcName(),
+		Host:     common.GetLocalIP(),
+		Port:     s.Port,
+		Weight:   s.Weight,
+		Version:  env.GetVersion(),
+		Region:   common.GetRegion(),
+		Zone:     common.GetZone(),
 	}
-}
-
-// ServiceAddr 服务信息
-type ServiceAddr struct {
-	InstanceId string `json:"instanceId"`
-	Name       string `json:"name"`
-	Addr       string `json:"addr"`
-	Port       int    `json:"port"`
-	Weight     int    `json:"weight"`
-	Version    string `json:"version"`
 }
