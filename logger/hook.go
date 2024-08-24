@@ -26,7 +26,6 @@ const (
 )
 
 type LogContent struct {
-	time      time.Time
 	Timestamp int64  `json:"timestamp"`
 	Version   string `json:"version"`
 	Level     string `json:"level"`
@@ -262,7 +261,7 @@ func (*lokiHook) convert2Stream(logs []LogContent) lokiStream {
 		"instanceId": logs[0].InstanceId,
 	}
 	values, _ := listutil.Map(logs, func(t LogContent) ([]string, error) {
-		return []string{strconv.FormatInt(t.time.UnixNano(), 10), t.Content}, nil
+		return []string{strconv.FormatInt(time.UnixMilli(t.Timestamp).UnixNano(), 10), t.Content}, nil
 	})
 	return lokiStream{
 		Stream: stream,
@@ -285,7 +284,6 @@ func (k *lokiHook) Fire(entry *logrus.Entry) error {
 
 func newLogContent(content, sourceType string, entry *logrus.Entry) LogContent {
 	return LogContent{
-		time:       entry.Time,
 		Timestamp:  entry.Time.UnixMilli(),
 		Version:    LogVersion,
 		Level:      entry.Level.String(),
