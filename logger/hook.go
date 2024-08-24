@@ -26,13 +26,13 @@ const (
 )
 
 type LogContent struct {
-	Timestamp int64     `json:"timestamp"`
-	Time      time.Time `json:"-"`
-	Version   string    `json:"version"`
-	Level     string    `json:"level"`
-	Env       string    `json:"env"`
-	Region    string    `json:"region"`
-	Zone      string    `json:"zone"`
+	time      time.Time
+	Timestamp int64  `json:"timestamp"`
+	Version   string `json:"version"`
+	Level     string `json:"level"`
+	Env       string `json:"env"`
+	Region    string `json:"region"`
+	Zone      string `json:"zone"`
 
 	SourceIp   string `json:"sourceIp"`
 	SourceType string `json:"sourceType"`
@@ -96,8 +96,7 @@ func (k *kafkaHook) Fire(entry *logrus.Entry) error {
 	if err != nil {
 		return err
 	}
-	now := time.Now()
-	t, _ := now.MarshalBinary()
+	t, _ := time.Now().MarshalBinary()
 	v := newLogContent(string(content), "kafka", entry)
 	value, _ := json.Marshal(v)
 	_ = k.writer.WriteMessages(context.Background(), kafka.Message{
@@ -263,7 +262,7 @@ func (*lokiHook) convert2Stream(logs []LogContent) lokiStream {
 		"instanceId": logs[0].InstanceId,
 	}
 	values, _ := listutil.Map(logs, func(t LogContent) ([]string, error) {
-		return []string{strconv.FormatInt(t.Time.UnixNano(), 10), t.Content}, nil
+		return []string{strconv.FormatInt(t.time.UnixNano(), 10), t.Content}, nil
 	})
 	return lokiStream{
 		Stream: stream,
@@ -286,8 +285,8 @@ func (k *lokiHook) Fire(entry *logrus.Entry) error {
 
 func newLogContent(content, sourceType string, entry *logrus.Entry) LogContent {
 	return LogContent{
+		time:       entry.Time,
 		Timestamp:  entry.Time.UnixMilli(),
-		Time:       entry.Time,
 		Version:    LogVersion,
 		Level:      entry.Level.String(),
 		Env:        env.GetEnv(),
