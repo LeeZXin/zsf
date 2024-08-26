@@ -211,17 +211,19 @@ func newLokiHook() logrus.Hook {
 	}
 	chunkExecuteFunc, _, chunkStopFunc, _ := taskutil.RunChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
 		h.flusher.Execute(func() {
-			for _, stream := range h.splitByLevel(logList) {
-				ctx, cancelFunc := context.WithTimeout(context.Background(), 3*time.Second)
-				httputil.Post(ctx, h.httpClient, h.pushUrl, map[string]string{
-					"X-Scope-OrgID": orgId,
-				}, lokiHttpRequest{
-					Streams: []lokiStream{
-						stream,
-					},
-				}, nil)
-				cancelFunc()
-			}
+			chunk := listutil.MapNe(logList, func(t taskutil.Chunk[LogContent]) LogContent {
+				return t.Data
+			})
+			stream := h.convert2Stream(chunk)
+			ctx, cancelFunc := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancelFunc()
+			httputil.Post(ctx, h.httpClient, h.pushUrl, map[string]string{
+				"X-Scope-OrgID": orgId,
+			}, lokiHttpRequest{
+				Streams: []lokiStream{
+					stream,
+				},
+			}, nil)
 		})
 	}, 3*time.Second)
 	quit.AddShutdownHook(quit.ShutdownHook(chunkStopFunc))
@@ -229,39 +231,20 @@ func newLokiHook() logrus.Hook {
 	return h
 }
 
-func (k *lokiHook) splitByLevel(data []taskutil.Chunk[LogContent]) []lokiStream {
-	lastLevel := data[0].Data.Level
-	ret := make([]lokiStream, 0)
-	list := make([]LogContent, 0)
-	for _, item := range data {
-		if item.Data.Level != lastLevel {
-			ret = append(ret, k.convert2Stream(list))
-			list = make([]LogContent, 0)
-			lastLevel = item.Data.Level
-		}
-		list = append(list, item.Data)
-	}
-	if len(list) > 0 {
-		ret = append(ret, k.convert2Stream(list))
-	}
-	return ret
-}
-
 func (*lokiHook) convert2Stream(logs []LogContent) lokiStream {
 	stream := map[string]string{
-		"version":    logs[0].Version,
-		"level":      logs[0].Level,
 		"env":        logs[0].Env,
 		"region":     logs[0].Region,
 		"zone":       logs[0].Zone,
 		"sourceIp":   logs[0].SourceIp,
-		"sourceType": logs[0].SourceType,
 		"appId":      logs[0].AppId,
-		"traceId":    logs[0].TraceId,
 		"instanceId": logs[0].InstanceId,
 	}
-	values, _ := listutil.Map(logs, func(t LogContent) ([]string, error) {
-		return []string{strconv.FormatInt(time.UnixMilli(t.Timestamp).UnixNano(), 10), t.Content}, nil
+	values := listutil.MapNe(logs, func(t LogContent) []string {
+		return []string{
+			strconv.FormatInt(time.UnixMilli(t.Timestamp).UnixNano(), 10),
+			t.Content,
+		}
 	})
 	return lokiStream{
 		Stream: stream,

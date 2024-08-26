@@ -29,12 +29,12 @@ func domainTarget(config RouterConfig, httpClient *http.Client) (hostSelector, r
 	var hs hostSelector
 	switch config.TargetLbPolicy {
 	case RoundRobinPolicy:
-		targets, _ := listutil.Map(config.Targets, func(t Target) (string, error) {
-			return t.Target, nil
+		targets := listutil.MapNe(config.Targets, func(t Target) string {
+			return t.Target
 		})
 		hs = newRoundRobinSelector(targets)
 	case WeightedRoundRobinPolicy:
-		targets, _ := listutil.Map(config.Targets, func(t Target) (weightedTarget, error) {
+		targets := listutil.MapNe(config.Targets, func(t Target) weightedTarget {
 			weight := t.Weight
 			if weight <= 0 {
 				weight = 1
@@ -42,7 +42,7 @@ func domainTarget(config RouterConfig, httpClient *http.Client) (hostSelector, r
 			return weightedTarget{
 				weight: weight,
 				target: t.Target,
-			}, nil
+			}
 		})
 		hs = newWeightedRoundRobinSelector(targets)
 	default:

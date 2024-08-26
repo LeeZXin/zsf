@@ -65,7 +65,7 @@ func (l *lokiLogFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		}
 	}
 	// 去掉时间戳 loki默认展示时间戳
-	logStr := fmt.Sprintf("[%s] [%s:%d] [%s] %s\n", entry.Level, splitFilePath(entry.Caller.File), entry.Caller.Line, traceId, entry.Message)
+	logStr := fmt.Sprintf("[%s:%d] [level=%s] [traceId=%s] %s\n", splitFilePath(entry.Caller.File), entry.Caller.Line, entry.Level, traceId, entry.Message)
 	buffer.WriteString(logStr)
 	return buffer.Bytes(), nil
 }

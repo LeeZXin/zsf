@@ -3,7 +3,7 @@ module github.com/LeeZXin/zsf
 go 1.20
 
 require (
-	github.com/LeeZXin/zsf-utils v1.0.71
+	github.com/LeeZXin/zsf-utils v1.0.72
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.6.0
@@ -54,6 +54,8 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/onsi/ginkgo v1.11.0 // indirect
+	github.com/onsi/gomega v1.7.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
