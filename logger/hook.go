@@ -209,7 +209,7 @@ func newLokiHook() logrus.Hook {
 		httpClient: httputil.NewRetryableHttpClient(),
 		flusher:    flusher,
 	}
-	chunkExecuteFunc, _, chunkStopFunc, _ := taskutil.RunChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
+	chunkExecuteFunc, chunkFlushFunc, chunkStopFunc, _ := taskutil.RunChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {
 		h.flusher.Execute(func() {
 			chunk := listutil.MapNe(logList, func(t taskutil.Chunk[LogContent]) LogContent {
 				return t.Data
@@ -226,7 +226,10 @@ func newLokiHook() logrus.Hook {
 			}, nil)
 		})
 	}, 3*time.Second)
-	quit.AddShutdownHook(quit.ShutdownHook(chunkStopFunc))
+	quit.AddShutdownHook(func() {
+		chunkFlushFunc()
+		chunkStopFunc()
+	}, true)
 	h.chunkExecuteFunc = chunkExecuteFunc
 	return h
 }
