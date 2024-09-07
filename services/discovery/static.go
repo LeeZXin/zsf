@@ -57,12 +57,12 @@ func NewStaticDiscovery() Discovery {
 		logger.Logger.Fatalf("can not read static-discovery.json: %v", err)
 	}
 	ret.cache = make(map[string][]lb.Server, 8)
-	for _, staticServers := range config.Static {
-		if staticServers.Name == "" {
+	for _, serv := range config.Static {
+		if serv.Name == "" {
 			continue
 		}
-		servers := make([]lb.Server, 0, len(staticServers.Targets))
-		for _, target := range staticServers.Targets {
+		servers := make([]lb.Server, 0, len(serv.Targets))
+		for _, target := range serv.Targets {
 			if target.Host == "" || target.Port == 0 {
 				continue
 			}
@@ -70,7 +70,7 @@ func NewStaticDiscovery() Discovery {
 				target.Version = common.DefaultVersion
 			}
 			server := lb.Server{
-				Name:    staticServers.Name,
+				Name:    serv.Name,
 				Host:    target.Host,
 				Port:    target.Port,
 				Weight:  target.Weight,
@@ -83,7 +83,7 @@ func NewStaticDiscovery() Discovery {
 			}
 			servers = append(servers, server)
 		}
-		ret.cache[staticServers.Name] = servers
+		ret.cache[serv.Name] = servers
 	}
 	lbPolicy := static.GetString("discovery.lbPolicy")
 	ret.router = make(map[string]lb.LoadBalancer, len(ret.cache))

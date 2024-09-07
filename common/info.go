@@ -16,6 +16,8 @@ var (
 	instanceId = idutil.RandomUuid()
 
 	httpServerPort int
+
+	httpName string
 )
 
 const (
@@ -35,6 +37,7 @@ func init() {
 	if applicationName == "" {
 		applicationName = idutil.RandomUuid()
 	}
+	httpName = applicationName + "-http"
 	//region
 	region = static.GetString("application.region")
 	if region == "" {
@@ -54,6 +57,10 @@ func init() {
 	if httpServerPort <= 0 {
 		httpServerPort = DefaultHttpServerPort
 	}
+}
+
+func GetHttpName() string {
+	return httpName
 }
 
 func GetApplicationName() string {

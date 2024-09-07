@@ -5,6 +5,7 @@ import (
 	"github.com/LeeZXin/zsf-utils/ginutil"
 	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf-utils/threadutil"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/property/dynamic"
@@ -147,4 +148,39 @@ func CopyRequestHeader(c *gin.Context) rpcheader.Header {
 		}
 	}
 	return clone
+}
+
+func ValidateClientAuthSign(getSecret func(string) string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sign := c.GetHeader(rpcheader.AuthSign)
+		if sign == "" {
+			c.String(http.StatusUnauthorized, "empty sign")
+			c.Abort()
+			return
+		}
+		secret := getSecret(c.GetHeader(rpcheader.Source))
+		if secret == "" {
+			c.String(http.StatusInternalServerError, "get auth sign key failed")
+			c.Abort()
+			return
+		}
+		ts, _ := strconv.ParseInt(c.GetHeader(rpcheader.AuthTs), 10, 64)
+		if time.Since(time.Unix(ts, 0)) > time.Hour {
+			c.String(http.StatusUnauthorized, "timestamp is not within one hour from current time")
+			c.Abort()
+			return
+		}
+		newSign, err := common.GenAuthSign(secret, ts)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "get auth sign key failed")
+			c.Abort()
+			return
+		}
+		if newSign != sign {
+			c.String(http.StatusUnauthorized, "auth failed")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }

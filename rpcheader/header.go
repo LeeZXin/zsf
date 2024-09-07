@@ -12,6 +12,8 @@ const (
 	Prefix     = "z-"
 	Source     = "z-source"
 	Target     = "z-target"
+	AuthSign   = "z-auth-sign"
+	AuthTs     = "z-auth-ts"
 
 	// PrefixForSw 为了skywalking传递header用的
 	PrefixForSw = "z-sw-"

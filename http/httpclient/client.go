@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/LeeZXin/zsf/services/lb"
@@ -13,6 +14,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // client封装
@@ -29,13 +31,11 @@ type option struct {
 	zone       string
 	discovery  discovery.Discovery
 	httpClient *http.Client
+	authTs     int64
+	authSecret string
 }
 
 type Option func(*option)
-
-type headerOption struct {
-	header map[string]string
-}
 
 func WithHeader(header map[string]string) Option {
 	return func(o *option) {
@@ -58,6 +58,13 @@ func WithDiscovery(dis discovery.Discovery) Option {
 func WithHttpClient(client *http.Client) Option {
 	return func(o *option) {
 		o.httpClient = client
+	}
+}
+
+func WithAuthSecret(secret string) Option {
+	return func(o *option) {
+		o.authSecret = secret
+		o.authTs = time.Now().Unix()
 	}
 }
 
@@ -168,19 +175,27 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
 	}
+	// 鉴权
+	if opt.authSecret != "" {
+		sign, err := common.GenAuthSign(opt.authSecret, opt.authTs)
+		if err != nil {
+			return err
+		}
+		request.Header.Set(rpcheader.AuthTs, strconv.FormatInt(opt.authTs, 10))
+		request.Header.Set(rpcheader.AuthSign, sign)
+	}
 	// 塞target信息
 	request.Header.Set(rpcheader.Target, c.ServiceName)
 	// 去除默认User-Agent
 	request.Header.Set("User-Agent", "")
-	invoker := func(request *http.Request) (*http.Response, error) {
+	// 执行拦截器
+	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}
+	respBody, err := wrapper.intercept(request, func(request *http.Request) (*http.Response, error) {
 		if opt.httpClient != nil {
 			return opt.httpClient.Do(request)
 		}
 		return c.httpClient.Do(request)
-	}
-	// 执行拦截器
-	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}
-	respBody, err := wrapper.intercept(request, invoker)
+	})
 	if err != nil {
 		return err
 	}

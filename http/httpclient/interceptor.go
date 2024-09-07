@@ -19,7 +19,7 @@ func headerInterceptor() Interceptor {
 			}
 		}
 		// 塞source信息
-		request.Header.Set(rpcheader.Source, common.GetApplicationName())
+		request.Header.Set(rpcheader.Source, common.GetHttpName())
 		return invoker(request)
 	}
 }
@@ -37,5 +37,19 @@ func promInterceptor() Interceptor {
 			}
 		}
 		return response, err
+	}
+}
+
+func AuthInterceptor(getSecret func(string) string) Interceptor {
+	return func(request *http.Request, invoker Invoker) (*http.Response, error) {
+		secret := getSecret(request.Header.Get(rpcheader.Target))
+		now := time.Now().Unix()
+		sign, err := common.GenAuthSign(secret, now)
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set(rpcheader.AuthTs, strconv.FormatInt(now, 10))
+		request.Header.Set(rpcheader.AuthSign, sign)
+		return invoker(request)
 	}
 }

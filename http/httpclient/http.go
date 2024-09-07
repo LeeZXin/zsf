@@ -1,15 +1,16 @@
 package httpclient
 
 import (
-	"github.com/LeeZXin/zsf-utils/collections/hashmap"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/quit"
 	"net/http"
+	"sync"
 )
 
 // 带服务发现的httpClient封装
 var (
-	clientCache = hashmap.NewConcurrentHashMap[string, Client]()
+	clientCache = make(map[string]Client)
+	cacheMu     = sync.Mutex{}
 )
 
 type Invoker func(*http.Request) (*http.Response, error)
@@ -17,29 +18,36 @@ type Invoker func(*http.Request) (*http.Response, error)
 type Interceptor func(*http.Request, Invoker) (*http.Response, error)
 
 func init() {
-	//注册三个拦截器
+	//注册拦截器
 	RegisterInterceptors(
 		headerInterceptor(),
 		promInterceptor(),
 	)
 	//关闭所有的连接
 	quit.AddShutdownHook(func() {
-		clientCache.Range(func(_ string, client Client) {
+		cacheMu.Lock()
+		defer cacheMu.Unlock()
+		for _, client := range clientCache {
 			client.Close()
-		})
+		}
 	})
 }
 
 // Dial 获取服务的client
 func Dial(serviceName string) Client {
-	ret, _, _ := clientCache.GetOrPutWithLoader(serviceName, func() (Client, error) {
-		return &clientImpl{
-			ServiceName:  serviceName,
-			Interceptors: getInterceptors(),
-			httpClient:   httputil.NewRetryableHttp2Client(),
-		}, nil
-	})
-	return ret
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	client, ok := clientCache[serviceName]
+	if ok {
+		return client
+	}
+	client = &clientImpl{
+		ServiceName:  serviceName,
+		Interceptors: getInterceptors(),
+		httpClient:   httputil.NewRetryableHttp2Client(),
+	}
+	clientCache[serviceName] = client
+	return client
 }
 
 // 拦截器wrapper 实现类似洋葱递归执行功能

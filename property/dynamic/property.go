@@ -28,14 +28,15 @@ const (
 )
 
 var (
-	loader *propertyLoader
+	loader   *propertyLoader
+	loadOnce = sync.Once{}
 )
 
 // Init 初始化
 func Init() {
-	if loader == nil {
+	loadOnce.Do(func() {
 		loader = newPropertyLoader()
-	}
+	})
 }
 
 type container struct {
