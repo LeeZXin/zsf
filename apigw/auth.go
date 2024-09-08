@@ -15,6 +15,7 @@ import (
 
 const (
 	JsonContentType = "application/json;charset=utf-8"
+	TextContentType = "text/plain; charset=utf-8"
 	ContentTypeTag  = "Content-Type"
 )
 
@@ -75,11 +76,7 @@ func (c *AuthConfig) Validate() error {
 }
 
 func (t *httpExecutor) defaultAuth(c *ApiContext) bool {
-	config, b := c.config.AuthConfig.(AuthConfig)
-	if !b {
-		c.String(http.StatusInternalServerError, "invalid auth config")
-		return false
-	}
+	config := c.config.AuthConfig
 	path := config.Uri.Path
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -162,7 +159,7 @@ func parseRequestBody2Map(c *ApiContext) map[string]any {
 	}
 }
 
-func getAuthRequestBody(c *ApiContext, config AuthConfig) (map[string]any, map[string]string) {
+func getAuthRequestBody(c *ApiContext, config *AuthConfig) (map[string]any, map[string]string) {
 	arr := config.Parameters
 	requestJson := parseRequestBody2Map(c)
 	req := make(map[string]any)

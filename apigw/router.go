@@ -2,6 +2,7 @@ package apigw
 
 import (
 	"errors"
+	"fmt"
 	"github.com/LeeZXin/zsf-utils/httputil"
 	"github.com/LeeZXin/zsf-utils/trieutil"
 	"github.com/LeeZXin/zsf/apigw/hexpr"
@@ -41,11 +42,30 @@ type Target struct {
 	Target string `json:"target"`
 }
 
+func (t *Target) Validate() error {
+	if t.Target == "" {
+		return errors.New("empty target")
+	}
+	return nil
+}
+
 type MockContent struct {
-	Headers     string          `json:"headers"`
-	ContentType MockContentType `json:"contentType"`
-	StatusCode  int             `json:"statusCode"`
-	RespStr     string          `json:"respStr"`
+	Header      map[string]string `json:"header"`
+	ContentType MockContentType   `json:"contentType"`
+	StatusCode  int               `json:"statusCode"`
+	RespStr     string            `json:"respStr"`
+}
+
+func (m *MockContent) Validate() error {
+	if m.StatusCode > http.StatusNetworkAuthenticationRequired || m.StatusCode < http.StatusContinue {
+		return fmt.Errorf("unsupported mock status code: %v", m.StatusCode)
+	}
+	switch m.ContentType {
+	case MockJsonType, MockStringType:
+		return nil
+	default:
+		return fmt.Errorf("unsupported mock content type: %v", m.ContentType)
+	}
 }
 
 // RouterConfig 路由配置信息
@@ -56,7 +76,7 @@ type RouterConfig struct {
 	// Path url path
 	Path string `json:"path" yaml:"path"`
 	// Expr 表达式
-	Expr hexpr.PlainInfo `json:"expr" yaml:"expr"`
+	Expr *hexpr.PlainInfo `json:"expr" yaml:"expr"`
 	// ServiceName 服务名称 用于服务发现
 	ServiceName string `json:"serviceName" yaml:"serviceName"`
 	// Targets 转发目标 配置权重信息
@@ -70,15 +90,13 @@ type RouterConfig struct {
 	// ReplacePath 路径完全覆盖path
 	ReplacePath string `json:"replacePath" yaml:"replacePath"`
 	// MockContent mock数据
-	MockContent MockContent `json:"mockContent" yaml:"mockContent"`
-	// Extra 附加信息
-	Extra map[string]any `json:"extra" yaml:"extra"`
+	MockContent *MockContent `json:"mockContent" yaml:"mockContent"`
 	// AuthConfig 鉴权配置
-	AuthConfig any `json:"authConfig" yaml:"authConfig"`
+	AuthConfig *AuthConfig `json:"authConfig" yaml:"authConfig"`
 	// 是否需要鉴权
-	NeedAuth bool
+	NeedAuth bool `json:"needAuth" yaml:"needAuth"`
 	// 自定义鉴权函数
-	AuthFunc AuthFunc
+	AuthFunc AuthFunc `json:"-" yaml:"-"`
 }
 
 func (r *RouterConfig) FillDefaultVal() {
@@ -99,7 +117,11 @@ func (r *RouterConfig) Validate() error {
 		return errors.New("wrong matchType")
 	}
 	if r.MatchType == ExprMatchType {
-		if err := r.Expr.Validate(); err != nil {
+		if r.Expr == nil {
+			return errors.New("empty expression")
+		}
+		err := r.Expr.Validate()
+		if err != nil {
 			return err
 		}
 	} else {
@@ -108,25 +130,42 @@ func (r *RouterConfig) Validate() error {
 		}
 	}
 	switch r.TargetType {
-	case DiscoveryTargetType, DomainTargetType, MockTargetType:
+	case DiscoveryTargetType, DomainTargetType:
+	case MockTargetType:
+		if r.MockContent == nil {
+			return errors.New("empty mock content")
+		}
+		err := r.MockContent.Validate()
+		if err != nil {
+			return err
+		}
 	default:
-		return errors.New("wrong target type")
+		return fmt.Errorf("unsupported target type: %v", r.TargetType)
 	}
 	if r.TargetType == DomainTargetType {
 		if len(r.Targets) == 0 {
 			return errors.New("empty target")
+		}
+		for _, target := range r.Targets {
+			if err := target.Validate(); err != nil {
+				return err
+			}
 		}
 	}
 	if r.TargetType != MockTargetType {
 		switch r.TargetLbPolicy {
 		case RoundRobinPolicy, WeightedRoundRobinPolicy:
 		default:
-			return errors.New("wrong lb policy")
+			return fmt.Errorf("unsupported lb policy: %v", r.TargetLbPolicy)
 		}
 		switch r.RewriteType {
-		case CopyFullPathRewriteType, StripPrefixRewriteType, ReplaceAnyRewriteType:
+		case CopyFullPathRewriteType, StripPrefixRewriteType:
+		case ReplaceAnyRewriteType:
+			if r.ReplacePath == "" {
+				return errors.New("empty replace path")
+			}
 		default:
-			return errors.New("wrong RewriteType")
+			return fmt.Errorf("unsupported rewriteType: %v", r.RewriteType)
 		}
 	}
 	return nil
@@ -264,10 +303,6 @@ func (r *routersImpl) AddRouter(config RouterConfig) error {
 		hs, rpc = domainTarget(config, r.httpClient)
 	case DiscoveryTargetType:
 		hs, rpc = discoveryTarget(config, r.httpClient)
-	}
-	extra := config.Extra
-	if extra == nil {
-		extra = make(map[string]any)
 	}
 	transport := &transportImpl{
 		rewriteStrategy: rewrite,

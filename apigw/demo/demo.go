@@ -2,8 +2,6 @@ package demo
 
 import (
 	"github.com/LeeZXin/zsf/apigw"
-	"github.com/LeeZXin/zsf/apigw/hexpr"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,7 +13,6 @@ func init() {
 	err := routers.AddRouter(apigw.RouterConfig{
 		MatchType:      apigw.FullMatchType,
 		Path:           "/index",
-		Expr:           hexpr.PlainInfo{},
 		ServiceName:    "my-runner-http",
 		Targets:        nil,
 		TargetType:     apigw.DiscoveryTargetType,
@@ -23,7 +20,7 @@ func init() {
 		RewriteType:    apigw.ReplaceAnyRewriteType,
 		ReplacePath:    "/header",
 		NeedAuth:       true,
-		AuthConfig: apigw.AuthConfig{
+		AuthConfig: &apigw.AuthConfig{
 			Id:      "1",
 			UriType: apigw.DiscoveryUriType,
 			Uri: apigw.AuthUri{
@@ -68,7 +65,6 @@ func init() {
 	err = routers.AddRouter(apigw.RouterConfig{
 		MatchType:   apigw.FullMatchType,
 		Path:        "/host",
-		Expr:        hexpr.PlainInfo{},
 		ServiceName: "",
 		Targets: []apigw.Target{
 			{
@@ -93,7 +89,7 @@ func init() {
 		MatchType:  apigw.FullMatchType,
 		Path:       "/mock1",
 		TargetType: apigw.MockTargetType,
-		MockContent: apigw.MockContent{
+		MockContent: &apigw.MockContent{
 			ContentType: apigw.MockJsonType,
 			StatusCode:  200,
 			RespStr:     `{"code": 2001, "message": "success"}`,
@@ -107,7 +103,7 @@ func init() {
 		MatchType:  apigw.PrefixMatchType,
 		Path:       "/mock2",
 		TargetType: apigw.MockTargetType,
-		MockContent: apigw.MockContent{
+		MockContent: &apigw.MockContent{
 			ContentType: apigw.MockStringType,
 			StatusCode:  400,
 			RespStr:     `666666iiiii`,

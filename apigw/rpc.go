@@ -2,7 +2,6 @@ package apigw
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 )
 
@@ -12,34 +11,21 @@ type rpcExecutor interface {
 }
 
 type mockExecutor struct {
-	mockContent MockContent
+	mockContent *MockContent
 }
 
 func (t *mockExecutor) Handle(c *ApiContext) {
-	headersStr := t.mockContent.Headers
-	if headersStr != "" {
-		var h map[string]string
-		err := json.Unmarshal([]byte(headersStr), &h)
-		if err == nil {
-			for k, v := range h {
-				c.Header(k, v)
-			}
-		}
+	for k, v := range t.mockContent.Header {
+		c.Header(k, v)
 	}
+	var contentType string
 	switch t.mockContent.ContentType {
 	case MockJsonType:
-		var m map[string]any
-		err := json.Unmarshal([]byte(t.mockContent.RespStr), &m)
-		if err != nil {
-			c.String(http.StatusInternalServerError, "")
-		} else {
-			c.JSON(t.mockContent.StatusCode, m)
-		}
+		contentType = JsonContentType
 	case MockStringType:
-		c.String(t.mockContent.StatusCode, t.mockContent.RespStr)
-	default:
-		c.String(http.StatusBadRequest, "bad request")
+		contentType = TextContentType
 	}
+	c.Data(t.mockContent.StatusCode, contentType, []byte(t.mockContent.RespStr))
 }
 
 type httpExecutor struct {

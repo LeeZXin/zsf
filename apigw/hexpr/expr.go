@@ -199,8 +199,8 @@ func buildLeaf(info PlainInfo) (node ENode, err error) {
 	return
 }
 
-func BuildExpr(info PlainInfo) (expr Expr, err error) {
-	node, err := buildENode(info)
+func BuildExpr(info *PlainInfo) (expr Expr, err error) {
+	node, err := buildENode(*info)
 	if err != nil {
 		return
 	}
