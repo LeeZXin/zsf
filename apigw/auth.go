@@ -77,7 +77,7 @@ func (c *AuthConfig) Validate() error {
 func (t *httpExecutor) defaultAuth(c *ApiContext) bool {
 	config, b := c.config.AuthConfig.(AuthConfig)
 	if !b {
-		c.String(http.StatusInternalServerError, "")
+		c.String(http.StatusInternalServerError, "invalid auth config")
 		return false
 	}
 	path := config.Uri.Path

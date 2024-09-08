@@ -50,31 +50,31 @@ type MockContent struct {
 
 // RouterConfig 路由配置信息
 type RouterConfig struct {
-	Id string `json:"id"`
+	Id string `json:"id" yaml:"id"`
 	// MatchType 匹配模式
-	MatchType MatchType `json:"matchType"`
+	MatchType MatchType `json:"matchType" yaml:"matchType"`
 	// Path url path
-	Path string `json:"path"`
+	Path string `json:"path" yaml:"path"`
 	// Expr 表达式
-	Expr hexpr.PlainInfo `json:"expr"`
+	Expr hexpr.PlainInfo `json:"expr" yaml:"expr"`
 	// ServiceName 服务名称 用于服务发现
-	ServiceName string `json:"serviceName"`
+	ServiceName string `json:"serviceName" yaml:"serviceName"`
 	// Targets 转发目标 配置权重信息
-	Targets []Target `json:"targets"`
+	Targets []Target `json:"targets" yaml:"targets"`
 	// TargetType 转发目标类型 服务发现或ip域名转发
-	TargetType TargetType `json:"targetType"`
+	TargetType TargetType `json:"targetType" yaml:"targetType"`
 	// TargetLbPolicy 负载均衡策略
-	TargetLbPolicy LbPolicy `json:"targetLbPolicy"`
+	TargetLbPolicy LbPolicy `json:"targetLbPolicy" yaml:"targetLbPolicy"`
 	// RewriteType 路径重写类型
-	RewriteType RewriteType `json:"rewriteType"`
+	RewriteType RewriteType `json:"rewriteType" yaml:"rewriteType"`
 	// ReplacePath 路径完全覆盖path
-	ReplacePath string `json:"replacePath"`
+	ReplacePath string `json:"replacePath" yaml:"replacePath"`
 	// MockContent mock数据
-	MockContent MockContent `json:"mockContent"`
+	MockContent MockContent `json:"mockContent" yaml:"mockContent"`
 	// Extra 附加信息
-	Extra map[string]any
+	Extra map[string]any `json:"extra" yaml:"extra"`
 	// AuthConfig 鉴权配置
-	AuthConfig any `json:"authConfig"`
+	AuthConfig any `json:"authConfig" yaml:"authConfig"`
 	// 是否需要鉴权
 	NeedAuth bool
 	// 自定义鉴权函数
