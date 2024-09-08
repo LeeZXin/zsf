@@ -18,21 +18,21 @@ const (
 	ContentTypeTag  = "Content-Type"
 )
 
-const (
-	HttpUriType      = "http"
-	DiscoveryUriType = "discovery"
-)
+type UriType string
 
 const (
-	QueryLocation  = "query"
-	HeaderLocation = "header"
+	HttpUriType      UriType = "http"
+	DiscoveryUriType UriType = "discovery"
+)
+
+type ArgLocation string
+
+const (
+	QueryLocation  ArgLocation = "query"
+	HeaderLocation ArgLocation = "header"
 )
 
 type AuthFunc func(*ApiContext) bool
-
-var (
-// httpClient = httputil.NewRetryableHttpClient()
-)
 
 type AuthUri struct {
 	Address         string `json:"address"`
@@ -42,15 +42,15 @@ type AuthUri struct {
 }
 
 type AuthParameter struct {
-	TargetName     string `json:"targetName"`
-	TargetLocation string `json:"targetLocation"`
-	SourceName     string `json:"sourceName"`
-	SourceLocation string `json:"sourceLocation"`
+	TargetName     string      `json:"targetName"`
+	TargetLocation ArgLocation `json:"targetLocation"`
+	SourceName     string      `json:"sourceName"`
+	SourceLocation ArgLocation `json:"sourceLocation"`
 }
 
 type AuthConfig struct {
 	Id                    string          `json:"id"`
-	UriType               string          `json:"uriType"`
+	UriType               UriType         `json:"uriType"`
 	Uri                   AuthUri         `json:"uri"`
 	Parameters            []AuthParameter `json:"parameters"`
 	ErrorMessage          string          `json:"errorMessage"`

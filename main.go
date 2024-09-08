@@ -3,16 +3,13 @@ package main
 import (
 	"github.com/LeeZXin/zsf/actuator"
 	"github.com/LeeZXin/zsf/http/httpserver"
-	"github.com/LeeZXin/zsf/pprof"
-	"github.com/LeeZXin/zsf/prom"
-	"github.com/LeeZXin/zsf/property/dynamic"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/LeeZXin/zsf/zsf"
 )
 
 func main() {
-	dynamic.Init()
+	//dynamic.Init()
 	zsf.Run(
 		zsf.WithDiscovery(discovery.NewEtcdDiscovery()),
 		zsf.WithLifeCycles(
@@ -24,8 +21,8 @@ func main() {
 				),
 			),
 			actuator.NewServer(),
-			prom.NewServer(),
-			pprof.NewServer(),
+			//prom.NewServer(),
+			//pprof.NewServer(),
 		),
 	)
 }

@@ -8,18 +8,20 @@ import (
 	"sync"
 )
 
+type Source string
+
 // 提取数据
 const (
 	// HeaderSource 从header提取数据
-	HeaderSource = "header"
+	HeaderSource Source = "header"
 	// CookieSource 从Cookie提取数据
-	CookieSource = "cookie"
+	CookieSource Source = "cookie"
 	// PathSource 从url path提取数据
-	PathSource = "path"
+	PathSource Source = "path"
 	// HostSource 从host提取数据
-	HostSource = "host"
+	HostSource Source = "host"
 	// CrcMod2HeaderSource header中某个数据hash获取数据
-	CrcMod2HeaderSource = "crcMod2Header"
+	CrcMod2HeaderSource Source = "crcMod2Header"
 )
 
 type Fetcher func(*gin.Context, string) string
@@ -29,7 +31,7 @@ var (
 )
 
 func init() {
-	m := map[string]Fetcher{
+	m := map[Source]Fetcher{
 		HeaderSource: func(ctx *gin.Context, key string) string {
 			return ctx.GetHeader(key)
 		},
@@ -52,7 +54,7 @@ func init() {
 	}
 	// hash取模到100
 	for i := 3; i < 100; i++ {
-		d := fmt.Sprintf("crcMod%dHeader", i)
+		d := Source(fmt.Sprintf("crcMod%dHeader", i))
 		k := i
 		m[d] = func(ctx *gin.Context, key string) string {
 			return crcMod(ctx.GetHeader(key), k)
@@ -71,7 +73,7 @@ func crcMod(val string, mod int) string {
 	return strconv.Itoa(int(i))
 }
 
-func RegisterFetcher(source string, fetcher Fetcher) {
+func RegisterFetcher(source Source, fetcher Fetcher) {
 	if source != "" && fetcher != nil {
 		fetcherMap.Store(source, fetcher)
 	}

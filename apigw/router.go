@@ -10,23 +10,30 @@ import (
 	"net/http"
 )
 
+type LbPolicy string
+
 const (
-	RoundRobinPolicy         = "round_robin"
-	WeightedRoundRobinPolicy = "weighted_round_robin"
+	RoundRobinPolicy         LbPolicy = "round_robin"
+	WeightedRoundRobinPolicy LbPolicy = "weighted_round_robin"
 )
 
 // 路由策略
+
+type MatchType string
+
+type MockContentType string
+
 const (
 	// FullMatchType 全匹配
-	FullMatchType = "fullMatch"
+	FullMatchType MatchType = "fullMatch"
 	// PrefixMatchType 前缀匹配
-	PrefixMatchType = "prefixMatch"
+	PrefixMatchType MatchType = "prefixMatch"
 	// ExprMatchType 表达式匹配
-	ExprMatchType = "exprMatch"
+	ExprMatchType MatchType = "exprMatch"
 	// MockJsonType json格式
-	MockJsonType = "json"
+	MockJsonType MockContentType = "json"
 	// MockStringType string格式
-	MockStringType = "string"
+	MockStringType MockContentType = "string"
 )
 
 type Target struct {
@@ -35,17 +42,17 @@ type Target struct {
 }
 
 type MockContent struct {
-	Headers     string `json:"headers"`
-	ContentType string `json:"contentType"`
-	StatusCode  int    `json:"statusCode"`
-	RespStr     string `json:"respStr"`
+	Headers     string          `json:"headers"`
+	ContentType MockContentType `json:"contentType"`
+	StatusCode  int             `json:"statusCode"`
+	RespStr     string          `json:"respStr"`
 }
 
 // RouterConfig 路由配置信息
 type RouterConfig struct {
 	Id string `json:"id"`
 	// MatchType 匹配模式
-	MatchType string `json:"matchType"`
+	MatchType MatchType `json:"matchType"`
 	// Path url path
 	Path string `json:"path"`
 	// Expr 表达式
@@ -55,11 +62,11 @@ type RouterConfig struct {
 	// Targets 转发目标 配置权重信息
 	Targets []Target `json:"targets"`
 	// TargetType 转发目标类型 服务发现或ip域名转发
-	TargetType string `json:"targetType"`
+	TargetType TargetType `json:"targetType"`
 	// TargetLbPolicy 负载均衡策略
-	TargetLbPolicy string `json:"targetLbPolicy"`
+	TargetLbPolicy LbPolicy `json:"targetLbPolicy"`
 	// RewriteType 路径重写类型
-	RewriteType string `json:"rewriteType"`
+	RewriteType RewriteType `json:"rewriteType"`
 	// ReplacePath 路径完全覆盖path
 	ReplacePath string `json:"replacePath"`
 	// MockContent mock数据

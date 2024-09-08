@@ -5,10 +5,12 @@ import (
 	"net/http"
 )
 
+type TargetType string
+
 const (
-	DiscoveryTargetType = "discovery"
-	DomainTargetType    = "domain"
-	MockTargetType      = "mock"
+	DiscoveryTargetType TargetType = "discovery"
+	DomainTargetType    TargetType = "domain"
+	MockTargetType      TargetType = "mock"
 )
 
 func mockTarget(config RouterConfig, _ *http.Client) (hostSelector, rpcExecutor) {

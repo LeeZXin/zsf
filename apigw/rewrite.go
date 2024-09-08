@@ -4,14 +4,16 @@ import (
 	"strings"
 )
 
+type RewriteType string
+
 // 路径重写策略
 const (
 	// CopyFullPathRewriteType 不重写
-	CopyFullPathRewriteType = "copyFullPath"
+	CopyFullPathRewriteType RewriteType = "copyFullPath"
 	// StripPrefixRewriteType 去除前缀
-	StripPrefixRewriteType = "stripPrefix"
+	StripPrefixRewriteType RewriteType = "stripPrefix"
 	// ReplaceAnyRewriteType 完全重写
-	ReplaceAnyRewriteType = "replaceAny"
+	ReplaceAnyRewriteType RewriteType = "replaceAny"
 )
 
 type RewriteStrategy interface {
