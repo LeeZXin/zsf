@@ -1,10 +1,7 @@
 package main
 
 import (
-	"github.com/LeeZXin/zsf/actuator"
 	"github.com/LeeZXin/zsf/http/httpserver"
-	"github.com/LeeZXin/zsf/pprof"
-	"github.com/LeeZXin/zsf/prom"
 	"github.com/LeeZXin/zsf/property/dynamic"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/LeeZXin/zsf/services/registry"
@@ -17,13 +14,13 @@ func main() {
 		zsf.WithDiscovery(discovery.NewEtcdDiscovery()),
 		zsf.WithLifeCycles(
 			httpserver.NewServer(
-				httpserver.WithRegistryAction(
+				httpserver.WithRegistry(
 					registry.NewDefaultEtcdRegistry(),
 				),
+				httpserver.WithEnableActuator(true),
+				httpserver.WithEnablePromApi(true),
+				httpserver.WithEnablePprof(true),
 			),
-			actuator.NewServer(),
-			prom.NewServer(),
-			pprof.NewServer(),
 		),
 	)
 }

@@ -8,10 +8,14 @@ import (
 	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/services/registry"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"io"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"path/filepath"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -44,14 +48,35 @@ type option struct {
 	writeTimeout time.Duration
 	idleTimeout  time.Duration
 
-	disableUseH2C bool
+	disableUseH2C  bool
+	enableActuator bool
+	enablePromApi  bool
+	enablePprof    bool
 }
 
 type Option func(*option)
 
-func WithRegistryAction(regi registry.Registry) Option {
+func WithRegistry(regi registry.Registry) Option {
 	return func(opt *option) {
 		opt.regi = regi
+	}
+}
+
+func WithEnableActuator(enableActuator bool) Option {
+	return func(opt *option) {
+		opt.enableActuator = enableActuator
+	}
+}
+
+func WithEnablePromApi(enablePromApi bool) Option {
+	return func(opt *option) {
+		opt.enablePromApi = enablePromApi
+	}
+}
+
+func WithEnablePprof(enablePprof bool) Option {
+	return func(opt *option) {
+		opt.enablePprof = enablePprof
 	}
 }
 
@@ -135,8 +160,23 @@ func (s *Server) OnApplicationStart() {
 	} else if s.opt.noRoute != nil {
 		engine.NoMethod(s.opt.noRoute)
 	}
-	//filter
+	// filter
 	engine.Use(getFilters()...)
+	// actuator
+	if s.opt.enableActuator {
+		logger.Logger.Info("http server enables actuator")
+		s.enableActuator(engine)
+	}
+	// prom api
+	if s.opt.enablePromApi {
+		logger.Logger.Info("http server enables prometheus api")
+		s.enablePromApi(engine)
+	}
+	// pprof
+	if s.opt.enablePprof {
+		logger.Logger.Info("http server enables pprof")
+		s.enablePprof(engine)
+	}
 	fnList := getRegisterFuncList()
 	for _, routerFunc := range fnList {
 		routerFunc(engine)
@@ -201,6 +241,64 @@ func (s *Server) OnApplicationStart() {
 			logger.Logger.Fatalf("http server starts failed: %v", err)
 		}
 	}()
+}
+
+func (s *Server) enableActuator(r *gin.Engine) {
+	// 健康状态检查
+	r.Any("/actuator/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "")
+	})
+	// 触发gc
+	r.Any("/actuator/v1/gc", func(c *gin.Context) {
+		logger.Logger.WithContext(c.Request.Context()).Info("trigger gc")
+		go runtime.GC()
+		c.String(http.StatusOK, "")
+	})
+	// 更新日志level
+	r.PUT("/actuator/v1/updateLogLevel/:level", func(c *gin.Context) {
+		switch c.Param("level") {
+		case "info":
+			logger.Logger.SetLevel(logrus.InfoLevel)
+			break
+		case "debug":
+			logger.Logger.SetLevel(logrus.DebugLevel)
+			break
+		case "warn":
+			logger.Logger.SetLevel(logrus.WarnLevel)
+			break
+		case "error":
+			logger.Logger.SetLevel(logrus.ErrorLevel)
+			break
+		case "trace":
+			logger.Logger.SetLevel(logrus.TraceLevel)
+			break
+		default:
+			break
+		}
+		c.String(http.StatusOK, "")
+	})
+	r.Any("/actuator/v1/markAsDownServer", func(c *gin.Context) {
+		action := GetRegistryAction()
+		if action != nil {
+			go action.MarkAsDown()
+		}
+		c.String(http.StatusOK, "ok")
+	})
+	r.Any("/actuator/v1/markAsUpServer", func(c *gin.Context) {
+		action := GetRegistryAction()
+		if action != nil {
+			go action.MarkAsUp()
+		}
+		c.String(http.StatusOK, "ok")
+	})
+}
+
+func (s *Server) enablePromApi(r *gin.Engine) {
+	r.Any("/metrics", gin.WrapH(promhttp.Handler()))
+}
+
+func (s *Server) enablePprof(r *gin.Engine) {
+	r.GET("/debug/pprof/*any", gin.WrapH(http.DefaultServeMux))
 }
 
 func (s *Server) AfterInitialize() {
