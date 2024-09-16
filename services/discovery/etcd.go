@@ -32,7 +32,7 @@ func (d *etcdDiscovery) Discover(ctx context.Context, name string) ([]lb.Server,
 	for _, kv := range response.Kvs {
 		var s lb.Server
 		err = json.Unmarshal(kv.Value, &s)
-		if err == nil {
+		if err == nil && !s.IsDown {
 			servers = append(servers, s)
 		}
 	}
