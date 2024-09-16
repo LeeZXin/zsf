@@ -10,9 +10,16 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"strings"
-	"sync"
 	"time"
 )
+
+type StatusChanger interface {
+	IsDown() bool
+	MarkAsDown() error
+	MarkAsUp() error
+	Deregister() error
+	KeepAlive() error
+}
 
 func NewDefaultEtcdRegistry() Registry {
 	client, err := clientv3.New(clientv3.Config{
@@ -34,66 +41,10 @@ func NewDefaultEtcdRegistry() Registry {
 	}
 }
 
-type Action interface {
-	Register()
-	Deregister()
-}
-
-type defaultRegisterAction struct {
-	registry   Registry
-	active     bool
-	deregister DeregisterAction
-	mu         sync.Mutex
-	weight     int
-	port       int
-	protocol   string
-}
-
-func (r *defaultRegisterAction) Register() {
-	r.Deregister()
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if !r.active {
-		r.deregister = r.registry.RegisterSelf(ServerInfo{
-			Port:     r.port,
-			Protocol: r.protocol,
-			Weight:   r.weight,
-		})
-		r.active = true
-	}
-}
-
-func (r *defaultRegisterAction) Deregister() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.active {
-		r.deregister()
-		r.active = false
-	}
-}
-
-func NewDefaultHttpAction(registry Registry) Action {
-	if registry == nil {
-		logger.Logger.Fatalf("default http action gets nil registry")
-	}
-	weight := static.GetInt("http.weight")
-	if weight <= 0 {
-		weight = 1
-	}
-	return &defaultRegisterAction{
-		registry: registry,
-		weight:   weight,
-		port:     common.HttpServerPort(),
-		protocol: common.HttpProtocol,
-	}
-}
-
 // Registry 插件式实现服务注册
 type Registry interface {
-	RegisterSelf(ServerInfo) DeregisterAction
+	Register(ServerInfo, bool) (StatusChanger, error)
 }
-
-type DeregisterAction func()
 
 // ServerInfo 注册所需的信息
 type ServerInfo struct {
@@ -102,7 +53,8 @@ type ServerInfo struct {
 	// Protocol 服务协议
 	Protocol string
 	// Weight 权重
-	Weight       int
+	Weight int
+
 	rpcName      string
 	registerPath string
 }
@@ -121,7 +73,7 @@ func (s *ServerInfo) GetRpcName() string {
 	return s.rpcName
 }
 
-func (s *ServerInfo) GetServer() lb.Server {
+func (s *ServerInfo) GetServer(IsDown bool) lb.Server {
 	return lb.Server{
 		Protocol: s.Protocol,
 		Name:     s.GetRpcName(),
@@ -131,5 +83,6 @@ func (s *ServerInfo) GetServer() lb.Server {
 		Version:  env.GetVersion(),
 		Region:   common.GetRegion(),
 		Zone:     common.GetZone(),
+		IsDown:   IsDown,
 	}
 }

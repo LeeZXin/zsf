@@ -66,17 +66,17 @@ func (s *Server) OnApplicationStart() {
 			c.String(http.StatusOK, "")
 		}
 	})
-	r.Any("/actuator/v1/deregisterServer", func(c *gin.Context) {
+	r.Any("/actuator/v1/markAsDownServer", func(c *gin.Context) {
 		action := httpserver.GetRegistryAction()
 		if action != nil {
-			go action.Deregister()
+			go action.MarkAsDown()
 		}
 		c.String(http.StatusOK, "ok")
 	})
-	r.Any("/actuator/v1/registerServer", func(c *gin.Context) {
+	r.Any("/actuator/v1/markAsUpServer", func(c *gin.Context) {
 		action := httpserver.GetRegistryAction()
 		if action != nil {
-			go action.Register()
+			go action.MarkAsUp()
 		}
 		c.String(http.StatusOK, "ok")
 	})

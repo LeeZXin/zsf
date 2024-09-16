@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,12 +25,14 @@ var (
 )
 
 type Server struct {
-	opt        *option
-	httpServer *http.Server
+	opt         *option
+	regiChanger atomic.Value
+	httpServer  *http.Server
+	up          atomic.Bool
 }
 
 type option struct {
-	action   registry.Action
+	regi     registry.Registry
 	noRoute  gin.HandlerFunc
 	noMethod gin.HandlerFunc
 
@@ -46,9 +49,9 @@ type option struct {
 
 type Option func(*option)
 
-func WithRegistryAction(action registry.Action) Option {
+func WithRegistryAction(regi registry.Registry) Option {
 	return func(opt *option) {
-		opt.action = action
+		opt.regi = regi
 	}
 }
 
@@ -111,11 +114,8 @@ func (s *Server) Order() int {
 	return 0
 }
 
-func (s *Server) GetRegistryAction() registry.Action {
-	return s.opt.action
-}
-
 func (s *Server) OnApplicationStart() {
+	s.up.Store(true)
 	//gin mode
 	gin.SetMode(gin.ReleaseMode)
 	//create gin
@@ -204,24 +204,58 @@ func (s *Server) OnApplicationStart() {
 }
 
 func (s *Server) AfterInitialize() {
-	if s.opt.action != nil {
-		s.opt.action.Register()
+	if s.opt.regi != nil {
+		weight := static.GetInt("http.weight")
+		if weight <= 0 {
+			weight = 1
+		}
+		go func() {
+			for s.up.Load() {
+				isDown := false
+				val := s.regiChanger.Load()
+				if val != nil {
+					isDown = val.(registry.StatusChanger).IsDown()
+				}
+				changer, err := s.opt.regi.Register(registry.ServerInfo{
+					Port:     common.HttpServerPort(),
+					Protocol: common.HttpProtocol,
+					Weight:   weight,
+				}, isDown)
+				if err != nil {
+					logger.Logger.Error(err)
+				} else {
+					s.regiChanger.Store(changer)
+				}
+				err = changer.KeepAlive()
+				if err != nil && err != context.Canceled {
+					logger.Logger.Error(err)
+				}
+				time.Sleep(5 * time.Second)
+			}
+		}()
 	}
 }
 
 func (s *Server) OnApplicationShutdown() {
-	if s.opt.action != nil {
-		s.opt.action.Deregister()
+	statusChanger := s.regiChanger.Load()
+	if statusChanger != nil {
+		statusChanger.(registry.StatusChanger).Deregister()
 	}
 	if s.httpServer != nil {
 		logger.Logger.Info("http server shutdown")
-		s.httpServer.Shutdown(context.Background())
+		ctx, fn := context.WithTimeout(context.Background(), 3*time.Second)
+		defer fn()
+		s.up.Store(false)
+		s.httpServer.Shutdown(ctx)
 	}
 }
 
-func GetRegistryAction() registry.Action {
+func GetRegistryAction() registry.StatusChanger {
 	if server != nil {
-		return server.GetRegistryAction()
+		val := server.regiChanger.Load()
+		if val != nil {
+			return val.(registry.StatusChanger)
+		}
 	}
 	return nil
 }

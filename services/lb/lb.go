@@ -13,6 +13,7 @@ type Server struct {
 	Version  string `json:"version"`
 	Region   string `json:"region"`
 	Zone     string `json:"zone"`
+	IsDown   bool   `json:"isDown"`
 }
 
 func (s *Server) IsSameAs(s2 Server) bool {

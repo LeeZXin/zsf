@@ -18,9 +18,7 @@ func main() {
 		zsf.WithLifeCycles(
 			httpserver.NewServer(
 				httpserver.WithRegistryAction(
-					registry.NewDefaultHttpAction(
-						registry.NewDefaultEtcdRegistry(),
-					),
+					registry.NewDefaultEtcdRegistry(),
 				),
 			),
 			actuator.NewServer(),
