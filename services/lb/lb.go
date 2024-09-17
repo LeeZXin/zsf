@@ -21,7 +21,9 @@ func (s *Server) IsSameAs(s2 Server) bool {
 		s.Host == s2.Host &&
 		s.Port == s2.Port &&
 		s.Version == s2.Version &&
-		s.Weight == s2.Weight
+		s.Weight == s2.Weight &&
+		s.Zone == s2.Zone &&
+		s.Region == s2.Region
 }
 
 type LoadBalancer interface {

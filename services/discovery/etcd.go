@@ -54,7 +54,8 @@ func (d *etcdDiscovery) ChooseServer(ctx context.Context, name string) (lb.Serve
 	d.cmu.Lock()
 	loadBalancer, b = d.cache[name]
 	if !b {
-		loadBalancer, err := d.newLoadBalancer(ctx, name)
+		var err error
+		loadBalancer, err = d.newLoadBalancer(ctx, name)
 		if err != nil {
 			d.cmu.Unlock()
 			return lb.Server{}, err
