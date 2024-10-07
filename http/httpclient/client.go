@@ -72,7 +72,7 @@ type Client interface {
 	Get(ctx context.Context, path string, resp any, opts ...Option) error
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error
-	Delete(ctx context.Context, path string, req, resp any, opts ...Option) error
+	Delete(ctx context.Context, path string, resp any, opts ...Option) error
 	Close()
 }
 
@@ -109,8 +109,8 @@ func (c *clientImpl) Put(ctx context.Context, path string, req, resp any, opts .
 	}
 	return err
 }
-func (c *clientImpl) Delete(ctx context.Context, path string, req, resp any, opts ...Option) error {
-	err := c.send(ctx, path, http.MethodDelete, JsonContentType, req, resp, opts...)
+func (c *clientImpl) Delete(ctx context.Context, path string, resp any, opts ...Option) error {
+	err := c.send(ctx, path, http.MethodDelete, "", nil, resp, opts...)
 	if err != nil {
 		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
 	}
@@ -200,8 +200,8 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		return err
 	}
 	defer respBody.Body.Close()
-	if respBody.StatusCode >= http.StatusBadRequest {
-		return errors.New("request error with code:" + strconv.Itoa(respBody.StatusCode))
+	if respBody.StatusCode != http.StatusOK {
+		return fmt.Errorf("request error with code: %v", respBody.StatusCode)
 	}
 	respBytes, err := io.ReadAll(respBody.Body)
 	if err != nil {
