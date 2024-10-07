@@ -10,6 +10,7 @@ import (
 	"github.com/LeeZXin/zsf/rpcheader"
 	"github.com/LeeZXin/zsf/services/discovery"
 	"github.com/LeeZXin/zsf/services/lb"
+	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,12 +28,13 @@ const (
 )
 
 type option struct {
-	header     map[string]string
-	zone       string
-	discovery  discovery.Discovery
-	httpClient *http.Client
-	authTs     int64
-	authSecret string
+	header      map[string]string
+	extraHeader map[string]string
+	zone        string
+	discovery   discovery.Discovery
+	httpClient  *http.Client
+	authTs      int64
+	authSecret  string
 }
 
 type Option func(*option)
@@ -40,6 +42,12 @@ type Option func(*option)
 func WithHeader(header map[string]string) Option {
 	return func(o *option) {
 		o.header = header
+	}
+}
+
+func withHeader(header map[string]string) Option {
+	return func(o *option) {
+		o.extraHeader = header
 	}
 }
 
@@ -73,6 +81,7 @@ type Client interface {
 	Post(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Put(ctx context.Context, path string, req, resp any, opts ...Option) error
 	Delete(ctx context.Context, path string, resp any, opts ...Option) error
+	Proxy(ctx *gin.Context, path string, opts ...Option) error
 	Close()
 }
 
@@ -109,12 +118,22 @@ func (c *clientImpl) Put(ctx context.Context, path string, req, resp any, opts .
 	}
 	return err
 }
+
 func (c *clientImpl) Delete(ctx context.Context, path string, resp any, opts ...Option) error {
 	err := c.send(ctx, path, http.MethodDelete, "", nil, resp, opts...)
 	if err != nil {
 		err = fmt.Errorf("transport: %s with err: %v", c.ServiceName, err)
 	}
 	return err
+}
+
+func (c *clientImpl) Proxy(ctx *gin.Context, path string, opts ...Option) error {
+	req := ctx.Request
+	header := make(map[string]string)
+	for k := range req.Header {
+		header[k] = req.Header.Get(k)
+	}
+	return c.send(ctx, path, req.Method, "", req.Body, ctx, append(opts, withHeader(header))...)
 }
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
@@ -146,14 +165,6 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 			return err
 		}
 	}
-	// request
-	var reqBytes []byte
-	if req != nil {
-		reqBytes, err = json.Marshal(req)
-		if err != nil {
-			return err
-		}
-	}
 	// 拼接host
 	url := "http://" + fmt.Sprintf("%s:%d", server.Host, server.Port)
 	if !strings.HasPrefix(path, "/") {
@@ -161,16 +172,29 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	}
 	url += path
 	// request
-	request, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(reqBytes))
+	var reqReader io.Reader
+	if req != nil {
+		var ok bool
+		reqReader, ok = req.(io.Reader)
+		if !ok {
+			reqBytes, err := json.Marshal(req)
+			if err != nil {
+				return err
+			}
+			reqReader = bytes.NewReader(reqBytes)
+		}
+	}
+	// request
+	request, err := http.NewRequestWithContext(ctx, method, url, reqReader)
 	if err != nil {
 		return err
 	}
 	// 塞header
-	h := opt.header
-	if h != nil {
-		for k, v := range h {
-			request.Header.Set(k, v)
-		}
+	for k, v := range opt.header {
+		request.Header.Set(k, v)
+	}
+	for k, v := range opt.extraHeader {
+		request.Header.Set(k, v)
 	}
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
@@ -200,14 +224,23 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		return err
 	}
 	defer respBody.Body.Close()
+	if resp != nil {
+		if gctx, ok := resp.(*gin.Context); ok {
+			for k := range respBody.Header {
+				gctx.Header(k, respBody.Header.Get(k))
+			}
+			gctx.DataFromReader(respBody.StatusCode, respBody.ContentLength, respBody.Header.Get("Content-Type"), respBody.Body, nil)
+			return nil
+		}
+	}
 	if respBody.StatusCode != http.StatusOK {
 		return fmt.Errorf("request error with code: %v", respBody.StatusCode)
 	}
-	respBytes, err := io.ReadAll(respBody.Body)
-	if err != nil {
-		return err
-	}
 	if resp != nil {
+		respBytes, err := io.ReadAll(respBody.Body)
+		if err != nil {
+			return err
+		}
 		return json.Unmarshal(respBytes, resp)
 	}
 	return nil
