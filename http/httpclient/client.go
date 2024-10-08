@@ -85,6 +85,35 @@ type Client interface {
 	Close()
 }
 
+type emptyClient struct{}
+
+func (*emptyClient) Get(context.Context, string, any, ...Option) error {
+	return errors.New("failed")
+}
+
+func (*emptyClient) Post(context.Context, string, any, any, ...Option) error {
+	return errors.New("failed")
+}
+
+func (*emptyClient) Put(context.Context, string, any, any, ...Option) error {
+	return errors.New("failed")
+}
+
+func (*emptyClient) Delete(context.Context, string, any, ...Option) error {
+	return errors.New("failed")
+}
+
+func (*emptyClient) Proxy(c *gin.Context, _ string, _ ...Option) error {
+	c.String(http.StatusBadGateway, "failed")
+	return nil
+}
+
+func (*emptyClient) Close() {}
+
+func NewEmptyClient() Client {
+	return new(emptyClient)
+}
+
 type clientImpl struct {
 	ServiceName  string
 	httpClient   *http.Client
