@@ -88,23 +88,23 @@ type Client interface {
 type emptyClient struct{}
 
 func (*emptyClient) Get(context.Context, string, any, ...Option) error {
-	return errors.New("failed")
+	return lb.ServerNotFound
 }
 
 func (*emptyClient) Post(context.Context, string, any, any, ...Option) error {
-	return errors.New("failed")
+	return lb.ServerNotFound
 }
 
 func (*emptyClient) Put(context.Context, string, any, any, ...Option) error {
-	return errors.New("failed")
+	return lb.ServerNotFound
 }
 
 func (*emptyClient) Delete(context.Context, string, any, ...Option) error {
-	return errors.New("failed")
+	return lb.ServerNotFound
 }
 
 func (*emptyClient) Proxy(c *gin.Context, _ string, _ ...Option) error {
-	c.String(http.StatusBadGateway, "failed")
+	c.String(http.StatusBadGateway, lb.ServerNotFound.Error())
 	return nil
 }
 
