@@ -44,7 +44,7 @@ func Dial(serviceName string) Client {
 	client = &clientImpl{
 		ServiceName:  serviceName,
 		Interceptors: getInterceptors(),
-		httpClient:   httputil.NewRetryableHttp2Client(),
+		httpClient:   httputil.NewHttp2Client(),
 	}
 	clientCache[serviceName] = client
 	return client

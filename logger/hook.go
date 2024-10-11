@@ -206,7 +206,7 @@ func newLokiHook() logrus.Hook {
 	h := &lokiHook{
 		pushUrl:    pushUrl,
 		formatter:  &lokiLogFormatter{},
-		httpClient: httputil.NewRetryableHttpClient(),
+		httpClient: httputil.NewHttpClient(),
 		flusher:    flusher,
 	}
 	chunkExecuteFunc, chunkFlushFunc, chunkStopFunc, _ := taskutil.RunChunkTask[LogContent](1024, func(logList []taskutil.Chunk[LogContent]) {

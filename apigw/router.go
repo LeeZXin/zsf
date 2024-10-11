@@ -218,7 +218,7 @@ func NewRouters(opts ...RouterOpt) Routers {
 	}
 	httpClient := o.httpClient
 	if httpClient == nil {
-		httpClient = httputil.NewRetryableHttpClient()
+		httpClient = httputil.NewHttpClient()
 	}
 	return &routersImpl{
 		httpClient: httpClient,

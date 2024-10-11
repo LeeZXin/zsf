@@ -241,6 +241,8 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	request.Header.Set(rpcheader.Target, c.ServiceName)
 	// 去除默认User-Agent
 	request.Header.Set("User-Agent", "")
+	// 默认长连接去除connection: close
+	request.Header.Set("Connection", "")
 	// 执行拦截器
 	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}
 	respBody, err := wrapper.intercept(request, func(request *http.Request) (*http.Response, error) {
