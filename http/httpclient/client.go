@@ -105,7 +105,7 @@ func (*emptyClient) Delete(context.Context, string, any, ...Option) error {
 
 func (*emptyClient) Proxy(c *gin.Context, _ string, _ ...Option) error {
 	c.String(http.StatusBadGateway, lb.ServerNotFound.Error())
-	return nil
+	return lb.ServerNotFound
 }
 
 func (*emptyClient) Close() {}
@@ -162,7 +162,11 @@ func (c *clientImpl) Proxy(ctx *gin.Context, path string, opts ...Option) error 
 	for k := range req.Header {
 		header[k] = req.Header.Get(k)
 	}
-	return c.send(ctx, path, req.Method, "", req.Body, ctx, append(opts, withHeader(header))...)
+	err := c.send(ctx, path, req.Method, "", req.Body, ctx, append(opts, withHeader(header))...)
+	if err != nil {
+		ctx.String(http.StatusBadGateway, "")
+	}
+	return err
 }
 
 func (c *clientImpl) send(ctx context.Context, path, method, contentType string, req, resp any, opts ...Option) error {
