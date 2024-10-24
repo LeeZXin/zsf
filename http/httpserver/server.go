@@ -24,22 +24,25 @@ import (
 // 常见异常处理、header处理等
 // 服务注册
 
-var (
-	server *Server
-)
-
 type Server struct {
-	opt         *option
-	regiChanger atomic.Value
-	httpServer  *http.Server
-	up          atomic.Bool
+	opt             *option
+	registryChanger atomic.Value
+	httpServer      *http.Server
+	up              atomic.Bool
 }
 
 type option struct {
-	regi     registry.Registry
-	noRoute  gin.HandlerFunc
-	noMethod gin.HandlerFunc
+	applicationName string
+	version         string
+	region          string
+	zone            string
+	registrar       registry.Registry
+	noRoute         gin.HandlerFunc
+	noMethod        gin.HandlerFunc
+	routers         []gin.OptionFunc
+	filters         []gin.HandlerFunc
 
+	httpPort     int
 	httpsEnabled bool
 	certFilePath string
 	keyFilePath  string
@@ -56,9 +59,39 @@ type option struct {
 
 type Option func(*option)
 
-func WithRegistry(regi registry.Registry) Option {
+func WithRegistry(registrar registry.Registry) Option {
 	return func(opt *option) {
-		opt.regi = regi
+		opt.registrar = registrar
+	}
+}
+
+func WithApplicationName(applicationName string) Option {
+	return func(opt *option) {
+		opt.applicationName = applicationName
+	}
+}
+
+func WithApplicationVersion(version string) Option {
+	return func(opt *option) {
+		opt.version = version
+	}
+}
+
+func WithApplicationRegion(region string) Option {
+	return func(opt *option) {
+		opt.region = region
+	}
+}
+
+func WithApplicationZone(zone string) Option {
+	return func(opt *option) {
+		opt.zone = zone
+	}
+}
+
+func WithHttpPort(port int) Option {
+	return func(opt *option) {
+		opt.httpPort = port
 	}
 }
 
@@ -77,6 +110,18 @@ func WithEnablePromApi(enablePromApi bool) Option {
 func WithEnablePprof(enablePprof bool) Option {
 	return func(opt *option) {
 		opt.enablePprof = enablePprof
+	}
+}
+
+func AddRouters(routers ...gin.OptionFunc) Option {
+	return func(opt *option) {
+		opt.routers = append(opt.routers, routers...)
+	}
+}
+
+func AddFilters(filters ...gin.HandlerFunc) Option {
+	return func(opt *option) {
+		opt.filters = append(opt.filters, filters...)
 	}
 }
 
@@ -124,17 +169,6 @@ func WithHttpsEnabled(certFilePath, keyFilePath string) Option {
 	}
 }
 
-func NewServer(opts ...Option) *Server {
-	opt := new(option)
-	for _, apply := range opts {
-		apply(opt)
-	}
-	server = &Server{
-		opt: opt,
-	}
-	return server
-}
-
 func (s *Server) Order() int {
 	return 0
 }
@@ -161,7 +195,9 @@ func (s *Server) OnApplicationStart() {
 		engine.NoMethod(s.opt.noRoute)
 	}
 	// filter
-	engine.Use(getFilters()...)
+	if len(s.opt.filters) > 0 {
+		engine.Use(s.opt.filters...)
+	}
 	// actuator
 	if s.opt.enableActuator {
 		logger.Logger.Info("http server enables actuator")
@@ -177,9 +213,11 @@ func (s *Server) OnApplicationStart() {
 		logger.Logger.Info("http server enables pprof")
 		s.enablePprof(engine)
 	}
-	fnList := getRegisterFuncList()
-	for _, routerFunc := range fnList {
-		routerFunc(engine)
+	// router
+	if len(s.opt.routers) > 0 {
+		for _, r := range s.opt.routers {
+			r(engine)
+		}
 	}
 	readTimeout := s.opt.readTimeout
 	if readTimeout == 0 {
@@ -193,12 +231,16 @@ func (s *Server) OnApplicationStart() {
 	if idleTimeout == 0 {
 		idleTimeout = 60 * time.Second
 	}
+	httpPort := s.opt.httpPort
+	if httpPort <= 0 {
+		httpPort = common.HttpServerPort()
+	}
 	var addr string
 	host := static.GetString("http.host")
 	if host != "" {
-		addr = fmt.Sprintf("%s:%d", host, common.HttpServerPort())
+		addr = fmt.Sprintf("%s:%d", host, httpPort)
 	} else {
-		addr = fmt.Sprintf(":%d", common.HttpServerPort())
+		addr = fmt.Sprintf(":%d", httpPort)
 	}
 	s.httpServer = &http.Server{
 		Addr:         addr,
@@ -229,12 +271,12 @@ func (s *Server) OnApplicationStart() {
 	go func() {
 		var err error
 		if s.opt.httpsEnabled {
-			logger.Logger.Info("https server start:", common.HttpServerPort())
+			logger.Logger.Infof("https server start: %v", s.httpServer.Addr)
 			logger.Logger.Infof("https server certFile path: %s", certFilePath)
 			logger.Logger.Infof("https server keyFile path: %s", keyFilePath)
 			err = s.httpServer.ListenAndServeTLS(certFilePath, keyFilePath)
 		} else {
-			logger.Logger.Info("http server start:", common.HttpServerPort())
+			logger.Logger.Infof("http server start: %v", s.httpServer.Addr)
 			err = s.httpServer.ListenAndServe()
 		}
 		if err != nil && err != http.ErrServerClosed {
@@ -278,14 +320,14 @@ func (s *Server) enableActuator(r *gin.Engine) {
 		c.String(http.StatusOK, "")
 	})
 	r.Any("/actuator/v1/markAsDownServer", func(c *gin.Context) {
-		action := GetRegistryAction()
+		action := s.GetRegistryAction()
 		if action != nil {
 			go action.MarkAsDown()
 		}
 		c.String(http.StatusOK, "ok")
 	})
 	r.Any("/actuator/v1/markAsUpServer", func(c *gin.Context) {
-		action := GetRegistryAction()
+		action := s.GetRegistryAction()
 		if action != nil {
 			go action.MarkAsUp()
 		}
@@ -302,7 +344,7 @@ func (s *Server) enablePprof(r *gin.Engine) {
 }
 
 func (s *Server) AfterInitialize() {
-	if s.opt.regi != nil {
+	if s.opt.registrar != nil {
 		weight := static.GetInt("http.weight")
 		if weight <= 0 {
 			weight = 1
@@ -310,19 +352,29 @@ func (s *Server) AfterInitialize() {
 		go func() {
 			for s.up.Load() {
 				isDown := false
-				val := s.regiChanger.Load()
+				val := s.registryChanger.Load()
 				if val != nil {
 					isDown = val.(registry.StatusChanger).IsDown()
 				}
-				changer, err := s.opt.regi.Register(registry.ServerInfo{
-					Port:     common.HttpServerPort(),
-					Protocol: common.HttpProtocol,
-					Weight:   weight,
-				}, isDown)
+				httpPort := s.opt.httpPort
+				if httpPort <= 0 {
+					httpPort = common.HttpServerPort()
+				}
+				changer, err := s.opt.registrar.Register(
+					registry.ServerInfo{
+						ApplicationName: s.opt.applicationName,
+						Port:            httpPort,
+						Protocol:        common.HttpProtocol,
+						Weight:          weight,
+						Version:         s.opt.version,
+						Region:          s.opt.region,
+						Zone:            s.opt.zone,
+					}, isDown,
+				)
 				if err != nil {
 					logger.Logger.Error(err)
 				} else {
-					s.regiChanger.Store(changer)
+					s.registryChanger.Store(changer)
 				}
 				err = changer.KeepAlive()
 				if err != nil && err != context.Canceled {
@@ -335,7 +387,7 @@ func (s *Server) AfterInitialize() {
 }
 
 func (s *Server) OnApplicationShutdown() {
-	statusChanger := s.regiChanger.Load()
+	statusChanger := s.registryChanger.Load()
 	if statusChanger != nil {
 		statusChanger.(registry.StatusChanger).Deregister()
 	}
@@ -348,12 +400,44 @@ func (s *Server) OnApplicationShutdown() {
 	}
 }
 
-func GetRegistryAction() registry.StatusChanger {
-	if server != nil {
-		val := server.regiChanger.Load()
-		if val != nil {
-			return val.(registry.StatusChanger)
-		}
+func (s *Server) GetRegistryAction() registry.StatusChanger {
+	val := s.registryChanger.Load()
+	if val != nil {
+		return val.(registry.StatusChanger)
 	}
 	return nil
+}
+
+func NewServer(opts ...Option) *Server {
+	opt := &option{
+		filters: make([]gin.HandlerFunc, 0),
+		routers: make([]gin.OptionFunc, 0),
+	}
+	for _, apply := range opts {
+		apply(opt)
+	}
+	return &Server{
+		opt: opt,
+	}
+}
+
+func NewDefaultServer(opts ...Option) *Server {
+	defaultOpts := []Option{
+		AddFilters(
+			recoverFilter(),
+			headerFilter(),
+			promFilter(),
+		),
+	}
+	opts = append(defaultOpts, opts...)
+	opt := &option{
+		filters: make([]gin.HandlerFunc, 0),
+		routers: make([]gin.OptionFunc, 0),
+	}
+	for _, apply := range opts {
+		apply(opt)
+	}
+	return &Server{
+		opt: opt,
+	}
 }

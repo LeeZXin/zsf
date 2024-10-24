@@ -1,15 +1,11 @@
 package httpserver
 
 import (
-	"github.com/LeeZXin/zsf-utils/collections/hashset"
-	"github.com/LeeZXin/zsf-utils/ginutil"
 	"github.com/LeeZXin/zsf-utils/idutil"
 	"github.com/LeeZXin/zsf-utils/threadutil"
 	"github.com/LeeZXin/zsf/common"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/prom"
-	"github.com/LeeZXin/zsf/property/dynamic"
-	"github.com/LeeZXin/zsf/property/static"
 	"github.com/LeeZXin/zsf/rpcheader"
 	sentinel "github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/base"
@@ -21,24 +17,6 @@ import (
 )
 
 //常见filter封装
-
-var (
-	acceptedHeaders = hashset.NewHashSet[string]()
-	// 白名单ip
-	whiteIps hashset.Set[string]
-	// api开关配置文件
-	apiSwitchFile string
-)
-
-func init() {
-	h := static.GetString("http.acceptedHeaders")
-	if h != "" {
-		sp := strings.Split(h, ";")
-		for _, s := range sp {
-			acceptedHeaders.Add(s)
-		}
-	}
-}
 
 // recoverFilter recover封装
 func recoverFilter() gin.HandlerFunc {
@@ -79,50 +57,6 @@ func WithSentinel(resource string, invoke gin.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-func WithWhiteIps(ips []string) gin.HandlerFunc {
-	if whiteIps == nil {
-		whiteIps = hashset.NewHashSet[string]()
-	}
-	if len(ips) > 0 {
-		whiteIps.Add(ips...)
-		return func(c *gin.Context) {
-			ip := ginutil.GetClientIp(c)
-			if whiteIps.Contains(ip) {
-				c.Next()
-			} else {
-				c.String(http.StatusForbidden, "blocked by white ips")
-				c.Abort()
-			}
-		}
-	}
-	return func(c *gin.Context) {
-		c.Next()
-	}
-}
-
-// WithApiSwitch 功能开关
-func WithApiSwitch(key string, after gin.HandlerFunc) gin.HandlerFunc {
-	if apiSwitchFile == "" {
-		apiSwitchFile = static.GetString("api.switch.file")
-		if apiSwitchFile == "" {
-			apiSwitchFile = "api-switch.yaml"
-		}
-	}
-	dynamic.Init()
-	return func(c *gin.Context) {
-		if dynamic.GetBool(apiSwitchFile, key) {
-			c.Next()
-		} else {
-			if after != nil {
-				after(c)
-			} else {
-				c.String(http.StatusLocked, "api locked")
-			}
-			c.Abort()
-		}
-	}
-}
-
 // headerFilter 传递header
 func headerFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -142,8 +76,7 @@ func headerFilter() gin.HandlerFunc {
 func CopyRequestHeader(c *gin.Context) rpcheader.Header {
 	clone := make(rpcheader.Header, len(c.Request.Header))
 	for key := range c.Request.Header {
-		key = strings.ToLower(key)
-		if acceptedHeaders.Contains(key) || strings.HasPrefix(key, rpcheader.Prefix) {
+		if strings.HasPrefix(strings.ToLower(key), rpcheader.Prefix) {
 			clone[key] = c.Request.Header.Get(key)
 		}
 	}

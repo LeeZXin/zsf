@@ -34,7 +34,7 @@ func NewDefaultEtcdRegistry() Registry {
 		logger.Logger.Fatalf("etcd client starts failed: %v", err)
 	}
 	quit.AddShutdownHook(func() {
-		client.Close()
+		_ = client.Close()
 	})
 	return &etcdRegistry{
 		client: client,
@@ -48,12 +48,20 @@ type Registry interface {
 
 // ServerInfo 注册所需的信息
 type ServerInfo struct {
+	// 应用名称
+	ApplicationName string
 	// Port 端口
 	Port int
 	// Protocol 服务协议
 	Protocol string
 	// Weight 权重
 	Weight int
+	// Version 版本
+	Version string
+	// Region 地区
+	Region string
+	// Zone 地域
+	Zone string
 
 	rpcName      string
 	registerPath string
@@ -68,21 +76,37 @@ func (s *ServerInfo) GetRegisterPath() string {
 
 func (s *ServerInfo) GetRpcName() string {
 	if s.rpcName == "" {
-		s.rpcName = common.GetApplicationName() + "-" + s.Protocol
+		if s.ApplicationName != "" {
+			s.rpcName = s.ApplicationName + "-" + s.Protocol
+		} else {
+			s.rpcName = common.GetApplicationName() + "-" + s.Protocol
+		}
 	}
 	return s.rpcName
 }
 
 func (s *ServerInfo) GetServer(IsDown bool) lb.Server {
+	version := s.Version
+	if version == "" {
+		version = env.GetVersion()
+	}
+	region := s.Region
+	if region == "" {
+		region = common.GetRegion()
+	}
+	zone := s.Zone
+	if zone == "" {
+		zone = common.GetZone()
+	}
 	return lb.Server{
 		Protocol: s.Protocol,
 		Name:     s.GetRpcName(),
 		Host:     common.GetLocalIP(),
 		Port:     s.Port,
 		Weight:   s.Weight,
-		Version:  env.GetVersion(),
-		Region:   common.GetRegion(),
-		Zone:     common.GetZone(),
+		Version:  version,
+		Region:   region,
+		Zone:     zone,
 		IsDown:   IsDown,
 	}
 }
