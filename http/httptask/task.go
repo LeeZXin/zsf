@@ -12,7 +12,12 @@ import (
 type Task func([]byte, url.Values)
 
 // WithHttpTask http task api
-func WithHttpTask(taskMap map[string]Task) gin.OptionFunc {
+func WithHttpTask(fns ...func() (string, Task)) gin.OptionFunc {
+	taskMap := make(map[string]Task)
+	for _, fn := range fns {
+		name, task := fn()
+		taskMap[name] = task
+	}
 	return func(e *gin.Engine) {
 		e.Any("/httpTask/v1/:taskName", func(c *gin.Context) {
 			taskName := c.Param("taskName")
