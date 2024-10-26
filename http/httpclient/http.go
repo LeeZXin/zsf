@@ -20,7 +20,6 @@ type Interceptor func(*http.Request, Invoker) (*http.Response, error)
 func init() {
 	//注册拦截器
 	RegisterInterceptors(
-		headerInterceptor(),
 		promInterceptor(),
 	)
 	//关闭所有的连接

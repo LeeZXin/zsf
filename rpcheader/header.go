@@ -14,6 +14,8 @@ const (
 	Target     = "z-target"
 	AuthSign   = "z-auth-sign"
 	AuthTs     = "z-auth-ts"
+	Region     = "z-region"
+	Zone       = "z-zone"
 
 	// PrefixForSw 为了skywalking传递header用的
 	PrefixForSw = "z-sw-"

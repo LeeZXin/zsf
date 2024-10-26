@@ -21,20 +21,23 @@ import (
 // client封装
 // 仅支持contentType="app/json;charset=utf-8"请求发送
 // 下游是http
-// 支持skyWalking的传递
 
 const (
 	JsonContentType = "application/json;charset=utf-8"
 )
 
 type option struct {
-	header      map[string]string
-	extraHeader map[string]string
-	zone        string
-	discovery   discovery.Discovery
-	httpClient  *http.Client
-	authTs      int64
-	authSecret  string
+	header          map[string]string
+	extraHeader     map[string]string
+	discoveryZone   string
+	discovery       discovery.Discovery
+	httpClient      *http.Client
+	authTs          int64
+	authSecret      string
+	applicationName string
+	region          string
+	zone            string
+	is              []Interceptor
 }
 
 type Option func(*option)
@@ -51,9 +54,9 @@ func withHeader(header map[string]string) Option {
 	}
 }
 
-func WithZone(zone string) Option {
+func WithDiscoveryZone(discoveryZone string) Option {
 	return func(o *option) {
-		o.zone = zone
+		o.discoveryZone = discoveryZone
 	}
 }
 
@@ -73,6 +76,30 @@ func WithAuthSecret(secret string) Option {
 	return func(o *option) {
 		o.authSecret = secret
 		o.authTs = time.Now().Unix()
+	}
+}
+
+func WithApplicationName(applicationName string) Option {
+	return func(o *option) {
+		o.applicationName = applicationName
+	}
+}
+
+func WithRegion(region string) Option {
+	return func(o *option) {
+		o.region = region
+	}
+}
+
+func WithZone(zone string) Option {
+	return func(o *option) {
+		o.zone = zone
+	}
+}
+
+func WithInterceptors(is ...Interceptor) Option {
+	return func(o *option) {
+		o.is = is
 	}
 }
 
@@ -187,16 +214,13 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	if dis == nil {
 		return errors.New("discovery is not set")
 	}
-	if opt.zone == "" {
+	if opt.discoveryZone == "" {
 		server, err = dis.ChooseServer(ctx, c.ServiceName)
-		if err != nil {
-			return err
-		}
 	} else {
-		server, err = dis.ChooseServerWithZone(ctx, opt.zone, c.ServiceName)
-		if err != nil {
-			return err
-		}
+		server, err = dis.ChooseServerWithZone(ctx, opt.discoveryZone, c.ServiceName)
+	}
+	if err != nil {
+		return err
 	}
 	// 拼接host
 	url := "http://" + fmt.Sprintf("%s:%d", server.Host, server.Port)
@@ -222,6 +246,12 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	if err != nil {
 		return err
 	}
+	headers := rpcheader.GetHeaders(ctx)
+	for k, v := range headers {
+		if strings.HasPrefix(k, rpcheader.Prefix) {
+			request.Header.Set(k, v)
+		}
+	}
 	// 塞header
 	for k, v := range opt.header {
 		request.Header.Set(k, v)
@@ -241,6 +271,23 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		request.Header.Set(rpcheader.AuthTs, strconv.FormatInt(opt.authTs, 10))
 		request.Header.Set(rpcheader.AuthSign, sign)
 	}
+	if opt.applicationName != "" {
+		// 塞source信息
+		request.Header.Set(rpcheader.Source, opt.applicationName+"-http")
+	} else {
+		// 塞source信息
+		request.Header.Set(rpcheader.Source, common.GetApplicationName()+"-http")
+	}
+	if opt.region != "" {
+		request.Header.Set(rpcheader.Region, opt.region)
+	} else {
+		request.Header.Set(rpcheader.Region, common.GetRegion())
+	}
+	if opt.zone != "" {
+		request.Header.Set(rpcheader.Zone, opt.zone)
+	} else {
+		request.Header.Set(rpcheader.Zone, common.GetZone())
+	}
 	// 塞target信息
 	request.Header.Set(rpcheader.Target, c.ServiceName)
 	// 去除默认User-Agent
@@ -248,7 +295,12 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 	// 默认长连接去除connection: close
 	request.Header.Set("Connection", "")
 	// 执行拦截器
-	wrapper := interceptorsWrapper{interceptorList: c.Interceptors}
+	var wrapper interceptorsWrapper
+	if len(opt.is) > 0 {
+		wrapper = interceptorsWrapper{interceptorList: append(c.Interceptors, opt.is...)}
+	} else {
+		wrapper = interceptorsWrapper{interceptorList: c.Interceptors}
+	}
 	respBody, err := wrapper.intercept(request, func(request *http.Request) (*http.Response, error) {
 		if opt.httpClient != nil {
 			return opt.httpClient.Do(request)
@@ -272,7 +324,7 @@ func (c *clientImpl) send(ctx context.Context, path, method, contentType string,
 		return fmt.Errorf("request error with code: %v", respBody.StatusCode)
 	}
 	if resp != nil {
-		respBytes, err := io.ReadAll(respBody.Body)
+		respBytes, err := io.ReadAll(io.LimitReader(respBody.Body, 1024*1024*10))
 		if err != nil {
 			return err
 		}
