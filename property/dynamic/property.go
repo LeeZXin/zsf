@@ -28,15 +28,23 @@ const (
 )
 
 var (
-	loader   *propertyLoader
-	loadOnce = sync.Once{}
+	defaultLoader *Loader
 )
 
-// Init 初始化
-func Init() {
-	loadOnce.Do(func() {
-		loader = newPropertyLoader()
+// InitDefault 初始化
+func InitDefault() {
+	client, err := clientv3.New(clientv3.Config{
+		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.endpoints"), ";"),
+		AutoSyncInterval: time.Minute,
+		DialTimeout:      10 * time.Second,
+		Username:         static.GetString("property.dynamic.etcd.username"),
+		Password:         static.GetString("property.dynamic.etcd.password"),
+		Logger:           zap.NewNop(),
 	})
+	if err != nil {
+		logger.Logger.Fatalf("init dynamic.etcd.client failed with err: %v", err)
+	}
+	defaultLoader = NewLoader("", client)
 }
 
 type container struct {
@@ -44,7 +52,7 @@ type container struct {
 	Raw Content
 }
 
-type propertyLoader struct {
+type Loader struct {
 	sync.RWMutex
 	cache      map[string]*container
 	client     *clientv3.Client
@@ -57,43 +65,38 @@ type propertyLoader struct {
 	sentinelCircuitBreakerBase datasource.PropertyHandler
 }
 
-func (o *propertyLoader) Close() {
+func (l *Loader) Close() {
 	logger.Logger.Infof("dynamic property observer closed")
-	o.cancelFunc()
-	o.client.Close()
-	o.Lock()
-	defer o.Unlock()
-	o.cache = nil
+	l.cancelFunc()
+	l.client.Close()
+	l.Lock()
+	defer l.Unlock()
+	l.cache = nil
 }
 
-func newPropertyLoader() *propertyLoader {
-	o := new(propertyLoader)
-	// for sentinel
-	o.sentinelFlowBase = datasource.NewFlowRulesHandler(datasource.FlowRuleJsonArrayParser)
-	o.sentinelCircuitBreakerBase = datasource.NewCircuitBreakerRulesHandler(datasource.CircuitBreakerRuleJsonArrayParser)
-	o.cache = make(map[string]*container, 8)
-	o.key = common.PropertyPrefix + common.GetApplicationName() + "/"
-	var err error
-	o.client, err = clientv3.New(clientv3.Config{
-		Endpoints:        strings.Split(static.GetString("property.dynamic.etcd.endpoints"), ";"),
-		AutoSyncInterval: time.Minute,
-		DialTimeout:      10 * time.Second,
-		Username:         static.GetString("property.dynamic.etcd.username"),
-		Password:         static.GetString("property.dynamic.etcd.password"),
-		Logger:           zap.NewNop(),
-	})
-	if err != nil {
-		logger.Logger.Fatalf("property etcd client starts failed: %v", err)
+func NewLoader(applicationName string, etcdClient *clientv3.Client) *Loader {
+	if etcdClient == nil {
+		logger.Logger.Fatal("new dynamic.loader with nil etcd client")
 	}
-	o.ctx, o.cancelFunc = context.WithCancel(context.Background())
-	quit.AddShutdownHook(o.Close)
-	logger.Logger.Infof("start listening dynamic property key: %s", o.key)
-	o.init()
-	return o
+	if applicationName == "" {
+		applicationName = common.GetApplicationName()
+	}
+	loader := new(Loader)
+	// for sentinel
+	loader.sentinelFlowBase = datasource.NewFlowRulesHandler(datasource.FlowRuleJsonArrayParser)
+	loader.sentinelCircuitBreakerBase = datasource.NewCircuitBreakerRulesHandler(datasource.CircuitBreakerRuleJsonArrayParser)
+	loader.cache = make(map[string]*container, 8)
+	loader.key = common.PropertyPrefix + applicationName + "/"
+	loader.client = etcdClient
+	loader.ctx, loader.cancelFunc = context.WithCancel(context.Background())
+	quit.AddShutdownHook(loader.Close)
+	logger.Logger.Infof("start listening dynamic property key: %s", loader.key)
+	loader.init()
+	return loader
 }
 
-func (o *propertyLoader) readRemote() ([]*mvccpb.KeyValue, int64) {
-	response, err := o.client.Get(o.ctx, o.key, clientv3.WithPrefix())
+func (l *Loader) readRemote() ([]*mvccpb.KeyValue, int64) {
+	response, err := l.client.Get(l.ctx, l.key, clientv3.WithPrefix())
 	if err != nil {
 		if strings.Contains(err.Error(), "permission denied") {
 			logger.Logger.Fatalf("etcd dynamic property permission denied")
@@ -104,43 +107,43 @@ func (o *propertyLoader) readRemote() ([]*mvccpb.KeyValue, int64) {
 	return response.Kvs, response.Header.GetRevision()
 }
 
-func (o *propertyLoader) watchRemote() {
+func (l *Loader) watchRemote() {
 	for {
-		if o.ctx.Err() != nil {
+		if l.ctx.Err() != nil {
 			return
 		}
-		logger.Logger.Infof("try to watch prefix: %s with revision: %d", o.key, o.rev+1)
-		watcher := clientv3.NewWatcher(o.client)
-		wchan := watcher.Watch(o.ctx, o.key, clientv3.WithPrefix(), clientv3.WithRev(o.rev+1))
-		o.dealChan(wchan)
+		logger.Logger.Infof("try to watch prefix: %s with revision: %d", l.key, l.rev+1)
+		watcher := clientv3.NewWatcher(l.client)
+		wchan := watcher.Watch(l.ctx, l.key, clientv3.WithPrefix(), clientv3.WithRev(l.rev+1))
+		l.dealChan(wchan)
 		watcher.Close()
 		time.Sleep(10 * time.Second)
 	}
 }
 
-func (o *propertyLoader) deleteKey(key string) {
-	o.Lock()
-	defer o.Unlock()
-	delete(o.cache, key)
+func (l *Loader) deleteKey(key string) {
+	l.Lock()
+	defer l.Unlock()
+	delete(l.cache, key)
 }
 
-func (o *propertyLoader) putKey(key string, v *container) {
-	o.Lock()
-	defer o.Unlock()
-	o.cache[key] = v
+func (l *Loader) putKey(key string, v *container) {
+	l.Lock()
+	defer l.Unlock()
+	l.cache[key] = v
 }
 
-func (o *propertyLoader) getContainer(key string) (*container, bool) {
-	o.RLock()
-	defer o.RUnlock()
-	ret, b := o.cache[key]
+func (l *Loader) getContainer(key string) (*container, bool) {
+	l.RLock()
+	defer l.RUnlock()
+	ret, b := l.cache[key]
 	return ret, b
 }
 
-func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
+func (l *Loader) dealChan(wchan clientv3.WatchChan) {
 	for {
 		select {
-		case <-o.ctx.Done():
+		case <-l.ctx.Done():
 			return
 		case data, ok := <-wchan:
 			if !ok || data.Canceled {
@@ -150,13 +153,13 @@ func (o *propertyLoader) dealChan(wchan clientv3.WatchChan) {
 				}
 				return
 			}
-			o.rev = data.Header.Revision
+			l.rev = data.Header.Revision
 			for _, event := range data.Events {
 				switch event.Type {
 				case clientv3.EventTypeDelete:
-					o.convertAndHandleDelete(event.Kv)
+					l.convertAndHandleDelete(event.Kv)
 				case clientv3.EventTypePut:
-					o.convertAndHandlePut(event.Kv)
+					l.convertAndHandlePut(event.Kv)
 				}
 			}
 		}
@@ -171,8 +174,8 @@ func ext(name string) string {
 	return ret
 }
 
-func (o *propertyLoader) loadOrNewContainer(key string, val Content) (*container, bool) {
-	v, b := o.getContainer(key)
+func (l *Loader) loadOrNewContainer(key string, val Content) (*container, bool) {
+	v, b := l.getContainer(key)
 	if !b {
 		v = &container{
 			Viper: viper.New(),
@@ -187,20 +190,20 @@ func (o *propertyLoader) loadOrNewContainer(key string, val Content) (*container
 	return v, b
 }
 
-func (o *propertyLoader) init() {
-	kvs, rev := o.readRemote()
-	o.rev = rev
+func (l *Loader) init() {
+	kvs, rev := l.readRemote()
+	l.rev = rev
 	for _, kv := range kvs {
-		o.convertAndHandlePut(kv)
+		l.convertAndHandlePut(kv)
 	}
-	go o.watchRemote()
+	go l.watchRemote()
 }
 
-func (o *propertyLoader) convertAndHandlePut(kv *mvccpb.KeyValue) {
+func (l *Loader) convertAndHandlePut(kv *mvccpb.KeyValue) {
 	if kv == nil {
 		return
 	}
-	key := strings.TrimPrefix(string(kv.Key), o.key)
+	key := strings.TrimPrefix(string(kv.Key), l.key)
 	var val Content
 	err := json.Unmarshal(kv.Value, &val)
 	if err != nil {
@@ -208,44 +211,44 @@ func (o *propertyLoader) convertAndHandlePut(kv *mvccpb.KeyValue) {
 	} else if val.Version == "" {
 		logger.Logger.Errorf("read remote config version is empty: %s %v", key, val)
 	} else {
-		o.handlePut(key, val)
+		l.handlePut(key, val)
 		// 通知监听
 		notifyListener(key, val, PutEventType)
 	}
 }
 
-func (o *propertyLoader) convertAndHandleDelete(kv *mvccpb.KeyValue) {
+func (l *Loader) convertAndHandleDelete(kv *mvccpb.KeyValue) {
 	if kv == nil {
 		return
 	}
-	key := strings.TrimPrefix(string(kv.Key), o.key)
-	o.handleDelete(key)
+	key := strings.TrimPrefix(string(kv.Key), l.key)
+	l.handleDelete(key)
 	// 通知监听
 	notifyListener(key, Content{}, DeleteEventType)
 }
 
-func (o *propertyLoader) handlePut(key string, val Content) {
+func (l *Loader) handlePut(key string, val Content) {
 	logger.Logger.Infof("merge remote config successfully key: %s, version: %s", key, val.Version)
 	switch key {
 	case flowJsonPath:
-		err := o.sentinelFlowBase.Handle([]byte(val.Content))
+		err := l.sentinelFlowBase.Handle([]byte(val.Content))
 		if err != nil {
 			logger.Logger.Errorf("handle put %s failed with err: %v", flowJsonPath, err)
 		}
 	case circuitBreakerJsonPath:
-		err := o.sentinelCircuitBreakerBase.Handle([]byte(val.Content))
+		err := l.sentinelCircuitBreakerBase.Handle([]byte(val.Content))
 		if err != nil {
 			logger.Logger.Errorf("handle put %s failed with err: %v", circuitBreakerJsonPath, err)
 		}
 	default:
-		v, b := o.loadOrNewContainer(key, val)
+		v, b := l.loadOrNewContainer(key, val)
 		if !b {
-			o.putKey(key, v)
+			l.putKey(key, v)
 		}
 	}
 }
 
-func (o *propertyLoader) handleDelete(key string) {
+func (l *Loader) handleDelete(key string) {
 	switch key {
 	case flowJsonPath:
 		flow.LoadRules(nil)
@@ -253,7 +256,7 @@ func (o *propertyLoader) handleDelete(key string) {
 		circuitbreaker.LoadRules(nil)
 	default:
 		logger.Logger.Infof("delete dynamic key: %s", key)
-		o.deleteKey(key)
+		l.deleteKey(key)
 	}
 }
 
@@ -262,115 +265,104 @@ type Content struct {
 	Content string `json:"content"`
 }
 
-func getContainer(key string) (*container, bool) {
-	if loader == nil {
-		return nil, false
-	}
-	v, b := loader.getContainer(key)
-	if !b {
-		logger.Logger.Errorf("no dynamic viper: %s", key)
-	}
-	return v, b
-}
-
-func GetIntSlice(key, path string) []int {
-	v, b := getContainer(key)
+func (l *Loader) GetIntSlice(key, path string) []int {
+	v, b := l.getContainer(key)
 	if !b {
 		return nil
 	}
 	return v.GetIntSlice(path)
 }
 
-func GetStringSlice(key, path string) []string {
-	v, b := getContainer(key)
+func (l *Loader) GetStringSlice(key, path string) []string {
+	v, b := l.getContainer(key)
 	if !b {
 		return nil
 	}
 	return v.GetStringSlice(path)
 }
 
-func GetString(key, path string) string {
-	v, b := getContainer(key)
+func (l *Loader) GetString(key, path string) string {
+	v, b := l.getContainer(key)
 	if !b {
 		return ""
 	}
 	return v.GetString(path)
 }
 
-func GetInt(key, path string) int {
-	v, b := getContainer(key)
+func (l *Loader) GetInt(key, path string) int {
+	v, b := l.getContainer(key)
 	if !b {
 		return 0
 	}
 	return v.GetInt(path)
 }
 
-func GetRawContent(key string) (Content, bool) {
-	v, b := getContainer(key)
+func (l *Loader) GetRawContent(key string) (Content, bool) {
+	v, b := l.getContainer(key)
 	if !b {
 		return Content{}, false
 	}
 	return v.Raw, true
 }
 
-func Get(key, path string) any {
-	v, b := getContainer(key)
+func (l *Loader) Get(key, path string) any {
+	v, b := l.getContainer(key)
 	if !b {
 		return nil
 	}
 	return v.Get(path)
 }
 
-func GetBool(key, path string) bool {
-	v, b := getContainer(key)
+func (l *Loader) GetBool(key, path string) bool {
+	v, b := l.getContainer(key)
 	if !b {
 		return false
 	}
 	return v.GetBool(path)
 }
 
-func GetFloat64(key, path string) float64 {
-	v, b := getContainer(key)
+func (l *Loader) GetFloat64(key, path string) float64 {
+	v, b := l.getContainer(key)
 	if !b {
 		return 0
 	}
 	return v.GetFloat64(path)
 }
 
-func GetStringMapString(key, path string) map[string]string {
-	v, b := getContainer(key)
+func (l *Loader) GetStringMapString(key, path string) map[string]string {
+	v, b := l.getContainer(key)
 	if !b {
 		return make(map[string]string)
 	}
 	return v.GetStringMapString(path)
 }
 
-func GetStringMap(key, path string) map[string]any {
-	v, b := getContainer(key)
+func (l *Loader) GetStringMap(key, path string) map[string]any {
+	v, b := l.getContainer(key)
 	if !b {
 		return make(map[string]any)
 	}
 	return v.GetStringMap(path)
 }
 
-func Exists(key, path string) bool {
-	v, b := getContainer(key)
+func (l *Loader) Exists(key, path string) bool {
+	v, b := l.getContainer(key)
 	if !b {
 		return false
 	}
 	return v.IsSet(path)
 }
 
-func GetInt64(key, path string) int64 {
-	v, b := getContainer(key)
+func (l *Loader) GetInt64(key, path string) int64 {
+	v, b := l.getContainer(key)
 	if !b {
 		return 0
 	}
 	return v.GetInt64(path)
 }
 
-func GetMapSlice(key, path string) []map[string]any {
-	ret := Get(key, path)
+func (l *Loader) GetMapSlice(key, path string) []map[string]any {
+	ret := l.Get(key, path)
 	if ret == nil {
 		return []map[string]any{}
 	}
@@ -394,4 +386,95 @@ func GetMapSlice(key, path string) []map[string]any {
 		}
 	}
 	return obj
+}
+
+func GetIntSlice(key, path string) []int {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.GetIntSlice(key, path)
+}
+
+func GetStringSlice(key, path string) []string {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.GetStringSlice(key, path)
+}
+
+func GetString(key, path string) string {
+	if defaultLoader == nil {
+		return ""
+	}
+	return defaultLoader.GetString(key, path)
+}
+
+func GetInt(key, path string) int {
+	if defaultLoader == nil {
+		return 0
+	}
+	return defaultLoader.GetInt(key, path)
+}
+
+func GetRawContent(key string) (Content, bool) {
+	if defaultLoader == nil {
+		return Content{}, false
+	}
+	return defaultLoader.GetRawContent(key)
+}
+
+func Get(key, path string) any {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.Get(key, path)
+}
+
+func GetBool(key, path string) bool {
+	if defaultLoader == nil {
+		return false
+	}
+	return defaultLoader.GetBool(key, path)
+}
+
+func GetFloat64(key, path string) float64 {
+	if defaultLoader == nil {
+		return 0
+	}
+	return defaultLoader.GetFloat64(key, path)
+}
+
+func GetStringMapString(key, path string) map[string]string {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.GetStringMapString(key, path)
+}
+
+func GetStringMap(key, path string) map[string]any {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.GetStringMap(key, path)
+}
+
+func Exists(key, path string) bool {
+	if defaultLoader == nil {
+		return false
+	}
+	return defaultLoader.Exists(key, path)
+}
+
+func GetInt64(key, path string) int64 {
+	if defaultLoader == nil {
+		return 0
+	}
+	return defaultLoader.GetInt64(key, path)
+}
+
+func GetMapSlice(key, path string) []map[string]any {
+	if defaultLoader == nil {
+		return nil
+	}
+	return defaultLoader.GetMapSlice(key, path)
 }

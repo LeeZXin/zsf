@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	dynamic.Init()
+	dynamic.InitDefault()
 	zsf.Run(
 		zsf.WithDiscovery(discovery.NewEtcdDiscovery()),
 		zsf.WithLifeCycles(
@@ -25,10 +25,10 @@ func main() {
 							c.String(http.StatusOK, "hello world")
 						})
 					},
-					httptask.WithHttpTask(map[string]httptask.Task{
-						"helloWorld": func(_ []byte, _ url.Values) {
+					httptask.WithHttpTask(func() (string, httptask.Task) {
+						return "helloWorld", func(_ []byte, _ url.Values) {
 							fmt.Println("hello world")
-						},
+						}
 					}),
 				),
 				httpserver.WithRegistry(
