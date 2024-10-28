@@ -6,9 +6,8 @@ import (
 	"github.com/LeeZXin/zsf-utils/quit"
 	"github.com/LeeZXin/zsf/logger"
 	"github.com/LeeZXin/zsf/xorm/xormlog"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	"strings"
 	"time"
 	"xorm.io/xorm"
 )
@@ -216,9 +215,13 @@ func MustGetXormSession(ctx context.Context) *xorm.Session {
 	return nil
 }
 
-func IsDuplicatedEntryError(err error) bool {
+func IsMysqlDuplicatedEntryError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "Error 1062")
+	merr, ok := err.(*mysql.MySQLError)
+	if !ok {
+		return false
+	}
+	return merr.Number == 1062
 }
