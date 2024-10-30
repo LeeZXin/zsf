@@ -7,18 +7,15 @@ import (
 )
 
 const (
-	TraceId    = "z-trace-id"
-	ApiVersion = "z-api-version"
-	Prefix     = "z-"
-	Source     = "z-source"
-	Target     = "z-target"
-	AuthSign   = "z-auth-sign"
-	AuthTs     = "z-auth-ts"
-	Region     = "z-region"
-	Zone       = "z-zone"
-
-	// PrefixForSw 为了skywalking传递header用的
-	PrefixForSw = "z-sw-"
+	TraceId    = "Z-Trace-Id"
+	ApiVersion = "Z-Api-Version"
+	Prefix     = "Z-"
+	Source     = "Z-Source"
+	Target     = "Z-Target"
+	AuthSign   = "Z-Auth-Sign"
+	AuthTs     = "Z-Auth-Ts"
+	Region     = "Z-Region"
+	Zone       = "Z-Zone"
 )
 
 type headerKey struct{}

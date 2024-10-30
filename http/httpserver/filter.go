@@ -76,7 +76,7 @@ func headerFilter() gin.HandlerFunc {
 func CopyRequestHeader(c *gin.Context) rpcheader.Header {
 	clone := make(rpcheader.Header, len(c.Request.Header))
 	for key := range c.Request.Header {
-		if strings.HasPrefix(strings.ToLower(key), rpcheader.Prefix) {
+		if strings.HasPrefix(key, rpcheader.Prefix) {
 			clone[key] = c.Request.Header.Get(key)
 		}
 	}
