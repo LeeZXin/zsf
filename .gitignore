@@ -1,0 +1,14 @@
+logs
+**/logs
+
+.idea
+
+**/*.zip
+
+services/infra-admin/resources/.chunks
+
+**/resources/static
+
+data
+
+**/data

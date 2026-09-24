@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "./;testproto";
+
+service GreeterService {
+  // HelloWorld
+  rpc HelloWorld(HelloReq) returns(HelloResp);
+}
+
+message HelloReq {
+  string name = 1;
+}
+
+message HelloResp {
+  int32 code = 1;
+  string message = 2;
+}

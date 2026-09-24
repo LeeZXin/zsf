@@ -1,0 +1,20 @@
+# 本地 Nacos 3.2.3 standalone 启动存档（仅 Server，不起官方 Console）。
+# 镜像配置见本文件；Nacos 进程配置见 nacos.properties（对应 ~/nacos/conf/application.properties）。
+# 启动脚本: ~/nacos/run.sh
+
+image: nacos/nacos-server:v3.2.3
+name: nacos
+ports:
+  server: "127.0.0.1:8848:8848"
+  grpc: "127.0.0.1:9848:9848"
+env:
+  MODE: standalone
+  NACOS_DEPLOYMENT_TYPE: server
+  NACOS_AUTH_ENABLE: "false"
+  NACOS_AUTH_ADMIN_ENABLE: "false"
+  NACOS_AUTH_TOKEN: CUSiVtGdThi9ySAJEbHiBtAapCgkDdLC2Lu9PD3bytI=
+  NACOS_AUTH_IDENTITY_KEY: serverIdentity
+  NACOS_AUTH_IDENTITY_VALUE: security
+volumes:
+  - ~/nacos/conf/application.properties:/home/nacos/conf/application.properties:ro
+  - ~/nacos/data:/home/nacos/data
